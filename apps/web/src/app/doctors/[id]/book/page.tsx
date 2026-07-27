@@ -13,8 +13,14 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
 
   async function onBook() {
     if (!selected) return;
-    await createAppointment({ doctorId, slotStart: selected.start, slotEnd: selected.end }).unwrap();
-    router.push('/dashboard/patient');
+    try {
+      await createAppointment({ doctorId, slotStart: selected.start, slotEnd: selected.end }).unwrap();
+      router.push('/dashboard/patient');
+    } catch {
+      // A losing race (409) or a slot the server no longer offers (400) rejects here.
+      // The mutation's `error` state already drives the message below, so this catch
+      // exists purely so the rejection is handled rather than unhandled.
+    }
   }
 
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading slots…</main>;
