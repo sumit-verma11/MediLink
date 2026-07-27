@@ -32,7 +32,7 @@ mongodb-memory-server + ioredis-mock.
 - All entities pre-approved except one doctor (Dr. Karan Mehta) and one lab (Metro Scans & Labs), left `'pending'` (§6.2/§6.3).
 - Conventional commits (§3).
 - Files: local disk in dev for uploads (verification docs) (§0.3).
-- Mongoose models for **all** entities listed in CLAUDE.md §1 are defined now, even though only User/PatientProfile/DoctorProfile/LabProfile/AuditLog/Notification get routes in this phase (§1: "define ALL in Phase 1, evolve carefully"). Appointment/TriageSession/Prescription/LabReferral/LabBooking seed data is deferred phase-by-phase per `2026-07-27-roadmap.md` — do not seed it here.
+- Mongoose models for **all** entities listed in CLAUDE.md §1 are defined now, even though only User/PatientProfile/DoctorProfile/LabProfile get their own CRUD routes in this phase (§1: "define ALL in Phase 1, evolve carefully"). AuditLog is written-to (via `logAudit()`) but has no route of its own until Phase 6's admin analytics; Notification is written-to by the seed script but has no route until Phase 6's notification bell. Appointment/TriageSession/Prescription/LabReferral/LabBooking seed data is deferred phase-by-phase per `2026-07-27-roadmap.md` — do not seed it here.
 
 ---
 
