@@ -47,7 +47,7 @@
   "Orthopedics": [
     "knee pain when walking",
     "back pain after lifting",
-    "joint stiffness in the morning",
+    "stiffness in one joint after an old injury acts up",
     "sports injury to the ankle",
     "shoulder pain when raising arm",
     "fracture follow-up",
@@ -103,7 +103,10 @@
     "thyroid symptoms",
     "excessive thirst and urination",
     "hormonal imbalance symptoms",
-    "unexplained hair thinning with fatigue"
+    "unexplained hair thinning with fatigue",
+    "blood sugar control issues",
+    "insulin dosage adjustment",
+    "gestational diabetes monitoring"
   ],
   "Urology": [
     "painful urination",
@@ -235,13 +238,6 @@
     "chronic obstructive pulmonary disease follow-up",
     "reduced lung capacity after illness",
     "breathing exercises after long hospitalization"
-  ],
-  "Diabetology": [
-    "newly diagnosed diabetes management",
-    "blood sugar control issues",
-    "insulin dosage adjustment",
-    "diabetic complications follow-up",
-    "gestational diabetes monitoring"
   ],
   "Andrology": [
     "male infertility concerns",
