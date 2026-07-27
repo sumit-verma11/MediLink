@@ -6,6 +6,7 @@ import pinoHttp from 'pino-http';
 import { logger } from './lib/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
+import { patientsRouter } from './modules/patients/patients.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -18,6 +19,7 @@ export function createApp(): Express {
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   app.use('/api/auth', authRouter);
+  app.use('/api/patients', patientsRouter);
 
   app.use(errorHandler);
   return app;
