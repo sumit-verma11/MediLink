@@ -17,8 +17,15 @@ interface LabProfile {
   tests: LabTest[];
 }
 
+// This fetch runs on the Next.js server, not in the browser, so it must reach
+// the API by a hostname the server can resolve. Under Docker Compose that is the
+// internal service name (`http://api:4000/api`), not the host-mapped localhost
+// port the browser uses. Falls back to the public var, then to the local-dev
+// default, so `npm run dev` needs no extra configuration.
+const API_BASE = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+
 async function getLab(id: string): Promise<LabProfile | null> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/labs/public/${id}`, { cache: 'no-store' });
+  const res = await fetch(`${API_BASE}/labs/public/${id}`, { cache: 'no-store' });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('Failed to load lab');
   const data = await res.json();

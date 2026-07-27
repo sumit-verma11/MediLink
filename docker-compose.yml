@@ -7,18 +7,35 @@ services:
     image: redis:7-alpine
     ports: ["6379:6379"]
   api:
-    build: ./apps/api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     ports: ["4000:4000"]
-    env_file: ./apps/api/.env
     environment:
       MONGO_URI: mongodb://mongo:27017/medlink
       REDIS_URL: redis://redis:6379
+      # Demo-only secrets so `docker compose up` works on a clean checkout with
+      # zero manual setup. Override these for any real deployment.
+      ACCESS_TOKEN_SECRET: dev-access-secret-change-in-prod
+      REFRESH_TOKEN_SECRET: dev-refresh-secret-change-in-prod
+      WEB_ORIGIN: http://localhost:3000
+      PORT: 4000
     depends_on: [mongo, redis]
   web:
-    build: ./apps/web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # NEXT_PUBLIC_* vars are inlined into the client bundle at `next build`
+        # time, so this must be passed as a build arg, not only as runtime env.
+        NEXT_PUBLIC_API_URL: http://localhost:4000/api
     ports: ["3000:3000"]
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:4000
+      # Client-side (browser) requests go to the host-mapped port.
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      # Server-side (SSR, running inside the web container) requests go to the
+      # Docker service hostname. Read at request time, so no rebuild is needed.
+      API_INTERNAL_URL: http://api:4000/api
     depends_on: [api]
 
 volumes:
