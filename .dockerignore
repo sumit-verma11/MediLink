@@ -1,0 +1,32 @@
+# The Docker build context is the repo root (see docker-compose.yml). Without
+# these exclusions the host's node_modules -- built for the host platform, not
+# the Alpine/Linux image -- would be copied in by `COPY apps/api apps/api` etc.
+# *after* the image's own `npm install`, clobbering correct deps with host
+# binaries. Stale build output would likewise shadow a fresh build.
+node_modules
+**/node_modules
+
+# Build output (regenerated inside the image)
+dist
+**/dist
+.next
+**/.next
+
+# Local env files -- never bake secrets into an image
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local-only / VCS / tooling
+.git
+.gitignore
+.worktrees
+.superpowers
+*.log
+.DS_Store
+**/.DS_Store
+
+# Runtime upload storage
+apps/api/uploads
