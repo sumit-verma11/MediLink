@@ -4,6 +4,7 @@ import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { acquireSlotLock, releaseSlotLock } from './slotLock';
 import { DoctorProfile } from '../../models/DoctorProfile';
+import { emitAppointmentUpdate } from '../../lib/socket';
 import type { CreateAppointmentInput } from '@medlink/shared';
 
 export async function createAppointment(patientId: string, input: CreateAppointmentInput): Promise<IAppointment> {
@@ -47,6 +48,12 @@ export async function createAppointment(patientId: string, input: CreateAppointm
     entityType: 'Appointment', entityId: appointment._id.toString(),
   });
 
+  // appointment.doctorId is a DoctorProfile id, not a socket room key — look up the
+  // doctor's own User id to emit to the room the doctor's browser actually joins.
+  const doctorProfile = await DoctorProfile.findById(appointment.doctorId);
+  if (doctorProfile) emitAppointmentUpdate(doctorProfile.userId.toString(), appointment);
+  emitAppointmentUpdate(patientId, appointment);
+
   return appointment;
 }
 
@@ -78,6 +85,10 @@ export async function confirmAppointment(appointmentId: string, doctorUserId: st
     actorId: doctorUserId, actorRole: 'doctor', action: 'appointment.confirmed',
     entityType: 'Appointment', entityId: appointmentId,
   });
+  // doctorUserId here is already the doctor's own User id (it was used above to look up
+  // doctorProfile via userId), so no DoctorProfile.userId re-lookup is needed for this side.
+  emitAppointmentUpdate(doctorUserId, updated!);
+  emitAppointmentUpdate(updated!.patientId.toString(), updated!);
   return updated!;
 }
 
@@ -94,6 +105,10 @@ export async function rejectAppointment(appointmentId: string, doctorUserId: str
     actorId: doctorUserId, actorRole: 'doctor', action: 'appointment.rejected',
     entityType: 'Appointment', entityId: appointmentId, meta: { reason },
   });
+  // doctorUserId here is already the doctor's own User id (looked up above via userId), so
+  // no DoctorProfile.userId re-lookup is needed for this side.
+  emitAppointmentUpdate(doctorUserId, updated!);
+  emitAppointmentUpdate(updated!.patientId.toString(), updated!);
   return updated!;
 }
 
@@ -113,5 +128,10 @@ export async function cancelAppointment(appointmentId: string, patientUserId: st
     actorId: patientUserId, actorRole: 'patient', action: 'appointment.cancelled',
     entityType: 'Appointment', entityId: appointmentId,
   });
+  // appointment.doctorId is a DoctorProfile id, not a socket room key — look up the
+  // doctor's own User id to emit to the room the doctor's browser actually joins.
+  const doctorProfile = await DoctorProfile.findById(appointment.doctorId);
+  if (doctorProfile) emitAppointmentUpdate(doctorProfile.userId.toString(), updated!);
+  emitAppointmentUpdate(patientUserId, updated!);
   return updated!;
 }
