@@ -14,11 +14,9 @@ export default function DoctorDashboard() {
   const [rejectAppointment] = useRejectAppointmentMutation();
 
   useEffect(() => {
-    // A doctor's own User id isn't available here without reading auth state (out of
-    // scope for this minimal dashboard) — using a placeholder join value means this
-    // dashboard won't actually receive live pushes until real auth-state wiring lands;
-    // refetch() below on a fixed interval keeps the list correct in the meantime.
-    const socket = getSocket('current-user-placeholder');
+    // The server derives this socket's room from the auth cookie, so no user id is
+    // needed here; the interval below is a fallback for a dropped socket connection.
+    const socket = getSocket();
     socket.on('appointment:updated', () => refetch());
     const interval = setInterval(refetch, 10000);
     return () => {
