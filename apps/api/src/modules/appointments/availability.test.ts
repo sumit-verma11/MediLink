@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
-import RedisMock from 'ioredis-mock';
 import type { Express } from 'express';
 import { createApp } from '../../app';
-import { setRedisClient } from '../../lib/redis';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { AvailabilityRule } from '../../models/AvailabilityRule';
 
@@ -17,7 +16,11 @@ let mongod: MongoMemoryServer;
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
-  setRedisClient(new RedisMock());
+});
+beforeEach(async () => {
+  // Shared helper: fresh Redis + flushed store, so the auth rate-limit budget starts
+  // empty for every test in this file. See src/test-utils/resetRateLimit.ts.
+  await resetTestRedis();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;

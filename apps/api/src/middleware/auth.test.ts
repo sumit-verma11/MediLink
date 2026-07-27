@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response } from 'express';
-import RedisMock from 'ioredis-mock';
-import { setRedisClient, getRedis } from '../lib/redis';
+import { getRedis } from '../lib/redis';
+import { resetTestRedis } from '../test-utils/resetRateLimit';
 import { signAccessToken } from '../modules/auth/jwt';
 import { requireAuth, requireRole } from './auth';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 
-beforeEach(() => {
-  setRedisClient(new RedisMock());
+beforeEach(async () => {
+  await resetTestRedis();
 });
 
 function mockReqRes(cookies: Record<string, string>) {

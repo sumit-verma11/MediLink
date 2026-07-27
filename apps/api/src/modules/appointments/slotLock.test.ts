@@ -1,15 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
-import { getRedis, setRedisClient } from '../../lib/redis';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { acquireSlotLock, releaseSlotLock } from './slotLock';
 
 beforeEach(async () => {
-  // ioredis-mock shares its in-memory store across all `new RedisMock()`
-  // instances by default (it simulates multiple clients on one Redis
-  // server), so a fresh instance alone does not reset state between
-  // tests. Flush explicitly to guarantee isolation.
-  setRedisClient(new RedisMock());
-  await getRedis().flushall();
+  // Shared helper: fresh + flushed Redis, so lock state never leaks between tests.
+  await resetTestRedis();
 });
 
 describe('acquireSlotLock', () => {
