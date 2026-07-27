@@ -16,13 +16,26 @@ export const BlockedDateInput = z.object({
 });
 export type BlockedDateInput = z.infer<typeof BlockedDateInput>;
 
-export const CreateAppointmentInput = z.object({
-  doctorId: z.string().min(1),
-  slotStart: z.coerce.date(),
-  slotEnd: z.coerce.date(),
-  symptomSummary: z.string().optional(),
-  triageSessionId: z.string().optional(),
-});
+export const CreateAppointmentInput = z
+  .object({
+    doctorId: z.string().min(1),
+    slotStart: z.coerce.date(),
+    slotEnd: z.coerce.date(),
+    symptomSummary: z.string().optional(),
+    triageSessionId: z.string().optional(),
+  })
+  // A booking request is only coherent if it describes a real, still-bookable interval.
+  // These two shape checks are cheap and belong in the contract; whether the interval
+  // actually matches one of the doctor's generated slots is enforced server-side in
+  // createAppointment (it needs database state this schema cannot see).
+  .refine((data) => data.slotEnd > data.slotStart, {
+    message: 'slotEnd must be after slotStart',
+    path: ['slotEnd'],
+  })
+  .refine((data) => data.slotStart.getTime() > Date.now(), {
+    message: 'slotStart must be in the future',
+    path: ['slotStart'],
+  });
 export type CreateAppointmentInput = z.infer<typeof CreateAppointmentInput>;
 
 export const RejectAppointmentInput = z.object({

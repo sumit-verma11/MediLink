@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
-import RedisMock from 'ioredis-mock';
 import type { Express } from 'express';
 import { createApp } from '../../app';
-import { setRedisClient, getRedis } from '../../lib/redis';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { AvailabilityRule } from '../../models/AvailabilityRule';
 import { DoctorProfile } from '../../models/DoctorProfile';
 
@@ -17,17 +16,15 @@ let mongod: MongoMemoryServer;
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
-  setRedisClient(new RedisMock());
+});
+beforeEach(async () => {
+  // Shared helper: fresh Redis + flushed store, so the auth rate-limit budget starts
+  // empty for every test in this file. See src/test-utils/resetRateLimit.ts.
+  await resetTestRedis();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
   for (const key of Object.keys(collections)) await collections[key]?.deleteMany({});
-  // The auth rate-limit counter lives in Redis and is not reset by clearing Mongo
-  // collections above. This file now registers many users across its tests (each
-  // seedDoctorWithAvailability call registers + logs in a doctor); without flushing
-  // here, cumulative /api/auth/* calls across tests exceed authLimiter's 20-per-window
-  // budget partway through the suite and registerAndLogin silently returns no cookie.
-  await getRedis().flushall();
 });
 afterAll(async () => {
   await mongoose.disconnect();
@@ -40,7 +37,15 @@ async function registerAndLogin(app: Express, role: string, email: string) {
   return res.headers['set-cookie'] as unknown as string[];
 }
 
-async function seedDoctorWithAvailability(app: Express) {
+const RULE_VALID_FROM = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+const RULE_VALID_TO = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+/**
+ * Creates a bookable doctor: an *approved* profile (createAppointment 404s on an
+ * unapproved doctor) plus an availability rule covering today and tomorrow, so
+ * `GET /api/doctors/:id/slots` returns real, validatable slots.
+ */
+async function seedDoctorWithAvailability(app: Express, slotMinutes = 60) {
   const docCookies = await registerAndLogin(app, 'doctor', `doc-${Date.now()}-${Math.random()}@medlink.demo`);
   await request(app).put('/api/doctors/me').set('Cookie', docCookies).send({
     specialties: ['Dermatology'], qualifications: ['MBBS'], regNo: 'DMC/R/00001',
@@ -48,10 +53,18 @@ async function seedDoctorWithAvailability(app: Express) {
     city: 'Noida', geo: { lat: 1, lng: 1 }, consultationFee: 500, languages: ['English'],
   });
   const doctorProfile = await DoctorProfile.findOne({}).sort({ _id: -1 });
-  await AvailabilityRule.create({
-    doctorId: doctorProfile!._id, dayOfWeek: new Date().getUTCDay(), startTime: '00:00', endTime: '23:00', slotMinutes: 60,
-    validFrom: new Date('2020-01-01'), validTo: new Date('2030-12-31'),
-  });
+  // A patient may only book an approved doctor; a freshly PUT profile is 'pending'.
+  await DoctorProfile.updateOne({ _id: doctorProfile!._id }, { verificationStatus: 'approved' });
+  // Two rules (today + tomorrow's day-of-week) so a suite run late in the day still has
+  // future slots available once slot generation skips times that have already passed.
+  for (const dayOffset of [0, 1]) {
+    await AvailabilityRule.create({
+      doctorId: doctorProfile!._id,
+      dayOfWeek: new Date(Date.now() + dayOffset * 24 * 60 * 60 * 1000).getUTCDay(),
+      startTime: '00:00', endTime: '23:00', slotMinutes,
+      validFrom: RULE_VALID_FROM, validTo: RULE_VALID_TO,
+    });
+  }
   return { doctorId: doctorProfile!._id.toString(), docCookies };
 }
 
@@ -61,7 +74,7 @@ describe('POST /api/appointments', () => {
     const { doctorId } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'bookpatient1@medlink.demo');
 
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const firstSlot = slotsRes.body.slots[0];
 
     const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
@@ -77,7 +90,7 @@ describe('POST /api/appointments', () => {
     const app = createApp();
     const { doctorId } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'bookpatient2@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const firstSlot = slotsRes.body.slots[0];
 
     await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
@@ -97,9 +110,76 @@ describe('POST /api/appointments', () => {
     const { doctorId } = await seedDoctorWithAvailability(app);
     const docCookies = await registerAndLogin(app, 'doctor', 'bookingdoc2@medlink.demo');
     const res = await request(app).post('/api/appointments').set('Cookie', docCookies).send({
-      doctorId, slotStart: '2026-08-05T18:00:00.000Z', slotEnd: '2026-08-05T18:15:00.000Z',
+      doctorId,
+      slotStart: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      slotEnd: new Date(Date.now() + 24 * 60 * 60 * 1000 + 15 * 60 * 1000),
     });
     expect(res.status).toBe(403);
+  });
+
+  it('rejects a hand-built slot the doctor does not actually offer', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'fakeslot@medlink.demo');
+
+    // Inside the rule's window but off the 60-minute grid, so it is not a generated slot.
+    const start = new Date(Date.now() + 25 * 60 * 60 * 1000);
+    start.setUTCMinutes(37, 13, 0);
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: start, slotEnd: new Date(start.getTime() + 60 * 60 * 1000),
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('SLOT_NOT_AVAILABLE');
+  });
+
+  it('rejects a booking on a date the doctor blocked', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'blockedslot@medlink.demo');
+
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const slot = slotsRes.body.slots[0];
+
+    const day = new Date(slot.start);
+    await request(app).post('/api/doctors/me/blocked-dates').set('Cookie', docCookies).send({
+      date: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate())).toISOString(),
+      reason: 'On leave',
+    });
+
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slot.start, slotEnd: slot.end,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('SLOT_NOT_AVAILABLE');
+  });
+
+  it('rejects booking a doctor who is not approved', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    await DoctorProfile.updateOne({ _id: doctorId }, { verificationStatus: 'pending' });
+    const patientCookies = await registerAndLogin(app, 'patient', 'unapproveddoc@medlink.demo');
+
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId,
+      slotStart: new Date(Date.now() + 25 * 60 * 60 * 1000),
+      slotEnd: new Date(Date.now() + 26 * 60 * 60 * 1000),
+    });
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('DOCTOR_NOT_FOUND');
+  });
+
+  it('rejects a slot in the past at the schema boundary', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'pastslot@medlink.demo');
+
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: start, slotEnd: new Date(start.getTime() + 60 * 60 * 1000),
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -108,7 +188,7 @@ describe('PATCH /api/appointments/:id/confirm and /reject', () => {
     const app = createApp();
     const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'confirmpatient@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const slot = slotsRes.body.slots[0];
     const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
       doctorId, slotStart: slot.start, slotEnd: slot.end,
@@ -126,7 +206,7 @@ describe('PATCH /api/appointments/:id/confirm and /reject', () => {
     const { doctorId } = await seedDoctorWithAvailability(app);
     const { docCookies: otherDocCookies } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'confirmpatient2@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const slot = slotsRes.body.slots[0];
     const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
       doctorId, slotStart: slot.start, slotEnd: slot.end,
@@ -142,7 +222,7 @@ describe('PATCH /api/appointments/:id/confirm and /reject', () => {
     const app = createApp();
     const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'rejectpatient@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const slot = slotsRes.body.slots[0];
     const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
       doctorId, slotStart: slot.start, slotEnd: slot.end,
@@ -161,7 +241,7 @@ describe('PATCH /api/appointments/:id/confirm and /reject', () => {
     const app = createApp();
     const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'rejectpatient2@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const slot = slotsRes.body.slots[0];
     const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
       doctorId, slotStart: slot.start, slotEnd: slot.end,
@@ -173,6 +253,81 @@ describe('PATCH /api/appointments/:id/confirm and /reject', () => {
       doctorId, slotStart: slot.start, slotEnd: slot.end,
     });
     expect(rebookRes.status).toBe(201);
+  });
+});
+
+describe('status-transition atomicity', () => {
+  it('returns 409, not 500, when a doctor confirms an appointment the patient already cancelled', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'stale1@medlink.demo');
+
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=7`).set('Cookie', patientCookies);
+    const farSlot = slotsRes.body.slots.find((s: { start: string }) => new Date(s.start).getTime() - Date.now() > 3 * 60 * 60 * 1000);
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: farSlot.start, slotEnd: farSlot.end,
+    });
+    const staleId = bookRes.body.appointment._id;
+
+    // Patient cancels, freeing the slot; a second patient rebooks it.
+    await request(app).patch(`/api/appointments/${staleId}/cancel`).set('Cookie', patientCookies);
+    const secondPatientCookies = await registerAndLogin(app, 'patient', 'stale2@medlink.demo');
+    const rebook = await request(app).post('/api/appointments').set('Cookie', secondPatientCookies).send({
+      doctorId, slotStart: farSlot.start, slotEnd: farSlot.end,
+    });
+    expect(rebook.status).toBe(201);
+
+    // The doctor's dashboard is stale and still shows the cancelled request. Confirming
+    // it would collide with the live appointment's {doctorId, slotStart} unique index.
+    const res = await request(app).patch(`/api/appointments/${staleId}/confirm`).set('Cookie', docCookies);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('INVALID_STATUS_TRANSITION');
+  });
+
+  it('returns 409 when a doctor rejects an appointment that is no longer requested', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'stale3@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const slot = slotsRes.body.slots[0];
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slot.start, slotEnd: slot.end,
+    });
+    const id = bookRes.body.appointment._id;
+
+    await request(app).patch(`/api/appointments/${id}/confirm`).set('Cookie', docCookies);
+    const res = await request(app).patch(`/api/appointments/${id}/reject`).set('Cookie', docCookies).send({ reason: 'changed my mind' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('INVALID_STATUS_TRANSITION');
+  });
+
+  it('returns 409 when a patient cancels an already-cancelled appointment', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'stale4@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=7`).set('Cookie', patientCookies);
+    const farSlot = slotsRes.body.slots.find((s: { start: string }) => new Date(s.start).getTime() - Date.now() > 3 * 60 * 60 * 1000);
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: farSlot.start, slotEnd: farSlot.end,
+    });
+    const id = bookRes.body.appointment._id;
+
+    expect((await request(app).patch(`/api/appointments/${id}/cancel`).set('Cookie', patientCookies)).status).toBe(200);
+    const res = await request(app).patch(`/api/appointments/${id}/cancel`).set('Cookie', patientCookies);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('INVALID_STATUS_TRANSITION');
+  });
+});
+
+describe('GET /api/appointments/me query params', () => {
+  it('falls back to defaults for a malformed page/limit instead of 500ing', async () => {
+    const app = createApp();
+    const patientCookies = await registerAndLogin(app, 'patient', 'badpage@medlink.demo');
+    const res = await request(app).get('/api/appointments/me?page=abc&limit=xyz').set('Cookie', patientCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.page).toBe(1);
+    expect(res.body.limit).toBe(20);
   });
 });
 
@@ -197,17 +352,28 @@ describe('PATCH /api/appointments/:id/cancel', () => {
 
   it('rejects a cancellation within the 2-hour cutoff', async () => {
     const app = createApp();
-    const { doctorId } = await seedDoctorWithAvailability(app);
+    // 10-minute slots so the doctor's next *real* generated slot is guaranteed to fall
+    // inside the 2-hour cutoff. A hand-built slotStart is no longer bookable at all —
+    // createAppointment now validates the interval against generated availability.
+    const { doctorId } = await seedDoctorWithAvailability(app, 10);
     const patientCookies = await registerAndLogin(app, 'patient', 'cancelpatient2@medlink.demo');
-    const nearSlotStart = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const nearSlot = slotsRes.body.slots[0];
+    // Guard the premise of the test: slots[0] is the soonest still-future slot, which
+    // with 10-minute granularity is always well inside the 2-hour cancel cutoff.
+    expect(new Date(nearSlot.start).getTime() - Date.now()).toBeLessThan(2 * 60 * 60 * 1000);
+
     const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
-      doctorId, slotStart: nearSlotStart, slotEnd: new Date(nearSlotStart.getTime() + 15 * 60 * 1000),
+      doctorId, slotStart: nearSlot.start, slotEnd: nearSlot.end,
     });
+    expect(bookRes.status).toBe(201);
 
     const cancelRes = await request(app)
       .patch(`/api/appointments/${bookRes.body.appointment._id}/cancel`)
       .set('Cookie', patientCookies);
     expect(cancelRes.status).toBe(400);
+    expect(cancelRes.body.error.code).toBe('CANCEL_CUTOFF');
   });
 
   it('rejects a different patient cancelling', async () => {
@@ -233,7 +399,7 @@ describe('GET /api/appointments/me', () => {
     const app = createApp();
     const { doctorId } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'listpatient@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
       doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
     });
@@ -249,7 +415,7 @@ describe('GET /api/appointments/me', () => {
     const app = createApp();
     const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
     const patientCookies = await registerAndLogin(app, 'patient', 'listpatient2@medlink.demo');
-    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
       doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
     });

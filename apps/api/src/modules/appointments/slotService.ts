@@ -67,6 +67,10 @@ export async function generateSlotsForDoctor(doctorId: string, fromDate: Date, d
       for (let minutes = startMinutes; minutes + rule.slotMinutes <= endMinutes; minutes += rule.slotMinutes) {
         const slotStart = new Date(day.getTime() + minutes * 60 * 1000);
         const slotEnd = new Date(slotStart.getTime() + rule.slotMinutes * 60 * 1000);
+        // Today's range starts at 00:00 UTC, so the first day of any generation window
+        // contains slots that have already passed. They are not bookable (createAppointment
+        // rejects a past slotStart), so they must not be offered.
+        if (slotStart.getTime() <= Date.now()) continue;
         if (bookedStartTimes.has(slotStart.getTime())) continue;
         slots.push({ start: slotStart, end: slotEnd });
       }

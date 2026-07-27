@@ -85,13 +85,37 @@ describe('CreateAppointmentInput', () => {
     expect(CreateAppointmentInput.safeParse({}).success).toBe(false);
   });
   it('accepts a minimal valid booking', () => {
+    const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 15 * 60 * 1000);
     expect(
       CreateAppointmentInput.safeParse({
         doctorId: '507f1f77bcf86cd799439011',
-        slotStart: '2026-08-01T18:00:00.000Z',
-        slotEnd: '2026-08-01T18:15:00.000Z',
+        slotStart: start.toISOString(),
+        slotEnd: end.toISOString(),
       }).success
     ).toBe(true);
+  });
+
+  it('rejects a slotEnd that is not after slotStart', () => {
+    const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const result = CreateAppointmentInput.safeParse({
+      doctorId: '507f1f77bcf86cd799439011',
+      slotStart: start.toISOString(),
+      slotEnd: start.toISOString(),
+    });
+    expect(result.success).toBe(false);
+    expect(result.success === false && result.error.issues[0]?.path).toEqual(['slotEnd']);
+  });
+
+  it('rejects a slotStart in the past', () => {
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const result = CreateAppointmentInput.safeParse({
+      doctorId: '507f1f77bcf86cd799439011',
+      slotStart: start.toISOString(),
+      slotEnd: new Date(start.getTime() + 15 * 60 * 1000).toISOString(),
+    });
+    expect(result.success).toBe(false);
+    expect(result.success === false && result.error.issues[0]?.path).toEqual(['slotStart']);
   });
 });
 
