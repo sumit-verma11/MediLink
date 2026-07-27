@@ -1745,13 +1745,14 @@ export async function isAccessTokenBlacklisted(jti: string): Promise<boolean> {
 - [ ] **Step 4: Extend the controller and routes**
 
 ```ts
-// apps/api/src/modules/auth/auth.controller.ts (add)
+// apps/api/src/modules/auth/auth.controller.ts (add these two imports to the existing top-of-file import list)
 import { refresh, logout } from './auth.service';
+import { AppError } from '../../lib/errors';
 
 export async function refreshHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const token = req.cookies.refreshToken as string | undefined;
-    if (!token) throw new (require('../../lib/errors').AppError)(401, 'No refresh token', 'NO_REFRESH_TOKEN');
+    if (!token) throw new AppError(401, 'No refresh token', 'NO_REFRESH_TOKEN');
     const { accessToken, refreshToken } = await refresh(token);
     res.cookie('accessToken', accessToken, { ...COOKIE_OPTS, maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...COOKIE_OPTS, maxAge: 7 * 24 * 60 * 60 * 1000 });
@@ -1772,8 +1773,6 @@ export async function logoutHandler(req: Request, res: Response, next: NextFunct
   }
 }
 ```
-
-Note: the `require(...)` inline import above is a placeholder for readability in this plan — in the actual file, add `import { AppError } from '../../lib/errors';` to the top imports instead of using `require`.
 
 ```ts
 // apps/api/src/modules/auth/auth.routes.ts (modify)
@@ -1878,14 +1877,14 @@ describe('requireAuth', () => {
 describe('requireRole', () => {
   it('allows a matching role through', () => {
     const { req, res, next } = mockReqRes({});
-    (req as any).user = { id: 'user-1', role: 'doctor' };
+    req.user = { id: 'user-1', role: 'doctor' };
     requireRole('doctor')(req, res, next);
     expect(next).toHaveBeenCalledWith();
   });
 
   it('rejects a non-matching role with 403', () => {
     const { req, res, next } = mockReqRes({});
-    (req as any).user = { id: 'user-1', role: 'patient' };
+    req.user = { id: 'user-1', role: 'patient' };
     requireRole('doctor')(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
   });
@@ -2119,6 +2118,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import RedisMock from 'ioredis-mock';
+import type { Express } from 'express';
 import { createApp } from '../../app';
 import { setRedisClient } from '../../lib/redis';
 
@@ -2141,7 +2141,7 @@ afterAll(async () => {
   await mongod.stop();
 });
 
-async function registerAndLogin(app: any, role: string, email: string) {
+async function registerAndLogin(app: Express, role: string, email: string) {
   await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'A', phone: '9999999999', role });
   const res = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
   return res.headers['set-cookie'] as unknown as string[];
@@ -2272,6 +2272,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import RedisMock from 'ioredis-mock';
 import path from 'node:path';
+import type { Express } from 'express';
 import { createApp } from '../../app';
 import { setRedisClient } from '../../lib/redis';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -2295,7 +2296,7 @@ afterAll(async () => {
   await mongod.stop();
 });
 
-async function registerAndLogin(app: any, role: string, email: string) {
+async function registerAndLogin(app: Express, role: string, email: string) {
   await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Dr A', phone: '9999999999', role });
   const res = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
   return res.headers['set-cookie'] as unknown as string[];
@@ -2513,6 +2514,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import RedisMock from 'ioredis-mock';
+import type { Express } from 'express';
 import { createApp } from '../../app';
 import { setRedisClient } from '../../lib/redis';
 
@@ -2535,7 +2537,7 @@ afterAll(async () => {
   await mongod.stop();
 });
 
-async function registerAndLogin(app: any, role: string, email: string) {
+async function registerAndLogin(app: Express, role: string, email: string) {
   await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Lab A', phone: '9999999999', role });
   const res = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
   return res.headers['set-cookie'] as unknown as string[];
@@ -2742,6 +2744,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import RedisMock from 'ioredis-mock';
+import type { Express } from 'express';
 import { createApp } from '../../app';
 import { setRedisClient } from '../../lib/redis';
 import { AuditLog } from '../../models/AuditLog';
@@ -2765,7 +2768,7 @@ afterAll(async () => {
   await mongod.stop();
 });
 
-async function registerAndLogin(app: any, role: string, email: string) {
+async function registerAndLogin(app: Express, role: string, email: string) {
   await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'A', phone: '9999999999', role });
   const res = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
   return res.headers['set-cookie'] as unknown as string[];
@@ -3073,14 +3076,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRegisterMutation } from '@/store/authApi';
 
+type RegisterRole = 'patient' | 'doctor' | 'lab' | 'admin';
+
 export default function RegisterPage() {
-  const [form, setForm] = useState({ email: '', password: '', name: '', phone: '', role: 'patient' });
+  const [form, setForm] = useState<{ email: string; password: string; name: string; phone: string; role: RegisterRole }>({
+    email: '', password: '', name: '', phone: '', role: 'patient',
+  });
   const [register, { isLoading, error }] = useRegisterMutation();
   const router = useRouter();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await register(form as any).unwrap();
+    await register(form).unwrap();
     router.push('/login');
   }
 
@@ -3091,7 +3098,7 @@ export default function RegisterPage() {
       <input className="border p-2 w-full" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
       <input className="border p-2 w-full" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       <input className="border p-2 w-full" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-      <select className="border p-2 w-full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+      <select className="border p-2 w-full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as RegisterRole })}>
         <option value="patient">Patient</option>
         <option value="doctor">Doctor</option>
         <option value="lab">Lab</option>
