@@ -10,6 +10,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { patientsRouter } from './modules/patients/patients.routes';
 import { doctorsRouter } from './modules/doctors/doctors.routes';
 import { labsRouter } from './modules/labs/labs.routes';
+import { adminRouter } from './modules/admin/admin.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp(): Express {
   app.use('/api/patients', patientsRouter);
   app.use('/api/doctors', doctorsRouter);
   app.use('/api/labs', labsRouter);
+  app.use('/api/admin', adminRouter);
 
   app.use(errorHandler);
   return app;
