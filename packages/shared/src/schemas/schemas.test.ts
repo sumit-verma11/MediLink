@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { RegisterInput, LoginInput } from './user';
 import { VerificationDecisionInput } from './admin';
+import { LabTestPatchInput } from './lab';
+import {
+  AvailabilityRuleInput,
+  BlockedDateInput,
+  CreateAppointmentInput,
+  RejectAppointmentInput,
+} from './appointment';
 
 describe('RegisterInput', () => {
   it('rejects a password shorter than 8 chars', () => {
@@ -33,5 +40,63 @@ describe('VerificationDecisionInput', () => {
   it('allows approval with no reason', () => {
     const result = VerificationDecisionInput.safeParse({ decision: 'approved' });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('LabTestPatchInput', () => {
+  it('rejects an empty object', () => {
+    expect(LabTestPatchInput.safeParse({}).success).toBe(false);
+  });
+  it('accepts a partial update', () => {
+    expect(LabTestPatchInput.safeParse({ price: 275 }).success).toBe(true);
+  });
+  it('rejects a negative price', () => {
+    expect(LabTestPatchInput.safeParse({ price: -10 }).success).toBe(false);
+  });
+});
+
+describe('AvailabilityRuleInput', () => {
+  it('rejects dayOfWeek out of range', () => {
+    expect(
+      AvailabilityRuleInput.safeParse({
+        dayOfWeek: 7, startTime: '18:00', endTime: '21:00', slotMinutes: 15,
+        validFrom: '2026-01-01', validTo: '2026-12-31',
+      }).success
+    ).toBe(false);
+  });
+  it('accepts a valid rule', () => {
+    expect(
+      AvailabilityRuleInput.safeParse({
+        dayOfWeek: 1, startTime: '18:00', endTime: '21:00', slotMinutes: 15,
+        validFrom: '2026-01-01', validTo: '2026-12-31',
+      }).success
+    ).toBe(true);
+  });
+});
+
+describe('BlockedDateInput', () => {
+  it('requires a date', () => {
+    expect(BlockedDateInput.safeParse({ reason: 'leave' }).success).toBe(false);
+  });
+});
+
+describe('CreateAppointmentInput', () => {
+  it('requires doctorId, slotStart, slotEnd', () => {
+    expect(CreateAppointmentInput.safeParse({}).success).toBe(false);
+  });
+  it('accepts a minimal valid booking', () => {
+    expect(
+      CreateAppointmentInput.safeParse({
+        doctorId: '507f1f77bcf86cd799439011',
+        slotStart: '2026-08-01T18:00:00.000Z',
+        slotEnd: '2026-08-01T18:15:00.000Z',
+      }).success
+    ).toBe(true);
+  });
+});
+
+describe('RejectAppointmentInput', () => {
+  it('requires a reason', () => {
+    expect(RejectAppointmentInput.safeParse({}).success).toBe(false);
   });
 });
