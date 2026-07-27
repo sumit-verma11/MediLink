@@ -5,6 +5,7 @@ import request from 'supertest';
 import RedisMock from 'ioredis-mock';
 import { createApp } from '../../app';
 import { setRedisClient } from '../../lib/redis';
+import { AuditLog } from '../../models/AuditLog';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -107,5 +108,16 @@ describe('POST /api/auth/logout', () => {
 
     const refreshAfterLogout = await request(app).post('/api/auth/refresh').set('Cookie', cookies);
     expect(refreshAfterLogout.status).toBe(401);
+  });
+});
+
+describe('register auditing', () => {
+  it('writes a user.register audit log entry', async () => {
+    const app = createApp();
+    await request(app).post('/api/auth/register').send({
+      email: 'audited@medlink.demo', password: 'longenough1', name: 'A', phone: '9999999999', role: 'patient',
+    });
+    const entries = await AuditLog.find({ action: 'user.register' });
+    expect(entries.length).toBeGreaterThanOrEqual(1);
   });
 });

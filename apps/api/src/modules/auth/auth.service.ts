@@ -5,6 +5,7 @@ import { AppError } from '../../lib/errors';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, verifyAccessToken } from './jwt';
 import { getRedis } from '../../lib/redis';
 import jwtLib from 'jsonwebtoken';
+import { logAudit } from '../audit/audit.service';
 
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -28,6 +29,15 @@ export async function register(input: RegisterInput) {
     phone: input.phone,
     role: input.role,
   });
+
+  await logAudit({
+    actorId: user._id.toString(),
+    actorRole: user.role,
+    action: 'user.register',
+    entityType: 'User',
+    entityId: user._id.toString(),
+  });
+
   return user;
 }
 
