@@ -3,6 +3,7 @@ import { Appointment, IAppointment, AppointmentStatus } from '../../models/Appoi
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { acquireSlotLock, releaseSlotLock } from './slotLock';
+import { DoctorProfile } from '../../models/DoctorProfile';
 import type { CreateAppointmentInput } from '@medlink/shared';
 
 export async function createAppointment(patientId: string, input: CreateAppointmentInput): Promise<IAppointment> {
@@ -63,4 +64,35 @@ export async function appendTimelineEntry(
     },
     { new: true }
   );
+}
+
+export async function confirmAppointment(appointmentId: string, doctorUserId: string): Promise<IAppointment> {
+  const doctorProfile = await DoctorProfile.findOne({ userId: doctorUserId });
+  if (!doctorProfile) throw new AppError(404, 'Doctor profile not found', 'PROFILE_NOT_FOUND');
+
+  const appointment = await Appointment.findOne({ _id: appointmentId, doctorId: doctorProfile._id });
+  if (!appointment) throw new AppError(404, 'Appointment not found', 'APPOINTMENT_NOT_FOUND');
+
+  const updated = await appendTimelineEntry(appointmentId, 'confirmed', doctorUserId);
+  await logAudit({
+    actorId: doctorUserId, actorRole: 'doctor', action: 'appointment.confirmed',
+    entityType: 'Appointment', entityId: appointmentId,
+  });
+  return updated!;
+}
+
+export async function rejectAppointment(appointmentId: string, doctorUserId: string, reason: string): Promise<IAppointment> {
+  const doctorProfile = await DoctorProfile.findOne({ userId: doctorUserId });
+  if (!doctorProfile) throw new AppError(404, 'Doctor profile not found', 'PROFILE_NOT_FOUND');
+
+  const appointment = await Appointment.findOne({ _id: appointmentId, doctorId: doctorProfile._id });
+  if (!appointment) throw new AppError(404, 'Appointment not found', 'APPOINTMENT_NOT_FOUND');
+
+  const updated = await appendTimelineEntry(appointmentId, 'rejected', doctorUserId, { rejectionReason: reason });
+  await releaseSlotLock(appointment.doctorId.toString(), appointment.slotStart.toISOString());
+  await logAudit({
+    actorId: doctorUserId, actorRole: 'doctor', action: 'appointment.rejected',
+    entityType: 'Appointment', entityId: appointmentId, meta: { reason },
+  });
+  return updated!;
 }
