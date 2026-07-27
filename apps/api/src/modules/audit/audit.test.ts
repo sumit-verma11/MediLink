@@ -26,7 +26,7 @@ describe('logAudit', () => {
 
     const entries = await AuditLog.find({});
     expect(entries).toHaveLength(1);
-    expect(entries[0].action).toBe('user.register');
-    expect(entries[0].at).toBeInstanceOf(Date);
+    expect(entries[0]!.action).toBe('user.register');
+    expect(entries[0]!.at).toBeInstanceOf(Date);
   });
 });
