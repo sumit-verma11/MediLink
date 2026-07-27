@@ -12,6 +12,13 @@ let mongod: MongoMemoryServer;
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
+  // Mongoose builds each models indexes in the background after connecting and
+  // does not block on them. This files first write is a uniqueness test, so
+  // without waiting here it can race the User email index build and observe no
+  // unique constraint yet, letting a duplicate email insert incorrectly succeed.
+  // Model.init() resolves once a models indexes actually exist in MongoDB -- the
+  // documented fix for exactly this race per Mongoose own testing guidance.
+  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init()]);
 });
 
 afterEach(async () => {
