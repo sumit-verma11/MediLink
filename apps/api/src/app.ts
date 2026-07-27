@@ -9,6 +9,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
 import { patientsRouter } from './modules/patients/patients.routes';
 import { doctorsRouter } from './modules/doctors/doctors.routes';
+import { labsRouter } from './modules/labs/labs.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -25,6 +26,7 @@ export function createApp(): Express {
   app.use('/api/auth', authRouter);
   app.use('/api/patients', patientsRouter);
   app.use('/api/doctors', doctorsRouter);
+  app.use('/api/labs', labsRouter);
 
   app.use(errorHandler);
   return app;
