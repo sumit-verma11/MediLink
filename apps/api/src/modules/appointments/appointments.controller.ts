@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createAppointment, confirmAppointment, rejectAppointment, cancelAppointment } from './appointments.service';
+import { DoctorProfile } from '../../models/DoctorProfile';
+import { Appointment } from '../../models/Appointment';
 
 export async function createAppointmentHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -32,6 +34,38 @@ export async function cancelAppointmentHandler(req: Request, res: Response, next
   try {
     const appointment = await cancelAppointment(req.params.id!, req.user!.id);
     res.status(200).json({ appointment });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listMyAppointments(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const page = Math.max(1, Number(req.query.page ?? 1));
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+
+    const filter: Record<string, unknown> = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.from || req.query.to) {
+      filter.slotStart = {
+        ...(req.query.from ? { $gte: new Date(String(req.query.from)) } : {}),
+        ...(req.query.to ? { $lte: new Date(String(req.query.to)) } : {}),
+      };
+    }
+
+    if (req.user!.role === 'doctor') {
+      const doctorProfile = await DoctorProfile.findOne({ userId: req.user!.id });
+      filter.doctorId = doctorProfile?._id ?? null;
+    } else {
+      filter.patientId = req.user!.id;
+    }
+
+    const [items, total] = await Promise.all([
+      Appointment.find(filter).sort({ slotStart: -1 }).skip((page - 1) * limit).limit(limit),
+      Appointment.countDocuments(filter),
+    ]);
+
+    res.status(200).json({ items, total, page, limit });
   } catch (err) {
     next(err);
   }

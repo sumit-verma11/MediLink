@@ -227,3 +227,36 @@ describe('PATCH /api/appointments/:id/cancel', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('GET /api/appointments/me', () => {
+  it('lists a patient\'s own appointments with pagination fields', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'listpatient@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+    });
+
+    const res = await request(app).get('/api/appointments/me').set('Cookie', patientCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.page).toBe(1);
+    expect(res.body.total).toBe(1);
+  });
+
+  it('lists a doctor\'s own appointments, filtered by status', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'listpatient2@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=1`).set('Cookie', patientCookies);
+    await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+    });
+
+    const res = await request(app).get('/api/appointments/me?status=requested').set('Cookie', docCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].status).toBe('requested');
+  });
+});
