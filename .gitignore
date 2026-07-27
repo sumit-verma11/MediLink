@@ -5,3 +5,10 @@ dist/
 .env
 uploads/
 *.log
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+apps/ai/.venv/

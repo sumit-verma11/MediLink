@@ -9,7 +9,10 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "seed": "npm run seed --workspace=apps/api"
+    "seed": "npm run seed --workspace=apps/api",
+    "test:ai": "cd apps/ai && python -m pytest",
+    "lint:ai": "cd apps/ai && ruff check .",
+    "typecheck:ai": "cd apps/ai && mypy app"
   },
   "devDependencies": {
     "typescript": "^5.5.4"
