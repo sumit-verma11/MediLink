@@ -5,7 +5,11 @@ import { AppError } from '../../lib/errors';
 const COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  // Production runs the frontend and API on different sites (Vercel + Render),
+  // and `Lax` cookies are not sent on cross-site requests even with
+  // `credentials: 'include'`. `None` requires `secure: true`, which is set above
+  // under the same condition.
+  sameSite: process.env.NODE_ENV === 'production' ? ('none' as const) : ('lax' as const),
   path: '/',
 };
 

@@ -60,6 +60,13 @@ describe('GET /api/doctors/public/:id', () => {
     expect(res.status).toBe(404);
   });
 
+  it('returns 404 (not 500) for a malformed ObjectId', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/doctors/public/not-a-valid-object-id');
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
   it('returns the profile once approved', async () => {
     const app = createApp();
     const cookies = await registerAndLogin(app, 'doctor', 'doc3@medlink.demo');
@@ -85,5 +92,19 @@ describe('POST /api/doctors/me/verification-docs', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.profile.verificationDocs.length).toBe(1);
+  });
+
+  it('rejects a disallowed mimetype with 400 (not 500)', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'doctor', 'doc5@medlink.demo');
+    await request(app).put('/api/doctors/me').set('Cookie', cookies).send(validProfile);
+
+    const res = await request(app)
+      .post('/api/doctors/me/verification-docs')
+      .set('Cookie', cookies)
+      .attach('docs', Buffer.from('plain text, not a permitted document'), 'notes.txt');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('BAD_FILE_TYPE');
   });
 });

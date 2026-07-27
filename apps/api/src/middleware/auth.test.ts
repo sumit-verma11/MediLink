@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response } from 'express';
 import RedisMock from 'ioredis-mock';
-import { setRedisClient } from '../lib/redis';
+import { setRedisClient, getRedis } from '../lib/redis';
 import { signAccessToken } from '../modules/auth/jwt';
 import { requireAuth, requireRole } from './auth';
 
@@ -31,6 +31,26 @@ describe('requireAuth', () => {
     const { req, res, next } = mockReqRes({});
     await requireAuth(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+  });
+
+  it('rejects a token whose jti has been blacklisted', async () => {
+    const { token, jti } = signAccessToken('user-1', 'patient');
+    // Mirrors what logout does: mark the jti revoked in Redis.
+    await getRedis().set(`blacklist:${jti}`, '1');
+
+    const { req, res, next } = mockReqRes({ accessToken: token });
+    await requireAuth(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401, code: 'TOKEN_REVOKED' }));
+    expect(req.user).toBeUndefined();
+  });
+
+  it('rejects a malformed token', async () => {
+    const { req, res, next } = mockReqRes({ accessToken: 'not-a-real-jwt' });
+    await requireAuth(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401, code: 'INVALID_TOKEN' }));
+    expect(req.user).toBeUndefined();
   });
 });
 

@@ -4,7 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import RedisMock from 'ioredis-mock';
 import { createApp } from '../../app';
-import { setRedisClient } from '../../lib/redis';
+import { setRedisClient, getRedis } from '../../lib/redis';
 import { AuditLog } from '../../models/AuditLog';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
@@ -119,5 +119,35 @@ describe('register auditing', () => {
     });
     const entries = await AuditLog.find({ action: 'user.register' });
     expect(entries.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// Kept last in this file: the rate-limit counter lives in Redis and is not reset
+// by `afterEach` (which only clears Mongo), so exhausting the budget here would
+// make any test declared after it fail with a 429. A fresh RedisMock is installed
+// first so the counter starts from zero regardless of what ran before.
+describe('auth rate limiting', () => {
+  it('returns 429 once the request budget for the window is exhausted', async () => {
+    // `new RedisMock()` alone is not enough: ioredis-mock instances share one
+    // in-memory store, so the counter accumulated by earlier tests in this file
+    // would carry over. Flush it so the window starts empty.
+    setRedisClient(new RedisMock());
+    await getRedis().flushall();
+    const app = createApp();
+
+    // Limit is 20 per 15 min window (middleware/rateLimit.ts). Wrong-password
+    // logins are used because they need no real account and stay cheap.
+    const body = { email: 'ratelimit@medlink.demo', password: 'wrongpassword1' };
+
+    for (let i = 0; i < 20; i += 1) {
+      const res = await request(app).post('/api/auth/login').send(body);
+      expect(res.status).not.toBe(429);
+    }
+
+    const limited = await request(app).post('/api/auth/login').send(body);
+    expect(limited.status).toBe(429);
+
+    // Leave a clean counter behind so file ordering changes cannot leak a 429.
+    setRedisClient(new RedisMock());
   });
 });

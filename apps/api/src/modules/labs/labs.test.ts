@@ -65,6 +65,23 @@ describe('lab profile + test catalog CRUD', () => {
     expect(deleteRes.status).toBe(200);
     expect(deleteRes.body.profile.tests).toHaveLength(0);
   });
+
+  it('rejects an invalid or empty test edit with 400', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'lab', 'lab4@medlink.demo');
+    await request(app).put('/api/labs/me').set('Cookie', cookies).send(validLab);
+    await request(app).post('/api/labs/me/tests').set('Cookie', cookies).send({
+      code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6,
+    });
+
+    // A negative price would previously have been written straight through.
+    const badPrice = await request(app).patch('/api/labs/me/tests/CBC').set('Cookie', cookies).send({ price: -10 });
+    expect(badPrice.status).toBe(400);
+
+    // An empty body would previously have reached Mongo as an empty `$set` and 500.
+    const empty = await request(app).patch('/api/labs/me/tests/CBC').set('Cookie', cookies).send({});
+    expect(empty.status).toBe(400);
+  });
 });
 
 describe('GET /api/labs/public/:id', () => {
