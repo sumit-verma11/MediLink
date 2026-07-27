@@ -66,3 +66,20 @@ export const LABS = [
     ],
   },
 ];
+
+// One weekly rule per approved doctor, matching the CLAUDE.md §6.2 "Availability" column
+// (days abbreviated; only the pattern needed for slot generation is encoded here — exact
+// days/times are illustrative demo data, not load-bearing for any test).
+export const AVAILABILITY_RULES_BY_DOCTOR_EMAIL: Record<string, { dayOfWeek: number; startTime: string; endTime: string; slotMinutes: number }[]> = {
+  'meera.d@medlink.demo': [{ dayOfWeek: 1, startTime: '18:00', endTime: '21:00', slotMinutes: 15 }],
+  'arjun.d@medlink.demo': [{ dayOfWeek: 2, startTime: '10:00', endTime: '13:00', slotMinutes: 20 }],
+  'kavita.d@medlink.demo': [{ dayOfWeek: 1, startTime: '09:00', endTime: '12:00', slotMinutes: 10 }],
+  'sanjay.d@medlink.demo': [{ dayOfWeek: 1, startTime: '17:00', endTime: '20:00', slotMinutes: 15 }],
+  'neha.d@medlink.demo': [{ dayOfWeek: 1, startTime: '11:00', endTime: '14:00', slotMinutes: 20 }],
+  'rohit.d@medlink.demo': [{ dayOfWeek: 2, startTime: '09:00', endTime: '12:00', slotMinutes: 20 }],
+  'anjali.d@medlink.demo': [{ dayOfWeek: 1, startTime: '16:00', endTime: '19:00', slotMinutes: 15 }],
+  'farhan.d@medlink.demo': [{ dayOfWeek: 2, startTime: '18:00', endTime: '21:00', slotMinutes: 15 }],
+  'pooja.d@medlink.demo': [{ dayOfWeek: 1, startTime: '10:00', endTime: '13:00', slotMinutes: 15 }],
+  'vivek.d@medlink.demo': [{ dayOfWeek: 1, startTime: '11:00', endTime: '13:00', slotMinutes: 15 }],
+  'ritu.d@medlink.demo': [{ dayOfWeek: 2, startTime: '15:00', endTime: '18:00', slotMinutes: 30 }],
+};
