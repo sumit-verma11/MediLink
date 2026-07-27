@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { connectDB } from './lib/db';
 import { logger } from './lib/logger';
 import { initSocket } from './lib/socket';
+import { startReminderCron } from './jobs/reminderJob';
 
 const PORT = Number(process.env.PORT ?? 4000);
 
@@ -13,6 +14,7 @@ async function main(): Promise<void> {
   const httpServer = createServer(app);
   initSocket(httpServer);
   httpServer.listen(PORT, () => logger.info(`api listening on ${PORT}`));
+  startReminderCron();
 }
 
 main().catch((err) => {
