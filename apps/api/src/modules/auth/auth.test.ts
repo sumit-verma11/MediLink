@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
-import RedisMock from 'ioredis-mock';
 import { createApp } from '../../app';
-import { setRedisClient, getRedis } from '../../lib/redis';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { AuditLog } from '../../models/AuditLog';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
@@ -15,7 +14,11 @@ let mongod: MongoMemoryServer;
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
-  setRedisClient(new RedisMock());
+});
+beforeEach(async () => {
+  // Shared helper: fresh Redis + flushed store, so the auth rate-limit budget starts
+  // empty for every test in this file. See src/test-utils/resetRateLimit.ts.
+  await resetTestRedis();
 });
 
 afterEach(async () => {
@@ -122,17 +125,12 @@ describe('register auditing', () => {
   });
 });
 
-// Kept last in this file: the rate-limit counter lives in Redis and is not reset
-// by `afterEach` (which only clears Mongo), so exhausting the budget here would
-// make any test declared after it fail with a 429. A fresh RedisMock is installed
-// first so the counter starts from zero regardless of what ran before.
+// The rate-limit counter lives in Redis, so this test deliberately exhausts the
+// budget. The file-wide `beforeEach(resetTestRedis)` above installs a fresh, flushed
+// Redis before every test, which both gives this test an empty window to start from
+// and stops the exhausted counter leaking into any test that runs after it.
 describe('auth rate limiting', () => {
   it('returns 429 once the request budget for the window is exhausted', async () => {
-    // `new RedisMock()` alone is not enough: ioredis-mock instances share one
-    // in-memory store, so the counter accumulated by earlier tests in this file
-    // would carry over. Flush it so the window starts empty.
-    setRedisClient(new RedisMock());
-    await getRedis().flushall();
     const app = createApp();
 
     // Limit is 20 per 15 min window (middleware/rateLimit.ts). Wrong-password
@@ -146,8 +144,5 @@ describe('auth rate limiting', () => {
 
     const limited = await request(app).post('/api/auth/login').send(body);
     expect(limited.status).toBe(429);
-
-    // Leave a clean counter behind so file ordering changes cannot leak a 429.
-    setRedisClient(new RedisMock());
   });
 });

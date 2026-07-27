@@ -19,3 +19,9 @@ export const LabTestInput = z.object({
   description: z.string().optional(),
 });
 export type LabTestInput = z.infer<typeof LabTestInput>;
+
+export const LabTestPatchInput = LabTestInput.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one field must be provided' }
+);
+export type LabTestPatchInput = z.infer<typeof LabTestPatchInput>;

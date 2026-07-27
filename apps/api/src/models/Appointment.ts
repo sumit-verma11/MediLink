@@ -13,6 +13,7 @@ export interface IAppointment {
   triageSessionId?: Types.ObjectId;
   rejectionReason?: string;
   timeline: { status: AppointmentStatus; at: Date; by: Types.ObjectId }[];
+  reminderSentAt?: Date;
 }
 
 const appointmentSchema = new Schema<IAppointment>({
@@ -38,6 +39,12 @@ const appointmentSchema = new Schema<IAppointment>({
     ],
     default: [],
   },
+  reminderSentAt: Date,
 });
+
+appointmentSchema.index(
+  { doctorId: 1, slotStart: 1 },
+  { unique: true, partialFilterExpression: { status: { $in: ['requested', 'confirmed'] } } }
+);
 
 export const Appointment = model<IAppointment>('Appointment', appointmentSchema);

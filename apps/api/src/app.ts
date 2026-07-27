@@ -9,6 +9,8 @@ import { errorHandler } from './middleware/errorHandler';
 import { requireAuth, requireRole } from './middleware/auth';
 import { authRouter } from './modules/auth/auth.routes';
 import { patientsRouter } from './modules/patients/patients.routes';
+import { availabilityRouter, doctorSlotsRouter } from './modules/appointments/availability.routes';
+import { appointmentsRouter } from './modules/appointments/appointments.routes';
 import { doctorsRouter } from './modules/doctors/doctors.routes';
 import { labsRouter } from './modules/labs/labs.routes';
 import { adminRouter } from './modules/admin/admin.routes';
@@ -30,9 +32,12 @@ export function createApp(): Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api/patients', patientsRouter);
+  app.use('/api/doctors/me', availabilityRouter);
+  app.use('/api/doctors', doctorSlotsRouter);
   app.use('/api/doctors', doctorsRouter);
   app.use('/api/labs', labsRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/appointments', appointmentsRouter);
 
   app.use(errorHandler);
   return app;

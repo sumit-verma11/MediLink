@@ -5,6 +5,8 @@ import { runSeed } from './seed';
 import { User } from '../models/User';
 import { DoctorProfile } from '../models/DoctorProfile';
 import { LabProfile } from '../models/LabProfile';
+import { Appointment } from '../models/Appointment';
+import { AvailabilityRule } from '../models/AvailabilityRule';
 
 let mongod: MongoMemoryServer;
 
@@ -40,5 +42,31 @@ describe('runSeed', () => {
 
     const patients = await User.find({ role: 'patient' });
     expect(patients).toHaveLength(6);
+  });
+});
+
+describe('runSeed — Phase 2 slice', () => {
+  it('seeds availability rules for approved doctors and exactly 15 appointments with the spec\'d status distribution', async () => {
+    await runSeed();
+
+    const ruleCount = await AvailabilityRule.countDocuments({});
+    expect(ruleCount).toBeGreaterThan(0);
+
+    const appointments = await Appointment.find({});
+    expect(appointments).toHaveLength(15);
+
+    const counts: Record<string, number> = {};
+    for (const appt of appointments) counts[appt.status] = (counts[appt.status] ?? 0) + 1;
+
+    // CLAUDE.md §6.4 lists "6 completed ... each with prescription" as distinct from
+    // the separately-listed "1 completed-without-prescription" — 7 completed total,
+    // not 6. Phase 4 is what actually distinguishes the two (by whether a Prescription
+    // document references the appointment); this phase just needs the status counts right.
+    expect(counts.completed).toBe(7);
+    expect(counts.confirmed).toBe(3);
+    expect(counts.requested).toBe(2);
+    expect(counts.rejected).toBe(1);
+    expect(counts.cancelled).toBe(1);
+    expect(counts.no_show).toBe(1);
   });
 });
