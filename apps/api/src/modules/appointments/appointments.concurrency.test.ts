@@ -79,8 +79,13 @@ describe('double-booking race', () => {
       createAppointment(new mongoose.Types.ObjectId().toString(), input)
     );
     const results = await Promise.allSettled(attempts);
+    const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
 
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((r) => r.status === 'rejected')).toHaveLength(9);
+    expect(rejected).toHaveLength(9);
+    for (const r of rejected) {
+      expect(r.reason).toBeInstanceOf(AppError);
+      expect((r.reason as AppError).statusCode).toBe(409);
+    }
   });
 });
