@@ -3201,8 +3201,9 @@ async function getDoctor(id: string): Promise<DoctorProfile | null> {
   return data.profile;
 }
 
-export default async function DoctorPublicPage({ params }: { params: { id: string } }) {
-  const doctor = await getDoctor(params.id);
+export default async function DoctorPublicPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const doctor = await getDoctor(id);
   if (!doctor) notFound();
 
   return (
@@ -3250,8 +3251,9 @@ async function getLab(id: string): Promise<LabProfile | null> {
   return data.profile;
 }
 
-export default async function LabPublicPage({ params }: { params: { id: string } }) {
-  const lab = await getLab(params.id);
+export default async function LabPublicPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const lab = await getLab(id);
   if (!lab) notFound();
 
   return (
