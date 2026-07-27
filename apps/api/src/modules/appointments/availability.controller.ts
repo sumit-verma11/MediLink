@@ -3,6 +3,7 @@ import { AvailabilityRule } from '../../models/AvailabilityRule';
 import { BlockedDate } from '../../models/BlockedDate';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { AppError } from '../../lib/errors';
+import { generateSlotsForDoctor } from './slotService';
 
 async function requireDoctorProfileId(userId: string): Promise<string> {
   const profile = await DoctorProfile.findOne({ userId });
@@ -67,6 +68,16 @@ export async function deleteBlockedDate(req: Request, res: Response, next: NextF
     const result = await BlockedDate.findOneAndDelete({ _id: req.params.id, doctorId });
     if (!result) throw new AppError(404, 'Blocked date not found', 'BLOCKED_DATE_NOT_FOUND');
     res.status(200).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getDoctorSlots(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const days = Math.min(30, Math.max(1, Number(req.query.days ?? 14)));
+    const slots = await generateSlotsForDoctor(req.params.id!, new Date(), days);
+    res.status(200).json({ slots });
   } catch (err) {
     next(err);
   }

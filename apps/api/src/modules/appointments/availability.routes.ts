@@ -5,6 +5,7 @@ import { validate } from '../../middleware/validate';
 import {
   listAvailabilityRules, createAvailabilityRule, deleteAvailabilityRule,
   listBlockedDates, createBlockedDate, deleteBlockedDate,
+  getDoctorSlots,
 } from './availability.controller';
 
 export const availabilityRouter = Router();
@@ -16,3 +17,6 @@ availabilityRouter.delete('/availability-rules/:id', deleteAvailabilityRule);
 availabilityRouter.get('/blocked-dates', listBlockedDates);
 availabilityRouter.post('/blocked-dates', validate(BlockedDateInput), createBlockedDate);
 availabilityRouter.delete('/blocked-dates/:id', deleteBlockedDate);
+
+export const doctorSlotsRouter = Router();
+doctorSlotsRouter.get('/:id/slots', requireAuth, getDoctorSlots);

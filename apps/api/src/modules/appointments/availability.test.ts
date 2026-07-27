@@ -7,6 +7,7 @@ import type { Express } from 'express';
 import { createApp } from '../../app';
 import { setRedisClient } from '../../lib/redis';
 import { DoctorProfile } from '../../models/DoctorProfile';
+import { AvailabilityRule } from '../../models/AvailabilityRule';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -110,5 +111,36 @@ describe('blocked dates CRUD', () => {
 
     const listRes = await request(app).get('/api/doctors/me/blocked-dates').set('Cookie', cookies);
     expect(listRes.body.items).toHaveLength(1);
+  });
+});
+
+describe('GET /api/doctors/:id/slots', () => {
+  it('returns generated slots for a patient-authenticated request', async () => {
+    const app = createApp();
+    const docCookies = await registerAndLogin(app, 'doctor', 'slotsdoc@medlink.demo');
+    await request(app).put('/api/doctors/me').set('Cookie', docCookies).send({
+      specialties: ['Dermatology'], qualifications: ['MBBS'], regNo: 'DMC/R/00001',
+      experienceYears: 5, bio: 'bio', clinicName: 'Clinic', clinicAddress: 'Addr',
+      city: 'Noida', geo: { lat: 1, lng: 1 }, consultationFee: 500, languages: ['English'],
+    });
+    const doctorProfile = await DoctorProfile.findOne({});
+    await AvailabilityRule.create({
+      doctorId: doctorProfile!._id, dayOfWeek: new Date().getUTCDay(), startTime: '00:00', endTime: '23:00', slotMinutes: 60,
+      validFrom: new Date('2020-01-01'), validTo: new Date('2030-12-31'),
+    });
+
+    const patientCookies = await registerAndLogin(app, 'patient', 'slotspatient@medlink.demo');
+    const res = await request(app)
+      .get(`/api/doctors/${doctorProfile!._id}/slots?days=1`)
+      .set('Cookie', patientCookies);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.slots)).toBe(true);
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/doctors/000000000000000000000000/slots');
+    expect(res.status).toBe(401);
   });
 });
