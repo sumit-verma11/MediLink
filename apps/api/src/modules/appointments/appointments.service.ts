@@ -5,6 +5,8 @@ import { logAudit } from '../audit/audit.service';
 import { acquireSlotLock, releaseSlotLock } from './slotLock';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { emitAppointmentUpdate } from '../../lib/socket';
+import { sendAppointmentEmail } from '../../lib/mailer';
+import { User } from '../../models/User';
 import type { CreateAppointmentInput } from '@medlink/shared';
 
 export async function createAppointment(patientId: string, input: CreateAppointmentInput): Promise<IAppointment> {
@@ -54,6 +56,14 @@ export async function createAppointment(patientId: string, input: CreateAppointm
   if (doctorProfile) emitAppointmentUpdate(doctorProfile.userId.toString(), appointment);
   emitAppointmentUpdate(patientId, appointment);
 
+  const patientUser = await User.findById(patientId);
+  if (patientUser) {
+    await sendAppointmentEmail(patientUser.email, 'requested', {
+      doctorName: doctorProfile?.clinicName ?? 'the doctor',
+      slotStart: appointment.slotStart.toISOString(),
+    });
+  }
+
   return appointment;
 }
 
@@ -89,6 +99,15 @@ export async function confirmAppointment(appointmentId: string, doctorUserId: st
   // doctorProfile via userId), so no DoctorProfile.userId re-lookup is needed for this side.
   emitAppointmentUpdate(doctorUserId, updated!);
   emitAppointmentUpdate(updated!.patientId.toString(), updated!);
+
+  const patientUser = await User.findById(updated!.patientId);
+  if (patientUser) {
+    await sendAppointmentEmail(patientUser.email, 'confirmed', {
+      doctorName: doctorProfile.clinicName,
+      slotStart: updated!.slotStart.toISOString(),
+    });
+  }
+
   return updated!;
 }
 
@@ -109,6 +128,16 @@ export async function rejectAppointment(appointmentId: string, doctorUserId: str
   // no DoctorProfile.userId re-lookup is needed for this side.
   emitAppointmentUpdate(doctorUserId, updated!);
   emitAppointmentUpdate(updated!.patientId.toString(), updated!);
+
+  const patientUser = await User.findById(updated!.patientId);
+  if (patientUser) {
+    await sendAppointmentEmail(patientUser.email, 'rejected', {
+      doctorName: doctorProfile.clinicName,
+      slotStart: updated!.slotStart.toISOString(),
+      reason,
+    });
+  }
+
   return updated!;
 }
 
