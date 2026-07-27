@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -7,6 +8,7 @@ import { logger } from './lib/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
 import { patientsRouter } from './modules/patients/patients.routes';
+import { doctorsRouter } from './modules/doctors/doctors.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -18,8 +20,11 @@ export function createApp(): Express {
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
   app.use('/api/auth', authRouter);
   app.use('/api/patients', patientsRouter);
+  app.use('/api/doctors', doctorsRouter);
 
   app.use(errorHandler);
   return app;
