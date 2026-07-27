@@ -27,8 +27,13 @@ export async function runReminderScan(): Promise<number> {
     ]);
     if (!patient) continue;
 
+    // The patient booked a person, not a clinic — the reminder must name the doctor.
+    const doctorUser = doctorProfile ? await User.findById(doctorProfile.userId) : null;
+
+    // Awaited on purpose: this runs on a background cron tick, not a request path, and
+    // sentCount is only meaningful if the send attempt has actually completed.
     await sendAppointmentEmail(patient.email, 'reminder', {
-      doctorName: doctorProfile?.clinicName ?? 'your doctor',
+      doctorName: doctorUser?.name ?? 'your doctor',
       slotStart: appointment.slotStart.toISOString(),
     });
     appointment.reminderSentAt = new Date();

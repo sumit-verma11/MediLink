@@ -35,4 +35,17 @@ describe('sendAppointmentEmail', () => {
     const sent = nodemailer.mock.getSentMail();
     expect(sent[0]!.subject).not.toBe(sent[1]!.subject);
   });
+
+  it('sends a doctor-addressed "new_request" email naming the patient and slot', async () => {
+    await sendAppointmentEmail('doctor@medlink.demo', 'new_request', {
+      patientName: 'Rahul Prakash', slotStart: '2026-08-05T18:00:00.000Z',
+    });
+
+    const sent = nodemailer.mock.getSentMail();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe('doctor@medlink.demo');
+    expect(sent[0]!.subject).toBe('New appointment request from a patient');
+    expect(sent[0]!.text).toContain('Rahul Prakash');
+    expect(sent[0]!.text).toContain('2026-08-05T18:00:00.000Z');
+  });
 });

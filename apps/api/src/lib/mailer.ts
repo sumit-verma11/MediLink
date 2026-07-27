@@ -1,9 +1,16 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
 
-type Template = 'requested' | 'confirmed' | 'rejected' | 'reminder';
+type Template = 'requested' | 'confirmed' | 'rejected' | 'reminder' | 'new_request';
 
 function transporter() {
+  // Without configured SMTP credentials there is nothing to authenticate with, and the
+  // real Gmail transport would still open a socket and stall for seconds before failing.
+  // jsonTransport serialises the message in-process with zero network I/O, which keeps
+  // local dev usable without Gmail credentials and keeps the test suite off the network.
+  if (!process.env.SMTP_USER) {
+    return nodemailer.createTransport({ jsonTransport: true });
+  }
   return nodemailer.createTransport({
     service: 'gmail',
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
@@ -21,6 +28,9 @@ function subjectFor(template: Template, data: Record<string, unknown>): string {
       return `Appointment request declined by ${doctorName}`;
     case 'reminder':
       return `Reminder: appointment with ${doctorName} tomorrow`;
+    // The only doctor-addressed template: every other template is phrased for the patient.
+    case 'new_request':
+      return 'New appointment request from a patient';
   }
 }
 
@@ -36,6 +46,8 @@ function bodyFor(template: Template, data: Record<string, unknown>): string {
       return `Your appointment request with ${doctorName} for ${slotStart} was declined. Reason: ${String(data.reason ?? 'not specified')}.`;
     case 'reminder':
       return `This is a reminder of your appointment with ${doctorName} tomorrow at ${slotStart}.`;
+    case 'new_request':
+      return `${String(data.patientName ?? 'A patient')} has requested an appointment with you for ${slotStart}. Open your MedLink dashboard to confirm or decline it.`;
   }
 }
 
