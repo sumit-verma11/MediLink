@@ -4,6 +4,7 @@ import { DoctorProfile } from '../../models/DoctorProfile';
 import { LabProfile } from '../../models/LabProfile';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
+import { toPositiveInt } from '../../lib/pagination';
 
 // DoctorProfile and LabProfile are both Mongoose models but differ on most fields; a
 // union of the two model types breaks overload resolution for find/findByIdAndUpdate.
@@ -23,8 +24,10 @@ export async function listVerifications(req: Request, res: Response, next: NextF
   try {
     const role = String(req.query.role ?? 'doctor');
     const status = String(req.query.status ?? 'pending');
-    const page = Math.max(1, Number(req.query.page ?? 1));
-    const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+    // Same NaN guard as listMyAppointments: a malformed ?page=abc must be a clean
+    // fallback to the default, not a 500 out of Mongoose's .skip().
+    const page = toPositiveInt(req.query.page, 1);
+    const limit = Math.min(50, toPositiveInt(req.query.limit, 20));
     const Model = modelForRole(role);
 
     const [items, total] = await Promise.all([

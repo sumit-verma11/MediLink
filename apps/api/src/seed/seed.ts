@@ -92,7 +92,10 @@ export async function runSeed(): Promise<void> {
       for (const rule of rules) {
         await AvailabilityRule.create({
           doctorId: profile._id, ...rule,
-          validFrom: new Date('2026-01-01'), validTo: new Date('2026-12-31'),
+          // Relative to seed time (±1 year) rather than a hardcoded calendar year, so
+          // the demo's slot generation never silently goes dark on a fixed date.
+          validFrom: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+          validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         });
       }
     }

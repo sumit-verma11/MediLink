@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createAppointment, confirmAppointment, rejectAppointment, cancelAppointment } from './appointments.service';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { Appointment } from '../../models/Appointment';
+import { toPositiveInt } from '../../lib/pagination';
 
 export async function createAppointmentHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -41,8 +42,10 @@ export async function cancelAppointmentHandler(req: Request, res: Response, next
 
 export async function listMyAppointments(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const page = Math.max(1, Number(req.query.page ?? 1));
-    const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+    // Number('abc') is NaN, and NaN survives Math.max/min — it would then reach
+    // .skip()/.limit() and blow up as a 500. Fall back to the default instead.
+    const page = toPositiveInt(req.query.page, 1);
+    const limit = Math.min(50, toPositiveInt(req.query.limit, 20));
 
     const filter: Record<string, unknown> = {};
     if (req.query.status) filter.status = req.query.status;
