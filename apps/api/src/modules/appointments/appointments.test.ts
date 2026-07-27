@@ -175,3 +175,55 @@ describe('PATCH /api/appointments/:id/confirm and /reject', () => {
     expect(rebookRes.status).toBe(201);
   });
 });
+
+describe('PATCH /api/appointments/:id/cancel', () => {
+  it('lets the owning patient cancel more than 2 hours before the slot', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'cancelpatient1@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=7`).set('Cookie', patientCookies);
+    // pick a slot far enough in the future to be outside the 2h cutoff
+    const farSlot = slotsRes.body.slots.find((s: { start: string }) => new Date(s.start).getTime() - Date.now() > 3 * 60 * 60 * 1000);
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: farSlot.start, slotEnd: farSlot.end,
+    });
+
+    const cancelRes = await request(app)
+      .patch(`/api/appointments/${bookRes.body.appointment._id}/cancel`)
+      .set('Cookie', patientCookies);
+    expect(cancelRes.status).toBe(200);
+    expect(cancelRes.body.appointment.status).toBe('cancelled');
+  });
+
+  it('rejects a cancellation within the 2-hour cutoff', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'cancelpatient2@medlink.demo');
+    const nearSlotStart = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: nearSlotStart, slotEnd: new Date(nearSlotStart.getTime() + 15 * 60 * 1000),
+    });
+
+    const cancelRes = await request(app)
+      .patch(`/api/appointments/${bookRes.body.appointment._id}/cancel`)
+      .set('Cookie', patientCookies);
+    expect(cancelRes.status).toBe(400);
+  });
+
+  it('rejects a different patient cancelling', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'cancelpatient3@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=7`).set('Cookie', patientCookies);
+    const farSlot = slotsRes.body.slots.find((s: { start: string }) => new Date(s.start).getTime() - Date.now() > 3 * 60 * 60 * 1000);
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: farSlot.start, slotEnd: farSlot.end,
+    });
+
+    const otherPatientCookies = await registerAndLogin(app, 'patient', 'notowner@medlink.demo');
+    const res = await request(app)
+      .patch(`/api/appointments/${bookRes.body.appointment._id}/cancel`)
+      .set('Cookie', otherPatientCookies);
+    expect(res.status).toBe(404);
+  });
+});

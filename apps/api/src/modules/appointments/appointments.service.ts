@@ -96,3 +96,22 @@ export async function rejectAppointment(appointmentId: string, doctorUserId: str
   });
   return updated!;
 }
+
+const CANCEL_CUTOFF_MS = 2 * 60 * 60 * 1000;
+
+export async function cancelAppointment(appointmentId: string, patientUserId: string): Promise<IAppointment> {
+  const appointment = await Appointment.findOne({ _id: appointmentId, patientId: patientUserId });
+  if (!appointment) throw new AppError(404, 'Appointment not found', 'APPOINTMENT_NOT_FOUND');
+
+  if (appointment.slotStart.getTime() - Date.now() < CANCEL_CUTOFF_MS) {
+    throw new AppError(400, 'Cannot cancel within 2 hours of the appointment', 'CANCEL_CUTOFF');
+  }
+
+  const updated = await appendTimelineEntry(appointmentId, 'cancelled', patientUserId);
+  await releaseSlotLock(appointment.doctorId.toString(), appointment.slotStart.toISOString());
+  await logAudit({
+    actorId: patientUserId, actorRole: 'patient', action: 'appointment.cancelled',
+    entityType: 'Appointment', entityId: appointmentId,
+  });
+  return updated!;
+}
