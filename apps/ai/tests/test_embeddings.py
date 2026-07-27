@@ -1,6 +1,7 @@
 import json
-import tempfile
 import os
+import tempfile
+
 from app.embeddings import SpecialtyMatcher
 
 
