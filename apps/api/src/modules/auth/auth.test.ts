@@ -72,3 +72,40 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('POST /api/auth/refresh', () => {
+  it('rotates the refresh token and rejects reuse of the old one', async () => {
+    const app = createApp();
+    await request(app).post('/api/auth/register').send({
+      email: 'refresh@medlink.demo', password: 'longenough1', name: 'A', phone: '9999999999', role: 'patient',
+    });
+    const loginRes = await request(app).post('/api/auth/login').send({ email: 'refresh@medlink.demo', password: 'longenough1' });
+    const cookies = loginRes.headers['set-cookie'] as unknown as string[];
+
+    const refreshRes = await request(app).post('/api/auth/refresh').set('Cookie', cookies);
+    expect(refreshRes.status).toBe(200);
+    const newCookies = refreshRes.headers['set-cookie'] as unknown as string[];
+    expect(newCookies.some((c) => c.startsWith('refreshToken='))).toBe(true);
+
+    // reusing the original (now-rotated-out) refresh cookie must fail
+    const reuseRes = await request(app).post('/api/auth/refresh').set('Cookie', cookies);
+    expect(reuseRes.status).toBe(401);
+  });
+});
+
+describe('POST /api/auth/logout', () => {
+  it('blacklists the access token so it can no longer authenticate', async () => {
+    const app = createApp();
+    await request(app).post('/api/auth/register').send({
+      email: 'logout@medlink.demo', password: 'longenough1', name: 'A', phone: '9999999999', role: 'patient',
+    });
+    const loginRes = await request(app).post('/api/auth/login').send({ email: 'logout@medlink.demo', password: 'longenough1' });
+    const cookies = loginRes.headers['set-cookie'] as unknown as string[];
+
+    const logoutRes = await request(app).post('/api/auth/logout').set('Cookie', cookies);
+    expect(logoutRes.status).toBe(200);
+
+    const refreshAfterLogout = await request(app).post('/api/auth/refresh').set('Cookie', cookies);
+    expect(refreshAfterLogout.status).toBe(401);
+  });
+});
