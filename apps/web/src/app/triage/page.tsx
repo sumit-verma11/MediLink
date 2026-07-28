@@ -8,13 +8,19 @@ import type { TriageSession } from '@/store/triageApi';
 export default function TriagePage() {
   const [input, setInput] = useState('');
   const [session, setSession] = useState<TriageSession | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [sendMessage, { isLoading }] = useSendTriageMessageMutation();
 
   async function onSend() {
-    if (!input.trim()) return;
-    const { session: updated } = await sendMessage({ text: input, sessionId: session?._id }).unwrap();
-    setSession(updated);
-    setInput('');
+    if (isLoading || !input.trim()) return;
+    try {
+      const { session: updated } = await sendMessage({ text: input, sessionId: session?._id }).unwrap();
+      setSession(updated);
+      setInput('');
+      setError(null);
+    } catch {
+      setError('Something went wrong — please try again.');
+    }
   }
 
   return (
@@ -44,12 +50,15 @@ export default function TriagePage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSend()}
+              disabled={isLoading}
               placeholder="e.g. itchy red patches on my elbow for 2 weeks"
             />
             <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onSend}>
               Send
             </button>
           </div>
+
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
           {session && session.suggestedSpecialties.length > 0 ? (
             <div className="space-y-2">
