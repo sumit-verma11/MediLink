@@ -90,7 +90,7 @@ export async function sendTriageMessage(
     // picker instead of showing an error.
     session.messages.push({
       role: 'assistant',
-      text: "We're having trouble matching your symptoms automatically right now — please pick a specialty manually below.",
+      text: `We're having trouble matching your symptoms automatically right now — please pick a specialty manually below. ${DISCLAIMER}`,
       at: new Date(),
     });
   }

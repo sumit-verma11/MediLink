@@ -4,6 +4,41 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { sendTriageMessage } from './triage.service';
 import * as aiClientModule from './aiClient';
+import { AIServiceUnavailableError } from './aiClient';
+import { User } from '../../models/User';
+import { DoctorProfile } from '../../models/DoctorProfile';
+
+const DISCLAIMER = 'This is guidance, not medical advice.';
+
+async function createDoctor(opts: {
+  specialties: string[];
+  avgRating: number;
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+}) {
+  const doctorUser = await User.create({
+    role: 'doctor',
+    email: `doc-${Date.now()}-${Math.random()}@medlink.demo`,
+    phone: '9999999999',
+    passwordHash: 'x',
+    name: 'Dr Test',
+  });
+  return DoctorProfile.create({
+    userId: doctorUser._id,
+    specialties: opts.specialties,
+    qualifications: ['MBBS'],
+    regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+    experienceYears: 5,
+    bio: 'b',
+    clinicName: 'C',
+    clinicAddress: 'A',
+    city: 'Noida',
+    geo: { lat: 1, lng: 1 },
+    consultationFee: 500,
+    languages: ['English'],
+    verificationStatus: opts.verificationStatus,
+    avgRating: opts.avgRating,
+  });
+}
 
 let mongod: MongoMemoryServer;
 
@@ -37,6 +72,20 @@ describe('sendTriageMessage', () => {
     expect(session.isRedFlag).toBe(false);
   });
 
+  it('falls through to the first clarifying question when the AI service is down on turn 1 (deliberately mocked)', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    vi.spyOn(aiClientModule, 'callTriageAI').mockRejectedValueOnce(
+      new AIServiceUnavailableError('AI service down')
+    );
+
+    const session = await sendTriageMessage(patientId, undefined, 'itchy red patches on my elbow');
+
+    expect(session.messages).toHaveLength(2);
+    expect(session.messages[1]!.role).toBe('assistant');
+    expect(session.messages[1]!.text.toLowerCase()).toContain('how long');
+    expect(session.isRedFlag).toBe(false);
+  });
+
   it('asks the second clarifying question after the duration answer', async () => {
     const patientId = new mongoose.Types.ObjectId().toString();
     const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
@@ -61,6 +110,58 @@ describe('sendTriageMessage', () => {
     expect(third.suggestedSpecialties).toHaveLength(1);
     expect(third.suggestedSpecialties[0]!.name).toBe('Dermatology');
     expect(third.extractedSymptoms).toContain('itchy red patches');
+  });
+
+  it('degrades gracefully with the disclaimer when the AI service is down on turn 3 (deliberately mocked)', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const spy = vi.spyOn(aiClientModule, 'callTriageAI');
+    // Only two calls happen across the whole conversation: the turn-1
+    // red-flag check, and the turn-3 final match. Turn 2 never calls the AI.
+    spy.mockResolvedValueOnce({
+      emergency: false,
+      extractedSymptoms: [],
+      suggestedSpecialties: [],
+    }); // turn 1 red-flag check: AI reachable, not an emergency
+    spy.mockRejectedValueOnce(new AIServiceUnavailableError('AI service down')); // turn 3
+
+    const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
+    const third = await sendTriageMessage(patientId, second._id.toString(), 'mild');
+
+    expect(third.suggestedSpecialties).toHaveLength(0);
+    const finalMessage = third.messages[third.messages.length - 1]!;
+    expect(finalMessage.role).toBe('assistant');
+    expect(finalMessage.text.toLowerCase()).toContain('pick a specialty manually');
+    expect(finalMessage.text).toContain(DISCLAIMER);
+  });
+
+  it('populates recommendedDoctorIds with only approved, specialty-matching doctors sorted by avgRating desc, capped at 3', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+
+    const matchLow = await createDoctor({ specialties: ['Dermatology'], avgRating: 4.0, verificationStatus: 'approved' });
+    const matchHigh = await createDoctor({ specialties: ['Dermatology'], avgRating: 4.8, verificationStatus: 'approved' });
+    const matchMid = await createDoctor({ specialties: ['Dermatology'], avgRating: 4.5, verificationStatus: 'approved' });
+    const matchLowest = await createDoctor({ specialties: ['Dermatology'], avgRating: 3.9, verificationStatus: 'approved' });
+    await createDoctor({ specialties: ['Dermatology'], avgRating: 4.9, verificationStatus: 'pending' }); // excluded: not approved
+    await createDoctor({ specialties: ['Cardiology'], avgRating: 4.9, verificationStatus: 'approved' }); // excluded: no specialty match
+
+    vi.spyOn(aiClientModule, 'callTriageAI').mockResolvedValue({
+      emergency: false,
+      extractedSymptoms: ['itchy red patches'],
+      suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.87 }],
+    });
+
+    const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
+    const third = await sendTriageMessage(patientId, second._id.toString(), 'mild');
+
+    expect(third.recommendedDoctorIds).toHaveLength(3);
+    expect(third.recommendedDoctorIds.map((id) => id.toString())).toEqual([
+      matchHigh._id.toString(),
+      matchMid._id.toString(),
+      matchLow._id.toString(),
+    ]);
+    expect(third.recommendedDoctorIds.map((id) => id.toString())).not.toContain(matchLowest._id.toString());
   });
 
   it('short-circuits to an emergency response on the very first message, skipping clarifying questions', async () => {
