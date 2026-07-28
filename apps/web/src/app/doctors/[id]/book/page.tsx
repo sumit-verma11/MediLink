@@ -1,11 +1,13 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useGetDoctorSlotsQuery, useCreateAppointmentMutation } from '@/store/appointmentsApi';
 
 export default function BookAppointmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: doctorId } = use(params);
+  const searchParams = useSearchParams();
+  const triageSessionId = searchParams.get('triageSessionId') ?? undefined;
   const { data, isLoading } = useGetDoctorSlotsQuery({ doctorId, days: 14 });
   const [createAppointment, { isLoading: isBooking, error }] = useCreateAppointmentMutation();
   const [selected, setSelected] = useState<{ start: string; end: string } | null>(null);
@@ -14,7 +16,7 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
   async function onBook() {
     if (!selected) return;
     try {
-      await createAppointment({ doctorId, slotStart: selected.start, slotEnd: selected.end }).unwrap();
+      await createAppointment({ doctorId, slotStart: selected.start, slotEnd: selected.end, triageSessionId }).unwrap();
       router.push('/dashboard/patient');
     } catch {
       // A losing race (409) or a slot the server no longer offers (400) rejects here.

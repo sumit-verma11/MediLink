@@ -12,7 +12,7 @@ export const appointmentsApi = baseApi.injectEndpoints({
     getDoctorSlots: builder.query<{ slots: Slot[] }, { doctorId: string; days?: number }>({
       query: ({ doctorId, days = 14 }) => `/doctors/${doctorId}/slots?days=${days}`,
     }),
-    createAppointment: builder.mutation<{ appointment: Appointment }, { doctorId: string; slotStart: string; slotEnd: string }>({
+    createAppointment: builder.mutation<{ appointment: Appointment }, { doctorId: string; slotStart: string; slotEnd: string; triageSessionId?: string }>({
       query: (body) => ({ url: '/appointments', method: 'POST', body }),
       invalidatesTags: ['MyAppointments'],
     }),
