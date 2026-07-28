@@ -472,3 +472,37 @@ describe('POST /api/appointments — triageSessionId ownership', () => {
     expect(res.body.appointment.triageSessionId).toBe(session!._id.toString());
   });
 });
+
+describe('GET /api/appointments/me — doctor sees triage summary', () => {
+  it('includes the linked triage session\'s extracted symptoms for the doctor', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'triagesummary@medlink.demo');
+
+    const triageRes = await request(app).post('/api/triage/messages').set('Cookie', patientCookies).send({ text: 'itchy patches' });
+    await TriageSession.findByIdAndUpdate(triageRes.body.session._id, { extractedSymptoms: ['itchy patches', 'redness'] });
+
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+      triageSessionId: triageRes.body.session._id,
+    });
+
+    const res = await request(app).get('/api/appointments/me').set('Cookie', docCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].triageSummary).toEqual(['itchy patches', 'redness']);
+  });
+
+  it('has a null triageSummary for an appointment with no linked triage session', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'notriagesummary@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+    });
+
+    const res = await request(app).get('/api/appointments/me').set('Cookie', docCookies);
+    expect(res.body.items[0].triageSummary).toBeNull();
+  });
+});

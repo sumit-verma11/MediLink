@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createAppointment, confirmAppointment, rejectAppointment, cancelAppointment } from './appointments.service';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { Appointment } from '../../models/Appointment';
+import { TriageSession } from '../../models/TriageSession';
 import { toPositiveInt } from '../../lib/pagination';
 
 export async function createAppointmentHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -68,7 +69,18 @@ export async function listMyAppointments(req: Request, res: Response, next: Next
       Appointment.countDocuments(filter),
     ]);
 
-    res.status(200).json({ items, total, page, limit });
+    const itemsWithTriageSummary = await Promise.all(
+      items.map(async (item) => {
+        const plain = item.toObject();
+        if (!item.triageSessionId) {
+          return { ...plain, triageSummary: null };
+        }
+        const session = await TriageSession.findById(item.triageSessionId);
+        return { ...plain, triageSummary: session?.extractedSymptoms ?? null };
+      })
+    );
+
+    res.status(200).json({ items: itemsWithTriageSummary, total, page, limit });
   } catch (err) {
     next(err);
   }
