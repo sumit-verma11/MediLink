@@ -4,7 +4,7 @@ export interface Slot { start: string; end: string }
 export interface AppointmentTimelineEntry { status: string; at: string; by: string }
 export interface Appointment {
   _id: string; doctorId: string; patientId: string; slotStart: string; slotEnd: string;
-  status: string; rejectionReason?: string; timeline: AppointmentTimelineEntry[];
+  status: string; rejectionReason?: string; timeline: AppointmentTimelineEntry[]; triageSummary?: string[] | null;
 }
 
 export const appointmentsApi = baseApi.injectEndpoints({
