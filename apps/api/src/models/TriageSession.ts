@@ -8,6 +8,7 @@ export interface ITriageSession {
   suggestedSpecialties: { name: string; confidence: number }[];
   recommendedDoctorIds: Types.ObjectId[];
   disclaimerShownAt?: Date;
+  isRedFlag: boolean;
 }
 
 const triageSessionSchema = new Schema<ITriageSession>({
@@ -29,6 +30,7 @@ const triageSessionSchema = new Schema<ITriageSession>({
   },
   recommendedDoctorIds: { type: [Schema.Types.ObjectId], ref: 'DoctorProfile', default: [] },
   disclaimerShownAt: Date,
+  isRedFlag: { type: Boolean, default: false },
 });
 
 export const TriageSession = model<ITriageSession>('TriageSession', triageSessionSchema);
