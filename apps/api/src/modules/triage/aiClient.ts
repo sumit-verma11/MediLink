@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getRedis } from '../../lib/redis';
+import { logger } from '../../lib/logger';
 
 const CACHE_TTL_SECONDS = 60 * 60; // 1 hour, per CLAUDE.md §2
 
@@ -64,7 +65,18 @@ function recordSuccess(): void {
 
 export async function callTriageAI(text: string): Promise<AITriageResult> {
   const key = cacheKey(text);
-  const cached = await getRedis().get(key);
+
+  // Cache-read errors must never propagate as a raw exception (bypassing
+  // AIServiceUnavailableError) and must never count as an AI-service failure.
+  // Treat any Redis GET failure as a cache miss and fall through to the
+  // normal circuit-breaker-gated fetch path below.
+  let cached: string | null = null;
+  try {
+    cached = await getRedis().get(key);
+  } catch (err) {
+    logger.warn(err, 'triage cache read failed; treating as cache miss');
+  }
+
   if (cached) {
     return JSON.parse(cached) as AITriageResult;
   }
@@ -77,6 +89,7 @@ export async function callTriageAI(text: string): Promise<AITriageResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+  let result: AITriageResult;
   try {
     const response = await fetch(`${baseUrl}/triage`, {
       method: 'POST',
@@ -90,14 +103,8 @@ export async function callTriageAI(text: string): Promise<AITriageResult> {
       throw new AIServiceUnavailableError(`AI service returned ${response.status}`);
     }
 
-    const result = (await response.json()) as AITriageResult;
+    result = (await response.json()) as AITriageResult;
     recordSuccess();
-
-    if (!result.emergency) {
-      await getRedis().set(key, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
-    }
-
-    return result;
   } catch (err) {
     if (err instanceof AIServiceUnavailableError) throw err;
     recordFailure();
@@ -105,4 +112,18 @@ export async function callTriageAI(text: string): Promise<AITriageResult> {
   } finally {
     clearTimeout(timeout);
   }
+
+  // Cache-write is decoupled from the AI-call try/catch above: a Redis SET
+  // failure here must never be mistaken for an AI-service failure (it must
+  // not call recordFailure()/trip the circuit breaker) and must never
+  // prevent the already-successful `result` from being returned.
+  if (!result.emergency) {
+    try {
+      await getRedis().set(key, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+    } catch (err) {
+      logger.warn(err, 'triage cache write failed; returning result uncached');
+    }
+  }
+
+  return result;
 }

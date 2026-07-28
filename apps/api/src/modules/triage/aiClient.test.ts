@@ -88,4 +88,49 @@ describe('callTriageAI Redis caching', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('treats a Redis GET failure as a cache miss and still returns a valid result from fetch (no raw error propagation)', async () => {
+    vi.spyOn(getRedis(), 'get').mockRejectedValueOnce(new Error('ECONNRESET'));
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ emergency: false, extractedSymptoms: [], suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.9 }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await callTriageAI('a cache-read-failure case');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.emergency).toBe(false);
+    expect(result.suggestedSpecialties[0]?.name).toBe('Dermatology');
+  });
+
+  it('does not let a Redis SET failure after a successful fetch discard the result or count as a circuit-breaker failure', async () => {
+    vi.spyOn(getRedis(), 'set').mockRejectedValueOnce(new Error('WRITE ECONNRESET'));
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ emergency: false, extractedSymptoms: [], suggestedSpecialties: [{ name: 'Cardiology', confidence: 0.8 }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await callTriageAI('a cache-write-failure case');
+
+    expect(result.emergency).toBe(false);
+    expect(result.suggestedSpecialties[0]?.name).toBe('Cardiology');
+
+    // Prove the circuit breaker's failure count was NOT incremented by the
+    // cache-write error: a subsequent call for different text must still go
+    // through the normal fetch path (not fail-fast, which would happen if
+    // the circuit had tripped open from spurious cache-write "failures").
+    const fetchMock2 = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ emergency: false, extractedSymptoms: [], suggestedSpecialties: [{ name: 'Neurology', confidence: 0.7 }] }),
+    });
+    global.fetch = fetchMock2 as unknown as typeof fetch;
+
+    const result2 = await callTriageAI('a different case entirely');
+    expect(fetchMock2).toHaveBeenCalledTimes(1);
+    expect(result2.suggestedSpecialties[0]?.name).toBe('Neurology');
+  });
 });
