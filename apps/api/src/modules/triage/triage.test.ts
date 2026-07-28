@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import type { Express } from 'express';
+import { createApp } from '../../app';
 import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { sendTriageMessage } from './triage.service';
 import * as aiClientModule from './aiClient';
@@ -8,7 +11,16 @@ import { AIServiceUnavailableError } from './aiClient';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
 
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
+
 const DISCLAIMER = 'This is guidance, not medical advice.';
+
+async function registerAndLogin(app: Express, role: string, email: string) {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'A', phone: '9999999999', role });
+  const res = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  return res.headers['set-cookie'] as unknown as string[];
+}
 
 async function createDoctor(opts: {
   specialties: string[];
@@ -186,5 +198,46 @@ describe('sendTriageMessage', () => {
     const first = await sendTriageMessage(patientId, undefined, 'itchy patches');
 
     await expect(sendTriageMessage(otherPatientId, first._id.toString(), '2 weeks')).rejects.toThrow();
+  });
+});
+
+describe('POST /api/triage/messages', () => {
+  it('starts a new session for an authenticated patient', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'patient', 'triagepatient@medlink.demo');
+    const res = await request(app).post('/api/triage/messages').set('Cookie', cookies).send({ text: 'itchy red patches' });
+    expect(res.status).toBe(201);
+    expect(res.body.session.messages).toHaveLength(2);
+  });
+
+  it('rejects a doctor posting a triage message', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'doctor', 'triagedoc@medlink.demo');
+    const res = await request(app).post('/api/triage/messages').set('Cookie', cookies).send({ text: 'test' });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/triage/:id', () => {
+  it('lets the owning patient fetch their session', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'patient', 'triagepatient2@medlink.demo');
+    const createRes = await request(app).post('/api/triage/messages').set('Cookie', cookies).send({ text: 'itchy patches' });
+    const sessionId = createRes.body.session._id;
+
+    const res = await request(app).get(`/api/triage/${sessionId}`).set('Cookie', cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.session._id).toBe(sessionId);
+  });
+
+  it('rejects a different patient reading someone else\'s session', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'patient', 'triagepatient3@medlink.demo');
+    const createRes = await request(app).post('/api/triage/messages').set('Cookie', cookies).send({ text: 'itchy patches' });
+    const sessionId = createRes.body.session._id;
+
+    const otherCookies = await registerAndLogin(app, 'patient', 'triagepatient4@medlink.demo');
+    const res = await request(app).get(`/api/triage/${sessionId}`).set('Cookie', otherCookies);
+    expect(res.status).toBe(404);
   });
 });
