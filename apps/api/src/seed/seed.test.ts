@@ -7,6 +7,7 @@ import { DoctorProfile } from '../models/DoctorProfile';
 import { LabProfile } from '../models/LabProfile';
 import { Appointment } from '../models/Appointment';
 import { AvailabilityRule } from '../models/AvailabilityRule';
+import { TriageSession } from '../models/TriageSession';
 
 let mongod: MongoMemoryServer;
 
@@ -68,5 +69,20 @@ describe('runSeed — Phase 2 slice', () => {
     expect(counts.rejected).toBe(1);
     expect(counts.cancelled).toBe(1);
     expect(counts.no_show).toBe(1);
+  });
+});
+
+describe('runSeed — Phase 3 slice', () => {
+  it('seeds exactly 4 triage sessions, one of which is a red-flag case, and links at least 2 to completed appointments', async () => {
+    await runSeed();
+
+    const sessions = await TriageSession.find({});
+    expect(sessions).toHaveLength(4);
+
+    const redFlagSessions = sessions.filter((s) => s.isRedFlag);
+    expect(redFlagSessions).toHaveLength(1);
+
+    const linkedCount = await Appointment.countDocuments({ triageSessionId: { $ne: null } });
+    expect(linkedCount).toBeGreaterThanOrEqual(2);
   });
 });
