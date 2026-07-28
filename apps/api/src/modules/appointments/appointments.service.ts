@@ -8,6 +8,7 @@ import { DoctorProfile } from '../../models/DoctorProfile';
 import { emitAppointmentUpdate } from '../../lib/socket';
 import { sendAppointmentEmail } from '../../lib/mailer';
 import { User } from '../../models/User';
+import { TriageSession } from '../../models/TriageSession';
 import type { CreateAppointmentInput } from '@medlink/shared';
 
 export async function createAppointment(patientId: string, input: CreateAppointmentInput): Promise<IAppointment> {
@@ -17,6 +18,18 @@ export async function createAppointment(patientId: string, input: CreateAppointm
   const doctorProfile = await DoctorProfile.findById(input.doctorId);
   if (!doctorProfile || doctorProfile.verificationStatus !== 'approved') {
     throw new AppError(404, 'Doctor not found', 'DOCTOR_NOT_FOUND');
+  }
+
+  // A triageSessionId is client-supplied and otherwise trusted blindly (M-12): without
+  // this ownership check, Patient A could pass Patient B's session id and it would be
+  // silently linked, corrupting the provenance a doctor later relies on when reading the
+  // symptom summary off the appointment. Checked here — before the slot lock — so a bad
+  // id fails fast without ever touching Redis.
+  if (input.triageSessionId) {
+    const session = await TriageSession.findOne({ _id: input.triageSessionId, patientId });
+    if (!session) {
+      throw new AppError(403, 'Triage session does not belong to this patient', 'TRIAGE_SESSION_FORBIDDEN');
+    }
   }
 
   // generateSlotsForDoctor already subtracts blocked dates, already-booked slots and

@@ -7,6 +7,7 @@ import { createApp } from '../../app';
 import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { AvailabilityRule } from '../../models/AvailabilityRule';
 import { DoctorProfile } from '../../models/DoctorProfile';
+import { TriageSession } from '../../models/TriageSession';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -424,5 +425,50 @@ describe('GET /api/appointments/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].status).toBe('requested');
+  });
+});
+
+describe('POST /api/appointments — triageSessionId ownership', () => {
+  it('rejects a triageSessionId that belongs to a different patient', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const otherPatientCookies = await registerAndLogin(app, 'patient', 'otherpatient@medlink.demo');
+    const otherPatientRes = await request(app).post('/api/auth/login').send({ email: 'otherpatient@medlink.demo', password: 'longenough1' });
+    const otherPatientId = (await request(app).get('/api/patients/me').set('Cookie', otherPatientCookies)).body; // not directly used; session created below instead
+
+    const foreignSession = await TriageSession.create({ patientId: new mongoose.Types.ObjectId() });
+
+    const patientCookies = await registerAndLogin(app, 'patient', 'triageowner@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+      triageSessionId: foreignSession._id.toString(),
+    });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('accepts a triageSessionId that belongs to the booking patient and copies its symptom summary', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'triageowner2@medlink.demo');
+    const loginRes = await request(app).post('/api/auth/login').send({ email: 'triageowner2@medlink.demo', password: 'longenough1' });
+    void loginRes;
+
+    const meResponse = await request(app).post('/api/triage/messages').set('Cookie', patientCookies).send({ text: 'itchy patches' });
+    const session = await TriageSession.findByIdAndUpdate(
+      meResponse.body.session._id,
+      { extractedSymptoms: ['itchy patches on elbow'] },
+      { new: true }
+    );
+
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+      triageSessionId: session!._id.toString(),
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.appointment.triageSessionId).toBe(session!._id.toString());
   });
 });
