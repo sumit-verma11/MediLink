@@ -1,3 +1,14 @@
+import crypto from 'node:crypto';
+import { getRedis } from '../../lib/redis';
+
+const CACHE_TTL_SECONDS = 60 * 60; // 1 hour, per CLAUDE.md §2
+
+function cacheKey(text: string): string {
+  const normalized = text.trim().toLowerCase();
+  const hash = crypto.createHash('sha256').update(normalized).digest('hex');
+  return `triage:${hash}`;
+}
+
 export interface AISpecialtySuggestion {
   name: string;
   confidence: number;
@@ -52,6 +63,12 @@ function recordSuccess(): void {
 }
 
 export async function callTriageAI(text: string): Promise<AITriageResult> {
+  const key = cacheKey(text);
+  const cached = await getRedis().get(key);
+  if (cached) {
+    return JSON.parse(cached) as AITriageResult;
+  }
+
   if (isCircuitOpen()) {
     throw new AIServiceUnavailableError('AI service circuit is open');
   }
@@ -75,6 +92,11 @@ export async function callTriageAI(text: string): Promise<AITriageResult> {
 
     const result = (await response.json()) as AITriageResult;
     recordSuccess();
+
+    if (!result.emergency) {
+      await getRedis().set(key, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+    }
+
     return result;
   } catch (err) {
     if (err instanceof AIServiceUnavailableError) throw err;

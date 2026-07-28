@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import RedisMock from 'ioredis-mock';
 import { callTriageAI, AIServiceUnavailableError, resetCircuitBreaker } from './aiClient';
+import { setRedisClient, getRedis } from '../../lib/redis';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
 
 const originalFetch = global.fetch;
 
-beforeEach(() => {
+beforeEach(async () => {
+  // callTriageAI now checks Redis before every call (Task 9), so every test in
+  // this file needs a fresh mock Redis wired in — not just the caching-specific
+  // describe block below — otherwise these calls fall through to `getRedis()`'s
+  // default real ioredis client and hang trying to reach localhost:6379.
+  await resetTestRedis();
   resetCircuitBreaker();
 });
 afterEach(() => {
@@ -45,5 +53,39 @@ describe('callTriageAI', () => {
     // The circuit should now be open: one more failing attempt should NOT have
     // triggered another real fetch call.
     expect(callCountAfterOneMore).toBe(callCountBeforeOpen);
+  });
+});
+
+describe('callTriageAI Redis caching', () => {
+  beforeEach(async () => {
+    setRedisClient(new RedisMock());
+    await getRedis().flushall();
+    resetCircuitBreaker();
+  });
+
+  it('caches a successful AI response and does not re-call fetch for the same normalized text', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ emergency: false, extractedSymptoms: [], suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.9 }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await callTriageAI('Itchy Red Patches');
+    await callTriageAI('itchy red patches'); // same text, different case/whitespace normalization
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cache an emergency response (never skip red-flag re-evaluation on a cache hit)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ emergency: true, message: 'Seek care', extractedSymptoms: [], suggestedSpecialties: [] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await callTriageAI('chest pain');
+    await callTriageAI('chest pain');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
