@@ -174,6 +174,52 @@ describe('sendTriageMessage', () => {
     expect(third.recommendedDoctorIds.map((id) => id.toString())).not.toContain(matchLowest._id.toString());
   });
 
+  it('tiers recommendations by specialty confidence, not by pooling all specialties and sorting by rating alone (I2)', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+
+    // A single, lower-rated doctor in the AI's TOP-confidence specialty.
+    const topSpecialtyDoctor = await createDoctor({
+      specialties: ['Dermatology'],
+      avgRating: 4.0,
+      verificationStatus: 'approved',
+    });
+    // Two higher-rated doctors in a LOWER-confidence specialty. Under the old
+    // flat-pool-then-sort-by-rating approach these would both outrank
+    // topSpecialtyDoctor and fill the top slots ahead of it.
+    const lowerSpecialtyDoctorHigh = await createDoctor({
+      specialties: ['Cardiology'],
+      avgRating: 4.9,
+      verificationStatus: 'approved',
+    });
+    const lowerSpecialtyDoctorMid = await createDoctor({
+      specialties: ['Cardiology'],
+      avgRating: 4.8,
+      verificationStatus: 'approved',
+    });
+
+    vi.spyOn(aiClientModule, 'callTriageAI').mockResolvedValue({
+      emergency: false,
+      extractedSymptoms: ['itchy red patches'],
+      suggestedSpecialties: [
+        { name: 'Dermatology', confidence: 0.9 },
+        { name: 'Cardiology', confidence: 0.5 },
+      ],
+    });
+
+    const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
+    const third = await sendTriageMessage(patientId, second._id.toString(), 'mild');
+
+    // Tiered order: the top-confidence specialty's doctor(s) come first,
+    // exhausted before the next specialty's doctors are considered at all —
+    // even though both Cardiology doctors have a higher avgRating.
+    expect(third.recommendedDoctorIds.map((id) => id.toString())).toEqual([
+      topSpecialtyDoctor._id.toString(),
+      lowerSpecialtyDoctorHigh._id.toString(),
+      lowerSpecialtyDoctorMid._id.toString(),
+    ]);
+  });
+
   it('short-circuits to an emergency response on the very first message, skipping clarifying questions and the AI entirely', async () => {
     const patientId = new mongoose.Types.ObjectId().toString();
     const spy = vi.spyOn(aiClientModule, 'callTriageAI');

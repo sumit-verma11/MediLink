@@ -8,14 +8,38 @@ import { checkRedFlagLocally } from './redFlags';
 const DISCLAIMER = 'This is guidance, not medical advice.';
 const EMERGENCY_MESSAGE = 'This may be a medical emergency. Seek emergency care immediately or call 112.';
 
-async function findRecommendedDoctors(specialtyNames: string[]): Promise<Types.ObjectId[]> {
-  const doctors = await DoctorProfile.find({
-    specialties: { $in: specialtyNames },
-    verificationStatus: 'approved',
-  })
-    .sort({ avgRating: -1 })
-    .limit(3);
-  return doctors.map((d) => d._id);
+async function findRecommendedDoctors(
+  suggestedSpecialties: { name: string; confidence: number }[]
+): Promise<Types.ObjectId[]> {
+  // Fill the 3 recommendation slots specialty-by-specialty in confidence
+  // order: exhaust the AI's most-confident specialty's approved doctors
+  // (sorted by rating) before considering the next specialty. This prevents
+  // a highly-rated doctor in the AI's third-most-confident specialty from
+  // outranking a lower-rated doctor in its top specialty, which is what a
+  // flat pool-then-sort-by-rating query would do.
+  const orderedByConfidence = [...suggestedSpecialties].sort((a, b) => b.confidence - a.confidence);
+  const recommended: Types.ObjectId[] = [];
+  const alreadyPicked = new Set<string>();
+
+  for (const specialty of orderedByConfidence) {
+    const remainingSlots = 3 - recommended.length;
+    if (remainingSlots <= 0) break;
+
+    const doctors = await DoctorProfile.find({
+      specialties: specialty.name,
+      verificationStatus: 'approved',
+      _id: { $nin: [...alreadyPicked] },
+    })
+      .sort({ avgRating: -1 })
+      .limit(remainingSlots);
+
+    for (const doctor of doctors) {
+      recommended.push(doctor._id);
+      alreadyPicked.add(doctor._id.toString());
+    }
+  }
+
+  return recommended;
 }
 
 function pushAssistantMessage(
@@ -97,7 +121,7 @@ export async function sendTriageMessage(
     const aiResult = await callTriageAI(combinedText);
     session.extractedSymptoms = aiResult.extractedSymptoms;
     session.suggestedSpecialties = aiResult.suggestedSpecialties;
-    session.recommendedDoctorIds = await findRecommendedDoctors(aiResult.suggestedSpecialties.map((s) => s.name));
+    session.recommendedDoctorIds = await findRecommendedDoctors(aiResult.suggestedSpecialties);
     pushAssistantMessage(
       session,
       `Based on what you've described, you may want to see: ${aiResult.suggestedSpecialties.map((s) => s.name).join(', ')}.`

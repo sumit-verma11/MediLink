@@ -42,7 +42,15 @@ export async function uploadVerificationDocs(req: Request, res: Response, next: 
 
 export async function getPublicProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const profile = await DoctorProfile.findOne({ _id: req.params.id, verificationStatus: 'approved' });
+    // The doctor's name lives on the linked User document, not on
+    // DoctorProfile itself. Populate it here (rather than making every
+    // consumer do a second lookup) so the public profile response is
+    // self-contained for frontend display (e.g. the triage recommendation
+    // cards, which need the doctor's name alongside specialty/fee/rating).
+    const profile = await DoctorProfile.findOne({ _id: req.params.id, verificationStatus: 'approved' }).populate(
+      'userId',
+      'name avatarUrl'
+    );
     if (!profile) throw new AppError(404, 'Doctor not found', 'DOCTOR_NOT_FOUND');
     res.status(200).json({ profile });
   } catch (err) {

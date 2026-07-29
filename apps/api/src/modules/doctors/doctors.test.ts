@@ -79,6 +79,10 @@ describe('GET /api/doctors/public/:id', () => {
     const res = await request(app).get(`/api/doctors/public/${putRes.body.profile._id}`);
     expect(res.status).toBe(200);
     expect(res.body.profile.clinicName).toBe('Skin Clinic');
+    // The doctor's display name lives on the linked User doc; the public
+    // profile response must populate it so frontend consumers (e.g. the
+    // triage recommendation cards) don't need a second lookup.
+    expect(res.body.profile.userId.name).toBe('Dr A');
   });
 });
 
