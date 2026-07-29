@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { Prescription, IPrescription } from '../../models/Prescription';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -21,6 +20,20 @@ export async function createPrescription(
     throw new AppError(409, 'Prescriptions can only be written for confirmed appointments', 'INVALID_APPOINTMENT_STATUS');
   }
 
+  // Atomically claim the confirmed->completed transition BEFORE creating the
+  // prescription document. The status guard folded into the filter ensures
+  // at most one concurrent caller can win this -- a second caller (or a
+  // patient cancelling concurrently) sees a null result and this function
+  // errors out instead of silently creating an orphaned Prescription for an
+  // appointment that never actually completed.
+  const updatedAppointment = await appendTimelineEntry(appointment._id.toString(), 'completed', doctorUserId, {}, {
+    doctorId: doctorProfile._id,
+    status: 'confirmed',
+  });
+  if (!updatedAppointment) {
+    throw new AppError(409, 'This appointment is no longer confirmed', 'APPOINTMENT_STATE_CHANGED');
+  }
+
   const prescription = await Prescription.create({
     appointmentId: appointment._id,
     doctorId: doctorProfile._id,
@@ -32,17 +45,8 @@ export async function createPrescription(
     recommendedTests: input.recommendedTests ?? [],
   });
 
-  // Auto-transition the appointment to 'completed', reusing Phase 2's atomic
-  // status-guard helper (single findOneAndUpdate with the guard folded into
-  // the filter) rather than a bare save/$set.
-  const updatedAppointment = await appendTimelineEntry(appointment._id.toString(), 'completed', doctorUserId, {}, {
-    doctorId: doctorProfile._id,
-    status: 'confirmed',
-  });
-  if (updatedAppointment) {
-    emitAppointmentUpdate(doctorUserId, updatedAppointment);
-    emitAppointmentUpdate(updatedAppointment.patientId.toString(), updatedAppointment);
-  }
+  emitAppointmentUpdate(doctorUserId, updatedAppointment);
+  emitAppointmentUpdate(updatedAppointment.patientId.toString(), updatedAppointment);
 
   await logAudit({
     actorId: doctorUserId, actorRole: 'doctor', action: 'prescription.created',
@@ -79,8 +83,22 @@ export async function amendPrescription(
     version: original.version + 1,
   });
 
-  original.supersededBy = amended._id;
-  await original.save();
+  // Atomically claim the "not yet superseded" slot on the original -- the
+  // filter's `supersededBy: { $exists: false }` guard means at most one
+  // concurrent amend call can win this update, even though the v2 document
+  // above was already created optimistically.
+  const linked = await Prescription.findOneAndUpdate(
+    { _id: original._id, doctorId: doctorProfile._id, supersededBy: { $exists: false } },
+    { $set: { supersededBy: amended._id } },
+    { new: true }
+  );
+  if (!linked) {
+    // Lost the race -- another amend call linked the original first. The v2
+    // we just created is now an orphan; remove it rather than leaving a
+    // dangling, unlinked prescription document.
+    await Prescription.deleteOne({ _id: amended._id });
+    throw new AppError(409, 'This prescription has already been amended', 'ALREADY_AMENDED');
+  }
 
   await logAudit({
     actorId: doctorUserId, actorRole: 'doctor', action: 'prescription.amended',

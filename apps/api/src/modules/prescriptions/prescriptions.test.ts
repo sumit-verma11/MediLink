@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createPrescription } from './prescriptions.service';
+import { createPrescription, amendPrescription } from './prescriptions.service';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { User } from '../../models/User';
@@ -87,5 +87,86 @@ describe('createPrescription', () => {
         diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
       })
     ).rejects.toThrow();
+  });
+
+  it('errors cleanly with zero side effects when the appointment status changed out from under us', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+
+    // Simulate a concurrent actor (e.g. patient cancelling, or a second
+    // prescription request winning the race) flipping the appointment's
+    // status away from 'confirmed' AFTER our initial fixture setup but
+    // BEFORE createPrescription's atomic transition attempt runs.
+    await Appointment.findByIdAndUpdate(appointment._id, { $set: { status: 'cancelled' } });
+
+    await expect(
+      createPrescription(doctorUser._id.toString(), {
+        appointmentId: appointment._id.toString(),
+        diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+      })
+    ).rejects.toThrow();
+
+    // The key assertion: no orphaned Prescription was created for an
+    // appointment that never actually transitioned to 'completed'.
+    expect(await Prescription.countDocuments({ appointmentId: appointment._id })).toBe(0);
+
+    const unchanged = await Appointment.findById(appointment._id);
+    expect(unchanged!.status).toBe('cancelled');
+  });
+});
+
+describe('amendPrescription', () => {
+  async function seedPrescription() {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids',
+    });
+    return { doctorUser, appointment, prescription };
+  }
+
+  it('amends a prescription and links original -> v2', async () => {
+    const { doctorUser, prescription } = await seedPrescription();
+
+    const amended = await amendPrescription(doctorUser._id.toString(), prescription._id.toString(), {
+      diagnosisNote: 'Viral fever (revised)',
+      medicines: [{ name: 'Paracetamol', dosage: '650mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids, revised',
+    });
+
+    expect(amended.version).toBe(2);
+
+    const original = await Prescription.findById(prescription._id);
+    expect(original!.supersededBy!.toString()).toBe(amended._id.toString());
+  });
+
+  it('rejects amending an already-amended prescription without leaving an orphan v2', async () => {
+    const { doctorUser, prescription } = await seedPrescription();
+
+    // Simulate a concurrent amend call that already won the race: directly
+    // set supersededBy to some other (winner) prescription's id, bypassing
+    // amendPrescription's own atomic path, as if another request already
+    // linked the original moments ago.
+    const winnerId = new mongoose.Types.ObjectId();
+    await Prescription.findByIdAndUpdate(prescription._id, { $set: { supersededBy: winnerId } });
+
+    await expect(
+      amendPrescription(doctorUser._id.toString(), prescription._id.toString(), {
+        diagnosisNote: 'y',
+        medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
+        advice: 'y',
+      })
+    ).rejects.toThrow();
+
+    // No orphaned v2 should survive from the losing call -- only whatever
+    // legitimately exists at version+1 (none, in this simulation, since the
+    // "winner" here was injected directly rather than via a real amend call).
+    expect(
+      await Prescription.countDocuments({ appointmentId: prescription.appointmentId, version: prescription.version + 1 })
+    ).toBe(0);
+
+    const original = await Prescription.findById(prescription._id);
+    expect(original!.supersededBy!.toString()).toBe(winnerId.toString());
   });
 });
