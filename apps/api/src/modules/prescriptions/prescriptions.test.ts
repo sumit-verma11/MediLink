@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest
 import fs from 'node:fs';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createPrescription, amendPrescription } from './prescriptions.service';
+import { createPrescription, amendPrescription, getPublicVerification } from './prescriptions.service';
 import * as appointmentsServiceModule from '../appointments/appointments.service';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -215,5 +215,47 @@ describe('createPrescription PDF generation', () => {
     const diskPath = prescription.pdfUrl!.replace('/uploads/', '');
     const fullPath = `${process.cwd()}/uploads/${diskPath}`;
     expect(fs.existsSync(fullPath)).toBe(true);
+  });
+});
+
+describe('getPublicVerification', () => {
+  it('returns non-PHI verification info for a real prescription', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Secret diagnosis, must not leak',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+
+    const verification = await getPublicVerification(prescription._id.toString());
+
+    expect(verification).not.toBeNull();
+    expect(verification!.doctorName).toBe(doctorUser.name);
+    expect(verification!.isLatestVersion).toBe(true);
+    expect(JSON.stringify(verification)).not.toContain('Secret diagnosis');
+  });
+
+  it('returns null for a nonexistent prescription id', async () => {
+    const verification = await getPublicVerification(new mongoose.Types.ObjectId().toString());
+    expect(verification).toBeNull();
+  });
+
+  it('reports isLatestVersion: false for a superseded prescription', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const original = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'v1',
+      medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
+      advice: 'x',
+    });
+    await amendPrescription(doctorUser._id.toString(), original._id.toString(), {
+      diagnosisNote: 'v2',
+      medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
+      advice: 'x',
+    });
+
+    const verification = await getPublicVerification(original._id.toString());
+    expect(verification!.isLatestVersion).toBe(false);
   });
 });

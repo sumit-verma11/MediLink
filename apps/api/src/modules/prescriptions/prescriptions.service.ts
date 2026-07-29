@@ -138,3 +138,29 @@ export async function amendPrescription(
 
   return amended;
 }
+
+export async function getPublicVerification(prescriptionId: string): Promise<{
+  doctorName: string;
+  regNo: string;
+  clinicName: string;
+  issuedAt: Date;
+  version: number;
+  isLatestVersion: boolean;
+} | null> {
+  const prescription = await Prescription.findById(prescriptionId);
+  if (!prescription) return null;
+
+  const doctorProfile = await DoctorProfile.findById(prescription.doctorId);
+  if (!doctorProfile) return null;
+  const doctorUser = await User.findById(doctorProfile.userId);
+  if (!doctorUser) return null;
+
+  return {
+    doctorName: doctorUser.name,
+    regNo: doctorProfile.regNo,
+    clinicName: doctorProfile.clinicName,
+    issuedAt: prescription.createdAt,
+    version: prescription.version,
+    isLatestVersion: !prescription.supersededBy,
+  };
+}
