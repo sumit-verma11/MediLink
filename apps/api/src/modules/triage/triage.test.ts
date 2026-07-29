@@ -141,7 +141,10 @@ describe('sendTriageMessage', () => {
     expect(third.suggestedSpecialties).toHaveLength(0);
     const finalMessage = third.messages[third.messages.length - 1]!;
     expect(finalMessage.role).toBe('assistant');
-    expect(finalMessage.text.toLowerCase()).toContain('try again in a few minutes');
+    // The degradation message must not invite a retry on THIS session -- it's
+    // already terminal (3 user turns completed) and would just 409. It should
+    // point the patient at starting a fresh session instead.
+    expect(finalMessage.text.toLowerCase()).toContain('start a new triage session');
     expect(finalMessage.text).toContain(DISCLAIMER);
   });
 
@@ -249,15 +252,20 @@ describe('sendTriageMessage', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('rejects a further message once a session has been red-flagged (terminal session)', async () => {
+  it('re-affirms the emergency response rather than rejecting, if a red-flagged session gets another message', async () => {
+    // Red-flag detection takes priority over the terminal-session guard: a
+    // patient who has already been flagged as an emergency must never get a
+    // generic "session closed" error instead of emergency guidance, no
+    // matter what they type next.
     const patientId = new mongoose.Types.ObjectId().toString();
     const first = await sendTriageMessage(patientId, undefined, 'crushing chest pain');
     expect(first.isRedFlag).toBe(true);
 
-    await expect(sendTriageMessage(patientId, first._id.toString(), 'anything else')).rejects.toMatchObject({
-      statusCode: 409,
-      code: 'TRIAGE_SESSION_CLOSED',
-    });
+    const second = await sendTriageMessage(patientId, first._id.toString(), 'anything else');
+    expect(second.isRedFlag).toBe(true);
+    const lastMessage = second.messages[second.messages.length - 1]!;
+    expect(lastMessage.role).toBe('assistant');
+    expect(lastMessage.text).toContain('112');
   });
 
   it('rejects a 4th message once a session has completed its 3-turn flow (terminal session)', async () => {
@@ -277,6 +285,29 @@ describe('sendTriageMessage', () => {
       statusCode: 409,
       code: 'TRIAGE_SESSION_CLOSED',
     });
+  });
+
+  it('still surfaces an emergency response for a red flag typed AFTER a session has already completed its 3-turn flow', async () => {
+    // Regression guard: red-flag detection must win over the terminal-session
+    // guard even when the session ended by finishing triage normally (not by
+    // an earlier emergency) -- a patient who completes triage and then types
+    // something dangerous must never get a generic "session closed" error.
+    const patientId = new mongoose.Types.ObjectId().toString();
+    vi.spyOn(aiClientModule, 'callTriageAI').mockResolvedValue({
+      emergency: false,
+      extractedSymptoms: ['itchy red patches'],
+      suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.87 }],
+    });
+
+    const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
+    const third = await sendTriageMessage(patientId, second._id.toString(), 'mild');
+    expect(third.suggestedSpecialties).toHaveLength(1);
+
+    const fourth = await sendTriageMessage(patientId, third._id.toString(), 'actually now I have crushing chest pain');
+    expect(fourth.isRedFlag).toBe(true);
+    const lastMessage = fourth.messages[fourth.messages.length - 1]!;
+    expect(lastMessage.text).toContain('112');
   });
 
   it('rejects continuing a session that belongs to a different patient', async () => {

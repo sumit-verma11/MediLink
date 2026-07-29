@@ -69,32 +69,35 @@ export async function sendTriageMessage(
     });
   }
 
-  // A session that already ended (emergency, or already completed its 3-turn
-  // flow) is terminal -- it does not accept further messages. This closes two
-  // gaps at once: an emergency session silently resuming ordinary triage, and
-  // an already-resolved session being re-queried (and re-billed against the
-  // AI service) indefinitely.
-  const priorUserTurns = session.messages.filter((m) => m.role === 'user').length;
-  if (session.isRedFlag || priorUserTurns >= 3) {
-    throw new AppError(409, 'This triage session has already ended. Start a new session for a new symptom.', 'TRIAGE_SESSION_CLOSED');
-  }
-
-  session.messages.push({ role: 'user', text, at: new Date() });
-
-  // Red-flag detection is a pure keyword check and must never depend on the
-  // AI service being reachable. It runs locally, on every turn's own new
-  // text, before anything else -- this protects against the AI service being
-  // down (no remote dependency at all) and catches a red flag that only
-  // appears partway through the conversation, not just on the first message.
+  // Red-flag detection takes absolute priority over every other rule,
+  // including the terminal-session guard below: a patient describing a new
+  // emergency must always get the emergency response, even if their session
+  // already ended (an earlier emergency, or a completed 3-turn flow). It
+  // runs locally, on every turn's own new text, before anything else -- this
+  // protects against the AI service being down (no remote dependency at all)
+  // and catches a red flag that only appears partway through the
+  // conversation, or after triage has already finished.
   const matchedKeyword = checkRedFlagLocally(text);
-  if (matchedKeyword) {
+  if (matchedKeyword || session.isRedFlag) {
     session.isRedFlag = true;
+    session.messages.push({ role: 'user', text, at: new Date() });
     pushAssistantMessage(session, EMERGENCY_MESSAGE, { includeDisclaimer: false });
     await session.save();
     return session;
   }
 
-  const turnCount = session.messages.filter((m) => m.role === 'user').length;
+  // A non-emergency session that already completed its 3-turn flow is
+  // terminal -- it does not accept further ordinary messages, bounding
+  // unlimited re-querying of the AI-backed match. This check runs before the
+  // new message is persisted, so a rejected call does not silently grow the
+  // session.
+  const priorUserTurns = session.messages.filter((m) => m.role === 'user').length;
+  if (priorUserTurns >= 3) {
+    throw new AppError(409, 'This triage session has already ended. Start a new session for a new symptom.', 'TRIAGE_SESSION_CLOSED');
+  }
+
+  session.messages.push({ role: 'user', text, at: new Date() });
+  const turnCount = priorUserTurns + 1;
 
   if (turnCount === 1) {
     pushAssistantMessage(session, 'How long have you had these symptoms?');
@@ -128,7 +131,7 @@ export async function sendTriageMessage(
     );
   } catch (err) {
     if (!(err instanceof AIServiceUnavailableError)) throw err;
-    pushAssistantMessage(session, "We're having trouble matching your symptoms automatically right now — please try again in a few minutes.");
+    pushAssistantMessage(session, "We're having trouble matching your symptoms automatically right now. Please start a new triage session in a few minutes to try again.");
   }
 
   await session.save();
