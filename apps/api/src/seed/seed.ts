@@ -170,9 +170,9 @@ export async function runSeed(): Promise<void> {
     patientId: patientUsers[0]!._id,
     messages: [
       { role: 'user', text: 'itchy red patches on my elbow for 2 weeks', at: daysAgo(3) },
-      { role: 'assistant', text: 'How long have you had these symptoms?', at: daysAgo(3) },
+      { role: 'assistant', text: 'How long have you had these symptoms? This is guidance, not medical advice.', at: daysAgo(3) },
       { role: 'user', text: '2 weeks', at: daysAgo(3) },
-      { role: 'assistant', text: 'How severe is it — mild, moderate, or severe?', at: daysAgo(3) },
+      { role: 'assistant', text: 'How severe is it — mild, moderate, or severe? This is guidance, not medical advice.', at: daysAgo(3) },
       { role: 'user', text: 'mild', at: daysAgo(3) },
       {
         role: 'assistant',
@@ -191,7 +191,7 @@ export async function runSeed(): Promise<void> {
     patientId: patientUsers[1]!._id,
     messages: [
       { role: 'user', text: 'acidity and heartburn after meals', at: daysAgo(4) },
-      { role: 'assistant', text: 'How long have you had these symptoms?', at: daysAgo(4) },
+      { role: 'assistant', text: 'How long have you had these symptoms? This is guidance, not medical advice.', at: daysAgo(4) },
       { role: 'user', text: '1 week', at: daysAgo(4) },
       {
         role: 'assistant',
@@ -210,7 +210,7 @@ export async function runSeed(): Promise<void> {
     patientId: patientUsers[2]!._id,
     messages: [
       { role: 'user', text: 'knee pain when walking up stairs', at: daysAgo(6) },
-      { role: 'assistant', text: 'How severe is the pain — mild, moderate, or severe?', at: daysAgo(6) },
+      { role: 'assistant', text: 'How severe is the pain — mild, moderate, or severe? This is guidance, not medical advice.', at: daysAgo(6) },
       { role: 'user', text: 'moderate', at: daysAgo(6) },
       {
         role: 'assistant',
