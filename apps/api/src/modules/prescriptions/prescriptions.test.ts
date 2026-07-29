@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import fs from 'node:fs';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createPrescription, amendPrescription } from './prescriptions.service';
@@ -196,5 +197,23 @@ describe('amendPrescription', () => {
 
     const original = await Prescription.findById(prescription._id);
     expect(original!.supersededBy).toBeUndefined();
+  });
+});
+
+describe('createPrescription PDF generation', () => {
+  it('generates a PDF file on disk and stores its path as pdfUrl', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+
+    expect(prescription.pdfUrl).toBeTruthy();
+    const diskPath = prescription.pdfUrl!.replace('/uploads/', '');
+    const fullPath = `${process.cwd()}/uploads/${diskPath}`;
+    expect(fs.existsSync(fullPath)).toBe(true);
   });
 });

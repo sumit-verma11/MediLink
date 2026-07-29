@@ -1,11 +1,35 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { Prescription, IPrescription } from '../../models/Prescription';
 import { Appointment } from '../../models/Appointment';
-import { DoctorProfile } from '../../models/DoctorProfile';
+import { DoctorProfile, IDoctorProfile } from '../../models/DoctorProfile';
+import { User } from '../../models/User';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { emitAppointmentUpdate } from '../../lib/socket';
 import { appendTimelineEntry } from '../appointments/appointments.service';
+import { generatePrescriptionPdf } from './prescriptions.pdf';
 import type { CreatePrescriptionInput, AmendPrescriptionInput } from '@medlink/shared';
+
+const PDF_DIR = path.join(process.cwd(), 'uploads', 'prescriptions');
+fs.mkdirSync(PDF_DIR, { recursive: true });
+
+async function generateAndSavePdf(prescription: IPrescription, doctorProfile: IDoctorProfile): Promise<string> {
+  const [doctorUser, patientUser] = await Promise.all([
+    User.findById(doctorProfile.userId),
+    User.findById(prescription.patientId),
+  ]);
+  const buffer = await generatePrescriptionPdf({
+    prescription,
+    doctorProfile,
+    doctorUser: doctorUser!,
+    patientUser: patientUser!,
+    verifyBaseUrl: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+  });
+  const filename = `${prescription._id.toString()}.pdf`;
+  fs.writeFileSync(path.join(PDF_DIR, filename), buffer);
+  return `/uploads/prescriptions/${filename}`;
+}
 
 export async function createPrescription(
   doctorUserId: string,
@@ -45,6 +69,9 @@ export async function createPrescription(
     recommendedTests: input.recommendedTests ?? [],
   });
 
+  prescription.pdfUrl = await generateAndSavePdf(prescription, doctorProfile);
+  await prescription.save();
+
   emitAppointmentUpdate(doctorUserId, updatedAppointment);
   emitAppointmentUpdate(updatedAppointment.patientId.toString(), updatedAppointment);
 
@@ -82,6 +109,9 @@ export async function amendPrescription(
     recommendedTests: input.recommendedTests ?? [],
     version: original.version + 1,
   });
+
+  amended.pdfUrl = await generateAndSavePdf(amended, doctorProfile);
+  await amended.save();
 
   // Atomically claim the "not yet superseded" slot on the original -- the
   // filter's `supersededBy: { $exists: false }` guard means at most one
