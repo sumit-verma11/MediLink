@@ -10,7 +10,11 @@ import { getRedis } from '../lib/redis';
 // and `ioredis-mock` support.
 class SimpleRedisStore implements Store {
   private windowMs = 15 * 60 * 1000;
-  private readonly keyPrefix = 'rl:auth:';
+  private readonly keyPrefix: string;
+
+  constructor(keyPrefix = 'rl:auth:') {
+    this.keyPrefix = keyPrefix;
+  }
 
   init(options: Options): void {
     this.windowMs = options.windowMs;
@@ -46,5 +50,13 @@ export const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  store: new SimpleRedisStore(),
+  store: new SimpleRedisStore('rl:auth:'),
+});
+
+export const triageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SimpleRedisStore('rl:triage:'),
 });
