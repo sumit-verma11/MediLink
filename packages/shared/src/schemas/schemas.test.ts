@@ -9,6 +9,7 @@ import {
   RejectAppointmentInput,
 } from './appointment';
 import { SendTriageMessageInput } from './triage';
+import { CreatePrescriptionInput, AmendPrescriptionInput } from './prescription';
 
 describe('RegisterInput', () => {
   it('rejects a password shorter than 8 chars', () => {
@@ -133,5 +134,33 @@ describe('SendTriageMessageInput', () => {
   it('accepts text with an optional sessionId', () => {
     expect(SendTriageMessageInput.safeParse({ text: 'itchy patches' }).success).toBe(true);
     expect(SendTriageMessageInput.safeParse({ text: 'itchy patches', sessionId: 'abc' }).success).toBe(true);
+  });
+});
+
+describe('CreatePrescriptionInput', () => {
+  it('requires at least one medicine and a diagnosis note', () => {
+    expect(
+      CreatePrescriptionInput.safeParse({ appointmentId: 'a', diagnosisNote: '', medicines: [], advice: 'Rest' }).success
+    ).toBe(false);
+  });
+  it('accepts a valid payload', () => {
+    const result = CreatePrescriptionInput.safeParse({
+      appointmentId: 'a1',
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids',
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('AmendPrescriptionInput', () => {
+  it('requires the same shape as create, minus appointmentId', () => {
+    const result = AmendPrescriptionInput.safeParse({
+      diagnosisNote: 'Viral fever, revised',
+      medicines: [{ name: 'Paracetamol', dosage: '650mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids',
+    });
+    expect(result.success).toBe(true);
   });
 });

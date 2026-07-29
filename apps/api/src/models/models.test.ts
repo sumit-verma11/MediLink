@@ -71,6 +71,46 @@ describe('Prescription model', () => {
     });
     expect(rx.immutable).toBe(true);
   });
+
+  it('defaults version to 1 and supersededBy to undefined', async () => {
+    const rx = await Prescription.create({
+      appointmentId: new mongoose.Types.ObjectId(),
+      doctorId: new mongoose.Types.ObjectId(),
+      patientId: new mongoose.Types.ObjectId(),
+      diagnosisNote: 'Note',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+    expect(rx.version).toBe(1);
+    expect(rx.supersededBy).toBeUndefined();
+    expect(rx.immutable).toBe(true);
+  });
+
+  it('persists a supersededBy link and an incremented version', async () => {
+    const original = await Prescription.create({
+      appointmentId: new mongoose.Types.ObjectId(),
+      doctorId: new mongoose.Types.ObjectId(),
+      patientId: new mongoose.Types.ObjectId(),
+      diagnosisNote: 'Note v1',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+    const amended = await Prescription.create({
+      appointmentId: original.appointmentId,
+      doctorId: original.doctorId,
+      patientId: original.patientId,
+      diagnosisNote: 'Note v2, corrected dosage',
+      medicines: [{ name: 'Paracetamol', dosage: '650mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+      version: 2,
+    });
+    original.supersededBy = amended._id;
+    await original.save();
+
+    const reloaded = await Prescription.findById(original._id);
+    expect(reloaded!.supersededBy!.toString()).toBe(amended._id.toString());
+    expect(amended.version).toBe(2);
+  });
 });
 
 describe('BlockedDate model', () => {
