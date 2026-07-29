@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createPrescription, amendPrescription } from './prescriptions.service';
+import * as appointmentsServiceModule from '../appointments/appointments.service';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { User } from '../../models/User';
@@ -18,6 +19,7 @@ beforeAll(async () => {
 afterEach(async () => {
   const collections = mongoose.connection.collections;
   for (const key of Object.keys(collections)) await collections[key]?.deleteMany({});
+  vi.restoreAllMocks();
 });
 afterAll(async () => {
   await mongoose.disconnect();
@@ -89,28 +91,28 @@ describe('createPrescription', () => {
     ).rejects.toThrow();
   });
 
-  it('errors cleanly with zero side effects when the appointment status changed out from under us', async () => {
+  it('errors cleanly with zero side effects when appendTimelineEntry loses its own internal atomic race', async () => {
     const { doctorUser, appointment } = await seedConfirmedAppointment();
 
-    // Simulate a concurrent actor (e.g. patient cancelling, or a second
-    // prescription request winning the race) flipping the appointment's
-    // status away from 'confirmed' AFTER our initial fixture setup but
-    // BEFORE createPrescription's atomic transition attempt runs.
-    await Appointment.findByIdAndUpdate(appointment._id, { $set: { status: 'cancelled' } });
+    // appendTimelineEntry's OWN internal atomic findOneAndUpdate is what actually
+    // guards the confirmed->completed transition. Simulate it losing that race (e.g.
+    // a concurrent cancel or a second prescription request winning first) by mocking
+    // it to return null directly, the same way its real implementation would when its
+    // filter matches nothing -- pre-mutating the DB before calling createPrescription
+    // can't reach this branch, since createPrescription's own earlier
+    // `appointment.status !== 'confirmed'` check intercepts that case first.
+    vi.spyOn(appointmentsServiceModule, 'appendTimelineEntry').mockResolvedValueOnce(null);
 
     await expect(
       createPrescription(doctorUser._id.toString(), {
         appointmentId: appointment._id.toString(),
         diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
       })
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ statusCode: 409, code: 'APPOINTMENT_STATE_CHANGED' });
 
     // The key assertion: no orphaned Prescription was created for an
     // appointment that never actually transitioned to 'completed'.
     expect(await Prescription.countDocuments({ appointmentId: appointment._id })).toBe(0);
-
-    const unchanged = await Appointment.findById(appointment._id);
-    expect(unchanged!.status).toBe('cancelled');
   });
 });
 
@@ -141,15 +143,18 @@ describe('amendPrescription', () => {
     expect(original!.supersededBy!.toString()).toBe(amended._id.toString());
   });
 
-  it('rejects amending an already-amended prescription without leaving an orphan v2', async () => {
+  it('rejects amending when the atomic supersededBy-link claim loses its own race, without leaving an orphan v2', async () => {
     const { doctorUser, prescription } = await seedPrescription();
 
-    // Simulate a concurrent amend call that already won the race: directly
-    // set supersededBy to some other (winner) prescription's id, bypassing
-    // amendPrescription's own atomic path, as if another request already
-    // linked the original moments ago.
-    const winnerId = new mongoose.Types.ObjectId();
-    await Prescription.findByIdAndUpdate(prescription._id, { $set: { supersededBy: winnerId } });
+    // amendPrescription's own atomic linking step is `Prescription.findOneAndUpdate`
+    // with a `supersededBy: { $exists: false }` guard. Simulate THAT specific call
+    // losing its race (matching nothing, e.g. a concurrent amend already linked the
+    // original a moment earlier) by mocking it directly -- pre-mutating
+    // `supersededBy` on the DB before calling amendPrescription can't reach this
+    // branch, since amendPrescription's own earlier `original.supersededBy` truthy
+    // check intercepts that case first.
+    const deleteOneSpy = vi.spyOn(Prescription, 'deleteOne');
+    vi.spyOn(Prescription, 'findOneAndUpdate').mockResolvedValueOnce(null);
 
     await expect(
       amendPrescription(doctorUser._id.toString(), prescription._id.toString(), {
@@ -157,16 +162,18 @@ describe('amendPrescription', () => {
         medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
         advice: 'y',
       })
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ statusCode: 409, code: 'ALREADY_AMENDED' });
 
-    // No orphaned v2 should survive from the losing call -- only whatever
-    // legitimately exists at version+1 (none, in this simulation, since the
-    // "winner" here was injected directly rather than via a real amend call).
+    // The optimistically-created v2 must have been rolled back via deleteOne.
+    expect(deleteOneSpy).toHaveBeenCalledTimes(1);
+
+    // No orphaned v2 should survive: total count for this appointment/version
+    // must be unchanged (still just the original at version 1).
     expect(
       await Prescription.countDocuments({ appointmentId: prescription.appointmentId, version: prescription.version + 1 })
     ).toBe(0);
 
     const original = await Prescription.findById(prescription._id);
-    expect(original!.supersededBy!.toString()).toBe(winnerId.toString());
+    expect(original!.supersededBy).toBeUndefined();
   });
 });
