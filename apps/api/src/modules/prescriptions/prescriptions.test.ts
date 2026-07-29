@@ -143,6 +143,27 @@ describe('amendPrescription', () => {
     expect(original!.supersededBy!.toString()).toBe(amended._id.toString());
   });
 
+  it('rejects a doctor amending a prescription they did not write', async () => {
+    const { prescription } = await seedPrescription();
+    const otherDoctorUser = await User.create({
+      role: 'doctor', email: `other-doc-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Other',
+    });
+    await DoctorProfile.create({
+      userId: otherDoctorUser._id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+
+    await expect(
+      amendPrescription(otherDoctorUser._id.toString(), prescription._id.toString(), {
+        diagnosisNote: 'v2', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+      })
+    ).rejects.toThrow();
+
+    const reloaded = await Prescription.findById(prescription._id);
+    expect(reloaded!.supersededBy).toBeUndefined();
+  });
+
   it('rejects amending when the atomic supersededBy-link claim loses its own race, without leaving an orphan v2', async () => {
     const { doctorUser, prescription } = await seedPrescription();
 
