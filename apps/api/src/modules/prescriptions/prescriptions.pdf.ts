@@ -1,8 +1,27 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import type { PDFFont } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { IPrescription } from '../../models/Prescription';
 import type { IDoctorProfile } from '../../models/DoctorProfile';
 import type { IUser } from '../../models/User';
+
+function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, fontSize) > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = candidate;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
 
 export async function generatePrescriptionPdf(params: {
   prescription: IPrescription;
@@ -22,6 +41,7 @@ export async function generatePrescriptionPdf(params: {
   let y = 800;
   const left = 50;
   const lineHeight = 18;
+  const maxTextWidth = 495; // 545 - left, matches the horizontal-rule width used elsewhere
 
   const drawText = (text: string, opts: { bold?: boolean; italic?: boolean; size?: number } = {}) => {
     page.drawText(text, {
@@ -34,10 +54,29 @@ export async function generatePrescriptionPdf(params: {
     y -= lineHeight;
   };
 
+  // Sibling to drawText: for genuinely free-text/doctor-typed fields that can
+  // run long (clinic address, diagnosis note, advice) — wraps to multiple
+  // lines instead of overflowing off the page edge.
+  const drawWrappedText = (text: string, opts: { bold?: boolean; italic?: boolean; size?: number } = {}) => {
+    const size = opts.size ?? 11;
+    const usedFont = opts.bold ? boldFont : opts.italic ? italicFont : font;
+    const lines = wrapText(text, usedFont, size, maxTextWidth);
+    for (const line of lines) {
+      page.drawText(line, {
+        x: left,
+        y,
+        size,
+        font: usedFont,
+        color: rgb(0, 0, 0),
+      });
+      y -= lineHeight;
+    }
+  };
+
   // Letterhead
   drawText(doctorProfile.clinicName, { bold: true, size: 16 });
-  drawText(doctorProfile.clinicAddress, { size: 10 });
-  drawText(`Dr. ${doctorUser.name} — Reg. No: ${doctorProfile.regNo}`, { size: 10 });
+  drawWrappedText(doctorProfile.clinicAddress, { size: 10 });
+  drawText(`${doctorUser.name} — Reg. No: ${doctorProfile.regNo}`, { size: 10 });
   y -= 10;
   page.drawLine({ start: { x: left, y: y + 10 }, end: { x: 545, y: y + 10 }, thickness: 1, color: rgb(0, 0, 0) });
   y -= 10;
@@ -50,7 +89,7 @@ export async function generatePrescriptionPdf(params: {
   y -= 10;
 
   drawText('Diagnosis', { bold: true });
-  drawText(prescription.diagnosisNote);
+  drawWrappedText(prescription.diagnosisNote);
   y -= 5;
 
   drawText('Medicines', { bold: true });
@@ -61,7 +100,7 @@ export async function generatePrescriptionPdf(params: {
   y -= 5;
 
   drawText('Advice', { bold: true });
-  drawText(prescription.advice);
+  drawWrappedText(prescription.advice);
 
   if (prescription.recommendedTests.length > 0) {
     y -= 5;
@@ -79,7 +118,7 @@ export async function generatePrescriptionPdf(params: {
   // Signature (rendered as italic text -- no image-generation pipeline needed
   // for a demo-scale artifact; a real product would use an uploaded image).
   y -= 30;
-  drawText(`Digitally signed by Dr. ${doctorUser.name}`, { italic: true, size: 10 });
+  drawText(`Digitally signed by ${doctorUser.name}`, { italic: true, size: 10 });
 
   // QR code linking to the public, privacy-scoped verification page.
   const verifyUrl = `${verifyBaseUrl}/rx/verify/${prescription._id.toString()}`;
