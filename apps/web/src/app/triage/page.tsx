@@ -4,6 +4,45 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSendTriageMessageMutation } from '@/store/triageApi';
 import type { TriageSession } from '@/store/triageApi';
+import { useGetPublicDoctorProfileQuery } from '@/store/doctorsApi';
+
+function RecommendedDoctorCard({ doctorId, triageSessionId }: { doctorId: string; triageSessionId: string }) {
+  const { data, isLoading, isError } = useGetPublicDoctorProfileQuery(doctorId);
+
+  if (isLoading) {
+    return <div className="border p-3 rounded text-sm text-gray-500">Loading doctor…</div>;
+  }
+
+  if (isError || !data) {
+    // Graceful degradation: still let the patient book even if the profile
+    // fetch fails, rather than hiding the recommendation entirely.
+    return (
+      <div className="border p-3 rounded flex justify-between items-center">
+        <span className="text-sm text-gray-500">Doctor details unavailable</span>
+        <Link className="underline text-sm" href={`/doctors/${doctorId}/book?triageSessionId=${triageSessionId}`}>
+          Book with this doctor →
+        </Link>
+      </div>
+    );
+  }
+
+  const { profile } = data;
+
+  return (
+    <div className="border p-3 rounded space-y-1">
+      <div className="flex justify-between items-baseline">
+        <span className="font-medium">{profile.userId.name}</span>
+        <span className="text-sm text-gray-600">{profile.avgRating.toFixed(1)} ★ ({profile.ratingCount})</span>
+      </div>
+      <p className="text-sm text-gray-600">
+        {profile.specialties.join(', ')} · {profile.city} · ₹{profile.consultationFee}
+      </p>
+      <Link className="underline text-sm" href={`/doctors/${doctorId}/book?triageSessionId=${triageSessionId}`}>
+        Book with this doctor →
+      </Link>
+    </div>
+  );
+}
 
 export default function TriagePage() {
   const [input, setInput] = useState('');
@@ -68,15 +107,9 @@ export default function TriagePage() {
                   <span>{s.name} ({Math.round(s.confidence * 100)}% match)</span>
                 </div>
               ))}
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {session.recommendedDoctorIds.map((doctorId) => (
-                  <Link
-                    key={doctorId}
-                    className="block underline"
-                    href={`/doctors/${doctorId}/book?triageSessionId=${session._id}`}
-                  >
-                    Book with this doctor →
-                  </Link>
+                  <RecommendedDoctorCard key={doctorId} doctorId={doctorId} triageSessionId={session._id} />
                 ))}
               </div>
             </div>
