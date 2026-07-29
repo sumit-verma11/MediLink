@@ -8,6 +8,7 @@ import { LabProfile } from '../models/LabProfile';
 import { Notification } from '../models/Notification';
 import { AvailabilityRule } from '../models/AvailabilityRule';
 import { Appointment } from '../models/Appointment';
+import { TriageSession } from '../models/TriageSession';
 import { PATIENTS, DOCTORS, LABS, AVAILABILITY_RULES_BY_DOCTOR_EMAIL } from './data';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -24,6 +25,7 @@ export async function runSeed(): Promise<void> {
   await Notification.deleteMany({});
   await AvailabilityRule.deleteMany({});
   await Appointment.deleteMany({});
+  await TriageSession.deleteMany({});
 
   const passwordHash = await hashed();
 
@@ -106,6 +108,9 @@ export async function runSeed(): Promise<void> {
   const kavita = doctorUsersByEmail.get('kavita.d@medlink.demo')!;
   const rohit = doctorUsersByEmail.get('rohit.d@medlink.demo')!;
   const anjali = doctorUsersByEmail.get('anjali.d@medlink.demo')!;
+  const arjun = doctorUsersByEmail.get('arjun.d@medlink.demo')!;
+  const neha = doctorUsersByEmail.get('neha.d@medlink.demo')!;
+  const farhan = doctorUsersByEmail.get('farhan.d@medlink.demo')!;
 
   function daysAgo(n: number): Date {
     return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
@@ -156,6 +161,112 @@ export async function runSeed(): Promise<void> {
       rejectionReason: (seed as { rejectionReason?: string }).rejectionReason,
       timeline: withTimeline(seed.status, seed.patientId),
     });
+  }
+
+  // CLAUDE.md §6.4: 4 TriageSessions — rash→Dermatology, acidity→Gastro, knee pain→Ortho,
+  // chest pain→red-flag emergency (no doctor matching, no booking). 2 of them get linked
+  // to already-seeded completed appointments via triageSessionId below.
+  const rashSession = await TriageSession.create({
+    patientId: patientUsers[0]!._id,
+    messages: [
+      { role: 'user', text: 'itchy red patches on my elbow for 2 weeks', at: daysAgo(3) },
+      { role: 'assistant', text: 'How long have you had these symptoms? This is guidance, not medical advice.', at: daysAgo(3) },
+      { role: 'user', text: '2 weeks', at: daysAgo(3) },
+      { role: 'assistant', text: 'How severe is it — mild, moderate, or severe? This is guidance, not medical advice.', at: daysAgo(3) },
+      { role: 'user', text: 'mild', at: daysAgo(3) },
+      {
+        role: 'assistant',
+        text: "Based on what you've described, you may want to see: Dermatology. This is guidance, not medical advice.",
+        at: daysAgo(3),
+      },
+    ],
+    extractedSymptoms: ['itchy red patches', 'elbow'],
+    suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.87 }],
+    recommendedDoctorIds: [meera.profileId, arjun.profileId],
+    isRedFlag: false,
+    disclaimerShownAt: daysAgo(3),
+  });
+
+  const aciditySession = await TriageSession.create({
+    patientId: patientUsers[1]!._id,
+    messages: [
+      { role: 'user', text: 'acidity and heartburn after meals', at: daysAgo(4) },
+      { role: 'assistant', text: 'How long have you had these symptoms? This is guidance, not medical advice.', at: daysAgo(4) },
+      { role: 'user', text: '1 week', at: daysAgo(4) },
+      {
+        role: 'assistant',
+        text: "Based on what you've described, you may want to see: Gastroenterology. This is guidance, not medical advice.",
+        at: daysAgo(4),
+      },
+    ],
+    extractedSymptoms: ['acidity', 'heartburn'],
+    suggestedSpecialties: [{ name: 'Gastroenterology', confidence: 0.81 }],
+    recommendedDoctorIds: [neha.profileId],
+    isRedFlag: false,
+    disclaimerShownAt: daysAgo(4),
+  });
+
+  await TriageSession.create({
+    patientId: patientUsers[2]!._id,
+    messages: [
+      { role: 'user', text: 'knee pain when walking up stairs', at: daysAgo(6) },
+      { role: 'assistant', text: 'How severe is the pain — mild, moderate, or severe? This is guidance, not medical advice.', at: daysAgo(6) },
+      { role: 'user', text: 'moderate', at: daysAgo(6) },
+      {
+        role: 'assistant',
+        text: "Based on what you've described, you may want to see: Orthopedics. This is guidance, not medical advice.",
+        at: daysAgo(6),
+      },
+    ],
+    extractedSymptoms: ['knee pain'],
+    suggestedSpecialties: [{ name: 'Orthopedics', confidence: 0.79 }],
+    recommendedDoctorIds: [farhan.profileId],
+    isRedFlag: false,
+    disclaimerShownAt: daysAgo(6),
+  });
+
+  await TriageSession.create({
+    patientId: patientUsers[3]!._id,
+    messages: [
+      { role: 'user', text: 'crushing chest pain radiating to my arm', at: daysAgo(1) },
+      {
+        role: 'assistant',
+        text: 'This may be a medical emergency. Seek emergency care immediately or call 112.',
+        at: daysAgo(1),
+      },
+    ],
+    extractedSymptoms: [],
+    suggestedSpecialties: [],
+    recommendedDoctorIds: [],
+    isRedFlag: true,
+    disclaimerShownAt: daysAgo(1),
+  });
+
+  // Link 2 sessions to already-seeded completed appointments via triageSessionId.
+  // Meera's completed appointment for patientUsers[0] is a genuine specialty match
+  // (Dermatology). No completed appointment exists for a Gastroenterology or Orthopedics
+  // doctor in appointmentSeeds above, so the second link uses the closest available
+  // match instead: Kavita's completed appointment for the same patient as the acidity
+  // session (patientUsers[1]) — patient-consistent even though the doctor's specialty
+  // (General Physician) differs from the triaged specialty (Gastroenterology).
+  const rashAppointment = await Appointment.findOne({
+    doctorId: meera.profileId,
+    patientId: patientUsers[0]!._id,
+    status: 'completed',
+  });
+  if (rashAppointment) {
+    rashAppointment.triageSessionId = rashSession._id;
+    await rashAppointment.save();
+  }
+
+  const acidityAppointment = await Appointment.findOne({
+    doctorId: kavita.profileId,
+    patientId: patientUsers[1]!._id,
+    status: 'completed',
+  });
+  if (acidityAppointment) {
+    acidityAppointment.triageSessionId = aciditySession._id;
+    await acidityAppointment.save();
   }
 
   await Notification.create({

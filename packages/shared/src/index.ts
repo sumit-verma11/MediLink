@@ -4,3 +4,4 @@ export * from './schemas/doctor';
 export * from './schemas/lab';
 export * from './schemas/admin';
 export * from './schemas/appointment';
+export * from './schemas/triage';

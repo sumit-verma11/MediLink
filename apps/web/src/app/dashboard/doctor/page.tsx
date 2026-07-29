@@ -32,7 +32,12 @@ export default function DoctorDashboard() {
       <h1 className="text-2xl font-bold">Pending requests</h1>
       {data?.items.map((appt) => (
         <div key={appt._id} className="border p-3 rounded flex justify-between items-center">
-          <p>{new Date(appt.slotStart).toLocaleString()}</p>
+          <div>
+            <p>{new Date(appt.slotStart).toLocaleString()}</p>
+            {appt.triageSummary && appt.triageSummary.length > 0 ? (
+              <p className="text-sm text-gray-600">Symptoms: {appt.triageSummary.join(', ')}</p>
+            ) : null}
+          </div>
           <div className="space-x-2">
             <button
               className="bg-black text-white px-3 py-1 rounded"

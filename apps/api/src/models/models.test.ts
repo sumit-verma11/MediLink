@@ -6,6 +6,7 @@ import { DoctorProfile } from './DoctorProfile';
 import { Prescription } from './Prescription';
 import { BlockedDate } from './BlockedDate';
 import { Appointment } from './Appointment';
+import { TriageSession } from './TriageSession';
 
 let mongod: MongoMemoryServer;
 
@@ -18,7 +19,7 @@ beforeAll(async () => {
   // unique constraint yet, letting a duplicate email insert incorrectly succeed.
   // Model.init() resolves once a models indexes actually exist in MongoDB -- the
   // documented fix for exactly this race per Mongoose own testing guidance.
-  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init()]);
+  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init(), TriageSession.init()]);
 });
 
 afterEach(async () => {
@@ -100,5 +101,17 @@ describe('Appointment model — partial unique index', () => {
     await expect(
       Appointment.create({ doctorId, patientId, slotStart, slotEnd, status: 'requested' })
     ).resolves.toBeTruthy();
+  });
+});
+
+describe('TriageSession model', () => {
+  it('defaults isRedFlag to false', async () => {
+    const session = await TriageSession.create({ patientId: new mongoose.Types.ObjectId() });
+    expect(session.isRedFlag).toBe(false);
+  });
+
+  it('persists isRedFlag: true when set', async () => {
+    const session = await TriageSession.create({ patientId: new mongoose.Types.ObjectId(), isRedFlag: true });
+    expect(session.isRedFlag).toBe(true);
   });
 });

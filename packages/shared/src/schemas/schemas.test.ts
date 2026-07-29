@@ -8,6 +8,7 @@ import {
   CreateAppointmentInput,
   RejectAppointmentInput,
 } from './appointment';
+import { SendTriageMessageInput } from './triage';
 
 describe('RegisterInput', () => {
   it('rejects a password shorter than 8 chars', () => {
@@ -122,5 +123,15 @@ describe('CreateAppointmentInput', () => {
 describe('RejectAppointmentInput', () => {
   it('requires a reason', () => {
     expect(RejectAppointmentInput.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('SendTriageMessageInput', () => {
+  it('requires non-empty text', () => {
+    expect(SendTriageMessageInput.safeParse({ text: '' }).success).toBe(false);
+  });
+  it('accepts text with an optional sessionId', () => {
+    expect(SendTriageMessageInput.safeParse({ text: 'itchy patches' }).success).toBe(true);
+    expect(SendTriageMessageInput.safeParse({ text: 'itchy patches', sessionId: 'abc' }).success).toBe(true);
   });
 });

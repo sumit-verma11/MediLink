@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 interface DoctorProfile {
   _id: string;
+  userId: { _id: string; name: string; avatarUrl?: string };
   specialties: string[];
   qualifications: string[];
   bio: string;

@@ -1,0 +1,305 @@
+{
+  "Dermatology": [
+    "itchy red patches on skin",
+    "acne breakout",
+    "skin rash that won't go away",
+    "dry flaky patches",
+    "mole changing shape or color",
+    "hair loss in patches",
+    "hives and itching"
+  ],
+  "General Physician": [
+    "fever and body ache",
+    "common cold and cough",
+    "general fatigue and weakness",
+    "mild headache",
+    "seasonal flu symptoms",
+    "sore throat",
+    "general checkup for adult"
+  ],
+  "Gastroenterology": [
+    "acidity and heartburn",
+    "stomach pain after eating",
+    "bloating and gas",
+    "chronic constipation",
+    "diarrhea for several days",
+    "loss of appetite and nausea",
+    "blood in stool"
+  ],
+  "Cardiology": [
+    "occasional chest tightness",
+    "irregular heartbeat",
+    "shortness of breath on exertion",
+    "high blood pressure follow-up",
+    "swelling in ankles and legs",
+    "palpitations",
+    "fainting spells"
+  ],
+  "Gynecology": [
+    "irregular periods",
+    "pelvic pain",
+    "pregnancy checkup",
+    "menstrual cramps",
+    "vaginal discharge concerns",
+    "missed period and pregnancy test",
+    "menopause symptoms"
+  ],
+  "Orthopedics": [
+    "knee pain when walking",
+    "back pain after lifting",
+    "stiffness in one joint after an old injury acts up",
+    "sports injury to the ankle",
+    "shoulder pain when raising arm",
+    "fracture follow-up",
+    "hip pain while climbing stairs"
+  ],
+  "Pediatrics": [
+    "child with fever",
+    "child not eating well",
+    "child with persistent cough",
+    "vaccination schedule",
+    "child with rash",
+    "child growth and development concern",
+    "newborn feeding issues"
+  ],
+  "ENT": [
+    "ear pain and reduced hearing",
+    "sinus congestion",
+    "sore throat and difficulty swallowing",
+    "recurring nosebleeds",
+    "ringing in the ears",
+    "chronic snoring",
+    "loss of smell or taste"
+  ],
+  "Psychiatry": [
+    "persistent anxiety and worry",
+    "difficulty sleeping for weeks",
+    "low mood and loss of interest",
+    "panic attacks",
+    "trouble concentrating",
+    "excessive stress at work",
+    "mood swings"
+  ],
+  "Ophthalmology": [
+    "blurry vision",
+    "eye redness and irritation",
+    "difficulty seeing at night",
+    "eye strain from screens",
+    "watery eyes",
+    "sensitivity to light",
+    "sudden double vision"
+  ],
+  "Pulmonology": [
+    "chronic cough for weeks",
+    "wheezing",
+    "asthma follow-up",
+    "difficulty breathing at night",
+    "recurring bronchitis",
+    "coughing up phlegm"
+  ],
+  "Endocrinology": [
+    "unexplained weight change",
+    "diabetes follow-up",
+    "thyroid symptoms",
+    "excessive thirst and urination",
+    "hormonal imbalance symptoms",
+    "unexplained hair thinning with fatigue",
+    "blood sugar control issues",
+    "insulin dosage adjustment",
+    "gestational diabetes monitoring"
+  ],
+  "Urology": [
+    "painful urination",
+    "frequent urination",
+    "kidney stone symptoms",
+    "blood in urine",
+    "erectile dysfunction concerns",
+    "difficulty starting urination"
+  ],
+  "Nephrology": [
+    "swelling due to kidney issues",
+    "chronic kidney disease follow-up",
+    "protein detected in urine test",
+    "persistent high creatinine levels",
+    "reduced urine output"
+  ],
+  "Neurology": [
+    "frequent migraines",
+    "numbness in hands or feet",
+    "memory problems",
+    "seizure episode",
+    "tremors in hands",
+    "dizziness and balance issues"
+  ],
+  "Rheumatology": [
+    "joint pain and swelling in multiple joints",
+    "autoimmune condition follow-up",
+    "morning stiffness lasting over an hour",
+    "unexplained joint swelling and fatigue",
+    "suspected lupus symptoms"
+  ],
+  "Oncology": [
+    "unexplained lump",
+    "cancer follow-up appointment",
+    "unexplained weight loss and fatigue",
+    "persistent night sweats",
+    "family history of cancer screening"
+  ],
+  "Dentistry": [
+    "tooth pain",
+    "bleeding gums",
+    "jaw pain",
+    "sensitivity to hot and cold food",
+    "broken or chipped tooth",
+    "bad breath and cavity concern"
+  ],
+  "Allergy and Immunology": [
+    "seasonal allergies",
+    "food allergy reaction",
+    "frequent sneezing and itchy eyes",
+    "recurring skin hives after eating certain foods",
+    "allergic reaction to medication",
+    "chronic nasal congestion due to allergies"
+  ],
+  "Physiotherapy": [
+    "post-surgery rehabilitation",
+    "chronic muscle stiffness",
+    "posture correction and back pain",
+    "sports injury recovery exercises",
+    "frozen shoulder mobility issues"
+  ],
+  "Nutrition and Dietetics": [
+    "weight loss diet plan",
+    "diabetic diet guidance",
+    "malnutrition and low energy",
+    "healthy eating for pregnancy",
+    "PCOS diet management",
+    "child nutrition and picky eating"
+  ],
+  "Sports Medicine": [
+    "muscle strain from running",
+    "sports performance and injury prevention",
+    "recurring hamstring pull",
+    "return to play after injury assessment",
+    "ligament sprain during sports"
+  ],
+  "Geriatrics": [
+    "elderly fall risk assessment",
+    "memory decline in older adult",
+    "multiple medication management for elderly",
+    "age-related mobility decline",
+    "elderly frailty and weight loss"
+  ],
+  "Infectious Disease": [
+    "persistent fever of unknown origin",
+    "suspected dengue or malaria symptoms",
+    "recurring infections",
+    "travel-related illness symptoms",
+    "prolonged fever with chills"
+  ],
+  "Hematology": [
+    "easy bruising and bleeding",
+    "chronic anemia symptoms",
+    "low hemoglobin on blood test",
+    "unexplained fatigue with pale skin",
+    "abnormal blood cell count report"
+  ],
+  "Sexual Health": [
+    "sexually transmitted infection concern",
+    "low libido concerns",
+    "genital itching or discharge",
+    "safe sex and contraception counseling",
+    "premature ejaculation concerns"
+  ],
+  "Podiatry": [
+    "foot pain when walking",
+    "ingrown toenail",
+    "heel pain in the morning",
+    "diabetic foot care",
+    "flat feet causing discomfort"
+  ],
+  "Occupational Medicine": [
+    "workplace injury evaluation",
+    "repetitive strain injury from desk job",
+    "pre-employment medical fitness check",
+    "exposure to workplace chemicals",
+    "chronic back pain from manual labor job"
+  ],
+  "Pain Management": [
+    "chronic pain not relieved by medication",
+    "long-term back pain management",
+    "nerve pain and tingling",
+    "post-surgical pain persisting for weeks",
+    "fibromyalgia-like widespread pain"
+  ],
+  "Pulmonary Rehabilitation": [
+    "breathlessness after COVID recovery",
+    "post-pneumonia lung recovery",
+    "chronic obstructive pulmonary disease follow-up",
+    "reduced lung capacity after illness",
+    "breathing exercises after long hospitalization"
+  ],
+  "Andrology": [
+    "male infertility concerns",
+    "low sperm count evaluation",
+    "testicular pain or swelling",
+    "hormonal issues affecting male fertility",
+    "varicocele evaluation"
+  ],
+  "Reproductive Medicine and Fertility": [
+    "difficulty conceiving for over a year",
+    "IVF consultation",
+    "irregular ovulation and fertility concerns",
+    "recurrent miscarriage evaluation",
+    "egg freezing consultation"
+  ],
+  "Vascular Surgery": [
+    "varicose veins in legs",
+    "leg swelling with visible veins",
+    "poor circulation in feet",
+    "deep vein thrombosis follow-up",
+    "leg ulcers that won't heal"
+  ],
+  "General Surgery": [
+    "hernia evaluation",
+    "gallbladder stone symptoms",
+    "appendix pain evaluation",
+    "lump requiring surgical opinion",
+    "post-operative wound check"
+  ],
+  "Plastic and Cosmetic Surgery": [
+    "scar revision consultation",
+    "cosmetic skin procedure inquiry",
+    "burn injury reconstruction",
+    "post-accident facial reconstruction",
+    "elective cosmetic surgery consultation"
+  ],
+  "Homeopathy": [
+    "chronic allergy management with homeopathy",
+    "homeopathic treatment for recurring cold",
+    "alternative treatment for skin conditions",
+    "homeopathic consultation for general wellness",
+    "homeopathic remedy for chronic migraine"
+  ],
+  "Ayurveda": [
+    "ayurvedic treatment for joint pain",
+    "digestive issues ayurvedic consultation",
+    "ayurvedic detox and wellness",
+    "chronic fatigue ayurvedic remedy",
+    "panchakarma consultation for stress"
+  ],
+  "Speech Therapy": [
+    "child speech delay",
+    "stuttering concerns",
+    "voice hoarseness lasting weeks",
+    "difficulty swallowing after stroke",
+    "language development concerns in toddler"
+  ],
+  "Sleep Medicine": [
+    "chronic insomnia",
+    "loud snoring with breathing pauses",
+    "excessive daytime sleepiness",
+    "sleep apnea evaluation",
+    "disrupted sleep cycle and fatigue"
+  ]
+}
