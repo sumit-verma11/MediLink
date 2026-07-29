@@ -84,27 +84,28 @@ describe('sendTriageMessage', () => {
     expect(session.isRedFlag).toBe(false);
   });
 
-  it('falls through to the first clarifying question when the AI service is down on turn 1 (deliberately mocked)', async () => {
+  it('never calls the AI service for an ordinary first message (red-flag detection is now local)', async () => {
     const patientId = new mongoose.Types.ObjectId().toString();
-    vi.spyOn(aiClientModule, 'callTriageAI').mockRejectedValueOnce(
-      new AIServiceUnavailableError('AI service down')
-    );
+    const spy = vi.spyOn(aiClientModule, 'callTriageAI');
 
     const session = await sendTriageMessage(patientId, undefined, 'itchy red patches on my elbow');
 
     expect(session.messages).toHaveLength(2);
     expect(session.messages[1]!.role).toBe('assistant');
     expect(session.messages[1]!.text.toLowerCase()).toContain('how long');
+    expect(session.messages[1]!.text).toContain(DISCLAIMER);
     expect(session.isRedFlag).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
   });
 
-  it('asks the second clarifying question after the duration answer', async () => {
+  it('asks the second clarifying question after the duration answer, with the disclaimer', async () => {
     const patientId = new mongoose.Types.ObjectId().toString();
     const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
     const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
 
     expect(second.messages).toHaveLength(4);
     expect(second.messages[3]!.text.toLowerCase()).toMatch(/severe|mild|moderate/);
+    expect(second.messages[3]!.text).toContain(DISCLAIMER);
   });
 
   it('calls the AI service and returns specialties after the severity answer', async () => {
@@ -127,23 +128,20 @@ describe('sendTriageMessage', () => {
   it('degrades gracefully with the disclaimer when the AI service is down on turn 3 (deliberately mocked)', async () => {
     const patientId = new mongoose.Types.ObjectId().toString();
     const spy = vi.spyOn(aiClientModule, 'callTriageAI');
-    // Only two calls happen across the whole conversation: the turn-1
-    // red-flag check, and the turn-3 final match. Turn 2 never calls the AI.
-    spy.mockResolvedValueOnce({
-      emergency: false,
-      extractedSymptoms: [],
-      suggestedSpecialties: [],
-    }); // turn 1 red-flag check: AI reachable, not an emergency
+    // Only one AI call happens across the whole conversation: the turn-3
+    // final match. Red-flag detection is local now, so turns 1 and 2 never
+    // touch the AI at all.
     spy.mockRejectedValueOnce(new AIServiceUnavailableError('AI service down')); // turn 3
 
     const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
     const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
     const third = await sendTriageMessage(patientId, second._id.toString(), 'mild');
 
+    expect(spy).toHaveBeenCalledTimes(1);
     expect(third.suggestedSpecialties).toHaveLength(0);
     const finalMessage = third.messages[third.messages.length - 1]!;
     expect(finalMessage.role).toBe('assistant');
-    expect(finalMessage.text.toLowerCase()).toContain('pick a specialty manually');
+    expect(finalMessage.text.toLowerCase()).toContain('try again in a few minutes');
     expect(finalMessage.text).toContain(DISCLAIMER);
   });
 
@@ -176,20 +174,63 @@ describe('sendTriageMessage', () => {
     expect(third.recommendedDoctorIds.map((id) => id.toString())).not.toContain(matchLowest._id.toString());
   });
 
-  it('short-circuits to an emergency response on the very first message, skipping clarifying questions', async () => {
+  it('short-circuits to an emergency response on the very first message, skipping clarifying questions and the AI entirely', async () => {
     const patientId = new mongoose.Types.ObjectId().toString();
-    vi.spyOn(aiClientModule, 'callTriageAI').mockResolvedValue({
-      emergency: true,
-      message: 'Seek emergency care immediately or call 112.',
-      extractedSymptoms: [],
-      suggestedSpecialties: [],
-    });
+    const spy = vi.spyOn(aiClientModule, 'callTriageAI');
 
     const session = await sendTriageMessage(patientId, undefined, 'crushing chest pain');
 
     expect(session.isRedFlag).toBe(true);
     expect(session.messages).toHaveLength(2);
     expect(session.messages[1]!.text).toContain('112');
+    expect(session.messages[1]!.text).not.toContain(DISCLAIMER);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('escalates mid-conversation: a red flag on turn 2 is caught even though turn 1 was benign (C1)', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const spy = vi.spyOn(aiClientModule, 'callTriageAI');
+
+    const first = await sendTriageMessage(patientId, undefined, 'I have a mild rash');
+    expect(first.isRedFlag).toBe(false);
+
+    const second = await sendTriageMessage(patientId, first._id.toString(), 'actually now I have crushing chest pain');
+
+    expect(second.isRedFlag).toBe(true);
+    const lastMessage = second.messages[second.messages.length - 1]!;
+    expect(lastMessage.text).toContain('112');
+    expect(lastMessage.text.toLowerCase()).not.toContain('how severe');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('rejects a further message once a session has been red-flagged (terminal session)', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const first = await sendTriageMessage(patientId, undefined, 'crushing chest pain');
+    expect(first.isRedFlag).toBe(true);
+
+    await expect(sendTriageMessage(patientId, first._id.toString(), 'anything else')).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'TRIAGE_SESSION_CLOSED',
+    });
+  });
+
+  it('rejects a 4th message once a session has completed its 3-turn flow (terminal session)', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    vi.spyOn(aiClientModule, 'callTriageAI').mockResolvedValue({
+      emergency: false,
+      extractedSymptoms: ['itchy red patches'],
+      suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.87 }],
+    });
+
+    const first = await sendTriageMessage(patientId, undefined, 'itchy red patches');
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks');
+    const third = await sendTriageMessage(patientId, second._id.toString(), 'mild');
+    expect(third.suggestedSpecialties).toHaveLength(1);
+
+    await expect(sendTriageMessage(patientId, third._id.toString(), 'one more thing')).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'TRIAGE_SESSION_CLOSED',
+    });
   });
 
   it('rejects continuing a session that belongs to a different patient', async () => {

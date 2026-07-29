@@ -3,8 +3,10 @@ import { TriageSession, ITriageSession } from '../../models/TriageSession';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { AppError } from '../../lib/errors';
 import { callTriageAI, AIServiceUnavailableError } from './aiClient';
+import { checkRedFlagLocally } from './redFlags';
 
 const DISCLAIMER = 'This is guidance, not medical advice.';
+const EMERGENCY_MESSAGE = 'This may be a medical emergency. Seek emergency care immediately or call 112.';
 
 async function findRecommendedDoctors(specialtyNames: string[]): Promise<Types.ObjectId[]> {
   const doctors = await DoctorProfile.find({
@@ -14,6 +16,16 @@ async function findRecommendedDoctors(specialtyNames: string[]): Promise<Types.O
     .sort({ avgRating: -1 })
     .limit(3);
   return doctors.map((d) => d._id);
+}
+
+function pushAssistantMessage(
+  session: HydratedDocument<ITriageSession>,
+  text: string,
+  options: { includeDisclaimer?: boolean } = {}
+): void {
+  const includeDisclaimer = options.includeDisclaimer ?? true;
+  const finalText = includeDisclaimer ? `${text} ${DISCLAIMER}` : text;
+  session.messages.push({ role: 'assistant', text: finalText, at: new Date() });
 }
 
 export async function sendTriageMessage(
@@ -33,41 +45,49 @@ export async function sendTriageMessage(
     });
   }
 
+  // A session that already ended (emergency, or already completed its 3-turn
+  // flow) is terminal -- it does not accept further messages. This closes two
+  // gaps at once: an emergency session silently resuming ordinary triage, and
+  // an already-resolved session being re-queried (and re-billed against the
+  // AI service) indefinitely.
+  const priorUserTurns = session.messages.filter((m) => m.role === 'user').length;
+  if (session.isRedFlag || priorUserTurns >= 3) {
+    throw new AppError(409, 'This triage session has already ended. Start a new session for a new symptom.', 'TRIAGE_SESSION_CLOSED');
+  }
+
   session.messages.push({ role: 'user', text, at: new Date() });
+
+  // Red-flag detection is a pure keyword check and must never depend on the
+  // AI service being reachable. It runs locally, on every turn's own new
+  // text, before anything else -- this protects against the AI service being
+  // down (no remote dependency at all) and catches a red flag that only
+  // appears partway through the conversation, not just on the first message.
+  const matchedKeyword = checkRedFlagLocally(text);
+  if (matchedKeyword) {
+    session.isRedFlag = true;
+    pushAssistantMessage(session, EMERGENCY_MESSAGE, { includeDisclaimer: false });
+    await session.save();
+    return session;
+  }
 
   const turnCount = session.messages.filter((m) => m.role === 'user').length;
 
   if (turnCount === 1) {
-    // First message: check for a red flag before anything else. A red flag
-    // skips clarifying questions and specialty matching entirely.
-    try {
-      const aiResult = await callTriageAI(text);
-      if (aiResult.emergency) {
-        session.isRedFlag = true;
-        session.messages.push({ role: 'assistant', text: aiResult.message ?? 'Seek emergency care immediately or call 112.', at: new Date() });
-        await session.save();
-        return session;
-      }
-    } catch (err) {
-      if (!(err instanceof AIServiceUnavailableError)) throw err;
-      // AI down on the very first message: fall through to the normal
-      // clarifying-question flow. The manual-picker fallback happens at the
-      // final turn (turnCount === 3) if the AI is still down by then.
-    }
-
-    session.messages.push({ role: 'assistant', text: 'How long have you had these symptoms?', at: new Date() });
+    pushAssistantMessage(session, 'How long have you had these symptoms?');
     await session.save();
     return session;
   }
 
   if (turnCount === 2) {
-    session.messages.push({ role: 'assistant', text: 'How severe is it — mild, moderate, or severe?', at: new Date() });
+    pushAssistantMessage(session, 'How severe is it — mild, moderate, or severe?');
     await session.save();
     return session;
   }
 
   // turnCount === 3: combine the whole conversation into one description and
-  // call the AI service for the real specialty match.
+  // call the AI service for the real specialty match. The red-flag check
+  // above already covered this turn's own text locally; the AI is now only
+  // ever consulted for specialty matching, never for emergency detection.
   const combinedText = session.messages
     .filter((m) => m.role === 'user')
     .map((m) => m.text)
@@ -78,21 +98,13 @@ export async function sendTriageMessage(
     session.extractedSymptoms = aiResult.extractedSymptoms;
     session.suggestedSpecialties = aiResult.suggestedSpecialties;
     session.recommendedDoctorIds = await findRecommendedDoctors(aiResult.suggestedSpecialties.map((s) => s.name));
-    session.messages.push({
-      role: 'assistant',
-      text: `Based on what you've described, you may want to see: ${aiResult.suggestedSpecialties.map((s) => s.name).join(', ')}. ${DISCLAIMER}`,
-      at: new Date(),
-    });
+    pushAssistantMessage(
+      session,
+      `Based on what you've described, you may want to see: ${aiResult.suggestedSpecialties.map((s) => s.name).join(', ')}.`
+    );
   } catch (err) {
     if (!(err instanceof AIServiceUnavailableError)) throw err;
-    // Graceful degradation: the AI service is down. Return an empty
-    // specialty list so the frontend can fall back to a manual specialty
-    // picker instead of showing an error.
-    session.messages.push({
-      role: 'assistant',
-      text: `We're having trouble matching your symptoms automatically right now — please pick a specialty manually below. ${DISCLAIMER}`,
-      at: new Date(),
-    });
+    pushAssistantMessage(session, "We're having trouble matching your symptoms automatically right now — please try again in a few minutes.");
   }
 
   await session.save();
