@@ -29,6 +29,9 @@ jobs:
             apps/ai/requirements.txt
             apps/ai/requirements-dev.txt
       - run: pip install -r apps/ai/requirements-dev.txt
-      - run: ruff check apps/ai
-      - run: mypy apps/ai/app
-      - run: python -m pytest apps/ai/tests
+      - run: ruff check .
+        working-directory: apps/ai
+      - run: mypy app
+        working-directory: apps/ai
+      - run: python -m pytest tests
+        working-directory: apps/ai
