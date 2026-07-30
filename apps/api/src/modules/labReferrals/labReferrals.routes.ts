@@ -11,6 +11,7 @@ import {
 } from './labReferrals.controller';
 
 export const labReferralsRouter = Router();
+labReferralsRouter.use(apiLimiter);
 labReferralsRouter.use(requireAuth, requireRole('doctor'));
 labReferralsRouter.post('/', validate(CreateLabReferralInput), createReferralHandler);
 labReferralsRouter.get('/me', listReferralsForDoctorHandler);
