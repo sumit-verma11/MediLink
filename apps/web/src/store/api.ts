@@ -6,6 +6,6 @@ export const baseApi = createApi({
     baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api',
     credentials: 'include',
   }),
-  tagTypes: ['PatientProfile', 'DoctorProfile', 'LabProfile', 'Verification', 'MyAppointments'],
+  tagTypes: ['PatientProfile', 'DoctorProfile', 'LabProfile', 'Verification', 'MyAppointments', 'MyPrescriptions'],
   endpoints: () => ({}),
 });
