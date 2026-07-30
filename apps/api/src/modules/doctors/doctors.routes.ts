@@ -3,10 +3,11 @@ import { DoctorProfileInput } from '@medlink/shared';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { verificationDocsUpload } from './upload';
-import { getMyProfile, upsertMyProfile, uploadVerificationDocs, getPublicProfile } from './doctors.controller';
+import { getMyProfile, upsertMyProfile, uploadVerificationDocs, getPublicProfile, listDoctorsHandler } from './doctors.controller';
 
 export const doctorsRouter = Router();
 
+doctorsRouter.get('/', listDoctorsHandler);
 doctorsRouter.get('/public/:id', getPublicProfile);
 
 doctorsRouter.use(requireAuth, requireRole('doctor'));
