@@ -39,8 +39,15 @@ export default function DoctorDashboard() {
 
   return (
     <main className="max-w-2xl mx-auto mt-12 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
+        <Link href="/dashboard/doctor/referrals" className="text-sm underline">
+          Lab referrals sent
+        </Link>
+      </div>
+
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold">Pending requests</h1>
+        <h2 className="text-xl font-bold">Pending requests</h2>
         {data?.items.map((appt) => (
           <div key={appt._id} className="border p-3 rounded flex justify-between items-center">
             <div>
