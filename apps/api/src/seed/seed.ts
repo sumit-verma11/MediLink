@@ -15,7 +15,9 @@ import { TriageSession } from '../models/TriageSession';
 import { Prescription } from '../models/Prescription';
 import { LabReferral } from '../models/LabReferral';
 import { LabBooking } from '../models/LabBooking';
+import { Rating } from '../models/Rating';
 import { createNotification } from '../lib/notifications';
+import { createRating } from '../modules/ratings/ratings.service';
 import { PATIENTS, DOCTORS, LABS, AVAILABILITY_RULES_BY_DOCTOR_EMAIL } from './data';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -36,6 +38,7 @@ export async function runSeed(): Promise<void> {
   await Prescription.deleteMany({});
   await LabReferral.deleteMany({});
   await LabBooking.deleteMany({});
+  await Rating.deleteMany({});
 
   const passwordHash = await hashed();
 
@@ -68,8 +71,11 @@ export async function runSeed(): Promise<void> {
       clinicName: `${d.name.replace('Dr. ', '')} Clinic`, clinicAddress: `${d.city} Main Road`,
       city: d.city, geo: { lat: 28.5, lng: 77.3 }, consultationFee: d.fee,
       languages: ['English', 'Hindi'], verificationStatus: d.status,
-      avgRating: d.status === 'approved' ? Number((3.9 + Math.random() * 0.9).toFixed(1)) : 0,
-      ratingCount: d.status === 'approved' ? Math.floor(12 + Math.random() * 148) : 0,
+      // avgRating/ratingCount intentionally omitted here (schema defaults both to 0) --
+      // the real values are populated later in this script by createRating, which
+      // recomputes them from actual seeded Rating documents against completed
+      // appointments. This guarantees the seeded numbers are consistent with the exact
+      // aggregation logic production traffic uses, instead of independently faked ones.
     });
     await Notification.create({
       userId: user._id, type: 'welcome', title: 'Welcome to MedLink',
@@ -226,6 +232,41 @@ export async function runSeed(): Promise<void> {
       recommendedTests: recommendedTestSets[i % recommendedTestSets.length],
       createdAt: appointment.slotStart,
     });
+  }
+
+  // CLAUDE.md §6.4: 8 Ratings, spread across doctors, with realistic text. This calls
+  // createRating (the real ratings.service function) rather than hand-rolling
+  // Rating.create + a DoctorProfile update, so the seeded avgRating/ratingCount are
+  // guaranteed consistent with the exact recompute logic production traffic uses.
+  //
+  // Only 7 completed appointments exist in this seed (asserted exactly in seed.test.ts's
+  // Phase 2 slice), and Rating.appointmentId is unique -- one rating per completed
+  // appointment, enforced by both the schema and createRating's own
+  // `Appointment.findOne({ _id, patientId, status: 'completed' })` lookup. Rating all 7
+  // completed appointments (including the "completed-without-prescription" one, which is
+  // still eligible -- createRating only requires status 'completed', not a Prescription)
+  // is therefore the maximum possible without inflating the appointment counts other
+  // describe blocks in this file assert exactly; 7 is seeded here in place of CLAUDE.md's
+  // 8, spread across the 4 doctors who have completed appointments (Meera, Kavita, Rohit,
+  // Anjali).
+  console.log('Seeding ratings...');
+  const ratingTexts = [
+    'Very patient, explained everything clearly',
+    'Quick appointment, straight to the point',
+    'Helped me understand my condition much better',
+    'Would recommend to anyone in the area',
+    'Waited a bit but the consultation was thorough',
+    'Friendly staff and a clean clinic',
+    'Diagnosis was spot on',
+  ];
+  const ratedAppointments = await Appointment.find({ status: 'completed' }).sort({ slotStart: -1 });
+  for (const [index, appointment] of ratedAppointments.entries()) {
+    await createRating(
+      appointment.patientId.toString(),
+      appointment._id.toString(),
+      3 + (index % 3), // spreads scores across 3-5
+      ratingTexts[index]
+    );
   }
 
   // CLAUDE.md §6.4: 4 TriageSessions — rash→Dermatology, acidity→Gastro, knee pain→Ortho,
@@ -457,6 +498,15 @@ export async function runSeed(): Promise<void> {
     title: 'Your doctor has recommended a lab test',
     body: `${cityPathLab.labName} offers the recommended test(s). Tap to book.`,
     link: `/r/${sentReferral.token}`,
+  });
+  // Mirrors the lab-side notification createReferral's own production code path now
+  // sends (labReferrals.service.ts, Task 11) alongside the patient notification above --
+  // otherwise the lab dashboard's notification bell has nothing for this referral.
+  await createNotification({
+    userId: cityPathLab.userId.toString(),
+    type: 'lab_referral_received',
+    title: 'New lab referral',
+    body: `A doctor referred a patient to you for: ${sentReferral.suggestedTestCodes.join(', ')}.`,
   });
 
   // Walk-in booking: a patient books a lab test directly, with no referral at all.
