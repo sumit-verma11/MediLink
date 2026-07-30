@@ -9,6 +9,7 @@ import { Appointment } from './Appointment';
 import { TriageSession } from './TriageSession';
 import { LabBooking } from './LabBooking';
 import { LabReferral } from './LabReferral';
+import { Rating } from './Rating';
 
 let mongod: MongoMemoryServer;
 
@@ -21,7 +22,7 @@ beforeAll(async () => {
   // unique constraint yet, letting a duplicate email insert incorrectly succeed.
   // Model.init() resolves once a models indexes actually exist in MongoDB -- the
   // documented fix for exactly this race per Mongoose own testing guidance.
-  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init(), TriageSession.init(), LabBooking.init(), LabReferral.init()]);
+  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init(), TriageSession.init(), LabBooking.init(), LabReferral.init(), Rating.init()]);
 });
 
 afterEach(async () => {
@@ -179,6 +180,52 @@ describe('LabBooking model', () => {
         scheduledAt: new Date(),
         homeCollection: false,
         status: 'not_a_real_status' as any,
+      })
+    ).rejects.toThrow();
+  });
+});
+
+describe('Rating model', () => {
+  it('creates a valid rating with all required fields', async () => {
+    const rating = await Rating.create({
+      doctorId: new mongoose.Types.ObjectId(),
+      patientId: new mongoose.Types.ObjectId(),
+      appointmentId: new mongoose.Types.ObjectId(),
+      score: 5,
+      text: 'Excellent doctor!',
+    });
+    expect(rating.score).toBe(5);
+    expect(rating.text).toBe('Excellent doctor!');
+  });
+
+  it('enforces unique constraint on appointmentId (one rating per appointment)', async () => {
+    const doctorId = new mongoose.Types.ObjectId();
+    const patientId = new mongoose.Types.ObjectId();
+    const appointmentId = new mongoose.Types.ObjectId();
+
+    await Rating.create({
+      doctorId,
+      patientId,
+      appointmentId,
+      score: 4,
+    });
+
+    await expect(
+      Rating.create({
+        doctorId,
+        patientId,
+        appointmentId,
+        score: 3,
+      })
+    ).rejects.toThrow();
+  });
+
+  it('requires score field', async () => {
+    await expect(
+      Rating.create({
+        doctorId: new mongoose.Types.ObjectId(),
+        patientId: new mongoose.Types.ObjectId(),
+        appointmentId: new mongoose.Types.ObjectId(),
       })
     ).rejects.toThrow();
   });
