@@ -21,7 +21,7 @@ export default function VerifyPrescriptionPage({ params }: { params: Promise<{ i
   return (
     <main className="max-w-md mx-auto mt-12 space-y-3 border p-6 rounded">
       <h1 className="text-xl font-bold text-green-700">✓ Valid Prescription</h1>
-      <p><strong>Issued by:</strong> Dr. {verification.doctorName}</p>
+      <p><strong>Issued by:</strong> {verification.doctorName}</p>
       <p><strong>Registration No:</strong> {verification.regNo}</p>
       <p><strong>Clinic:</strong> {verification.clinicName}</p>
       <p><strong>Issued on:</strong> {new Date(verification.issuedAt).toDateString()}</p>
