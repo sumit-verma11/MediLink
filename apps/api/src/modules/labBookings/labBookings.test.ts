@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createBooking, updateBookingStatus, getReportPath } from './labBookings.service';
+import { createBooking, updateBookingStatus, getReportPath, listBookingsForLab } from './labBookings.service';
 import { createReferral, getReferralByToken } from '../labReferrals/labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -167,5 +167,18 @@ describe('getReportPath', () => {
     const otherPatient = await User.create({ role: 'patient', email: `other-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other' });
 
     await expect(getReportPath(booking._id.toString(), otherPatient._id.toString(), 'patient')).rejects.toThrow();
+  });
+});
+
+describe('listBookingsForLab', () => {
+  it('returns only the requesting lab\'s own bookings, paginated', async () => {
+    const { patientUser, labUser, labProfile } = await seedLabAndPrescription();
+    await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
+      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+    });
+
+    const result = await listBookingsForLab(labUser._id.toString(), 1, 20);
+    expect(result.total).toBe(1);
+    expect(result.items[0]!.testCodes).toEqual(['CBC']);
   });
 });

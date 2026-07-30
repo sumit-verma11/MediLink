@@ -101,3 +101,22 @@ export async function getReferralByToken(token: string): Promise<{
     totalPrice,
   };
 }
+
+export async function listReferralsForDoctor(
+  doctorUserId: string,
+  page: number,
+  limit: number
+): Promise<{ items: ILabReferral[]; total: number; page: number; limit: number }> {
+  const doctorProfile = await DoctorProfile.findOne({ userId: doctorUserId });
+  if (!doctorProfile) throw new AppError(404, 'Doctor profile not found', 'PROFILE_NOT_FOUND');
+
+  const cappedLimit = Math.min(50, limit);
+  const [items, total] = await Promise.all([
+    LabReferral.find({ doctorId: doctorProfile._id })
+      .sort({ _id: -1 })
+      .skip((page - 1) * cappedLimit)
+      .limit(cappedLimit),
+    LabReferral.countDocuments({ doctorId: doctorProfile._id }),
+  ]);
+  return { items, total, page, limit: cappedLimit };
+}

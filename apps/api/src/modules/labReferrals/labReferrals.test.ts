@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createReferral, getReferralByToken } from './labReferrals.service';
+import { createReferral, getReferralByToken, listReferralsForDoctor } from './labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { LabProfile } from '../../models/LabProfile';
@@ -123,5 +123,16 @@ describe('getReferralByToken', () => {
   it('returns null for an unknown token', async () => {
     const result = await getReferralByToken('nonexistent-token-xyz');
     expect(result).toBeNull();
+  });
+});
+
+describe('listReferralsForDoctor', () => {
+  it('returns only the requesting doctor\'s own referrals, paginated', async () => {
+    const { doctorUser, prescription, labProfile } = await seedPrescriptionAndLab();
+    await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+
+    const result = await listReferralsForDoctor(doctorUser._id.toString(), 1, 20);
+    expect(result.total).toBe(1);
+    expect(result.items[0]!.suggestedTestCodes).toEqual(['CBC']);
   });
 });

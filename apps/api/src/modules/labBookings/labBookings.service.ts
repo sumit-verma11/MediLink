@@ -155,3 +155,22 @@ export async function getReportPath(
 
   return path.join(process.cwd(), booking.reportUrl.replace(/^\//, ''));
 }
+
+export async function listBookingsForLab(
+  labUserId: string,
+  page: number,
+  limit: number
+): Promise<{ items: ILabBooking[]; total: number; page: number; limit: number }> {
+  const lab = await LabProfile.findOne({ userId: labUserId });
+  if (!lab) throw new AppError(404, 'Lab profile not found', 'PROFILE_NOT_FOUND');
+
+  const cappedLimit = Math.min(50, limit);
+  const [items, total] = await Promise.all([
+    LabBooking.find({ labId: lab._id })
+      .sort({ scheduledAt: 1 })
+      .skip((page - 1) * cappedLimit)
+      .limit(cappedLimit),
+    LabBooking.countDocuments({ labId: lab._id }),
+  ]);
+  return { items, total, page, limit: cappedLimit };
+}
