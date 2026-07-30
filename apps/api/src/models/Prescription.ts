@@ -21,6 +21,8 @@ export interface IPrescription {
   pdfUrl?: string;
   createdAt: Date;
   immutable: boolean;
+  version: number;
+  supersededBy?: Types.ObjectId;
 }
 
 const prescriptionSchema = new Schema<IPrescription>({
@@ -49,6 +51,8 @@ const prescriptionSchema = new Schema<IPrescription>({
   pdfUrl: String,
   createdAt: { type: Date, default: Date.now },
   immutable: { type: Boolean, default: true },
+  version: { type: Number, default: 1 },
+  supersededBy: { type: Schema.Types.ObjectId, ref: 'Prescription' },
 });
 
 export const Prescription = model<IPrescription>('Prescription', prescriptionSchema);

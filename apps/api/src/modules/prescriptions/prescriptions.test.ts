@@ -1,0 +1,431 @@
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
+import fs from 'node:fs';
+import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import type { Express } from 'express';
+import { createPrescription, amendPrescription, getPublicVerification, listMyPrescriptions, getPrescriptionPdfPath } from './prescriptions.service';
+import * as appointmentsServiceModule from '../appointments/appointments.service';
+import { Appointment } from '../../models/Appointment';
+import { DoctorProfile } from '../../models/DoctorProfile';
+import { User } from '../../models/User';
+import { Prescription } from '../../models/Prescription';
+import { createApp } from '../../app';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
+
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
+
+let mongod: MongoMemoryServer;
+
+beforeAll(async () => {
+  mongod = await MongoMemoryServer.create();
+  await mongoose.connect(mongod.getUri());
+  await Prescription.init();
+  await Appointment.init();
+});
+beforeEach(async () => {
+  // Shared helper: fresh Redis + flushed store, so the auth rate-limit budget starts
+  // empty for every test in this file. See src/test-utils/resetRateLimit.ts.
+  await resetTestRedis();
+});
+afterEach(async () => {
+  const collections = mongoose.connection.collections;
+  for (const key of Object.keys(collections)) await collections[key]?.deleteMany({});
+  vi.restoreAllMocks();
+});
+afterAll(async () => {
+  await mongoose.disconnect();
+  await mongod.stop();
+});
+
+async function seedConfirmedAppointment() {
+  const doctorUser = await User.create({ role: 'doctor', email: `doc-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Test' });
+  const patientUser = await User.create({ role: 'patient', email: `pat-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Patient Test' });
+  const doctorProfile = await DoctorProfile.create({
+    userId: doctorUser._id, specialties: ['General Physician'], qualifications: ['MBBS'], regNo: 'DMC/R/12345',
+    experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+    consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+  });
+  const appointment = await Appointment.create({
+    patientId: patientUser._id, doctorId: doctorProfile._id,
+    slotStart: new Date(Date.now() - 60 * 60 * 1000), slotEnd: new Date(Date.now() - 30 * 60 * 1000),
+    status: 'confirmed', timeline: [{ status: 'confirmed', at: new Date(), by: doctorUser._id }],
+  });
+  return { doctorUser, patientUser, doctorProfile, appointment };
+}
+
+describe('createPrescription', () => {
+  it('creates a prescription and auto-completes the appointment', async () => {
+    const { doctorUser, patientUser, appointment } = await seedConfirmedAppointment();
+
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids',
+    });
+
+    expect(prescription.diagnosisNote).toBe('Viral fever');
+    expect(prescription.patientId.toString()).toBe(patientUser._id.toString());
+    expect(prescription.version).toBe(1);
+
+    const updatedAppointment = await Appointment.findById(appointment._id);
+    expect(updatedAppointment!.status).toBe('completed');
+  });
+
+  it('rejects a doctor who does not own the appointment', async () => {
+    const { appointment } = await seedConfirmedAppointment();
+    const otherDoctorUser = await User.create({ role: 'doctor', email: `other-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Other' });
+    await DoctorProfile.create({
+      userId: otherDoctorUser._id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: 'DMC/R/54321',
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+
+    await expect(
+      createPrescription(otherDoctorUser._id.toString(), {
+        appointmentId: appointment._id.toString(),
+        diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+      })
+    ).rejects.toThrow();
+  });
+
+  it('rejects an appointment that is not confirmed', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    appointment.status = 'requested';
+    await appointment.save();
+
+    await expect(
+      createPrescription(doctorUser._id.toString(), {
+        appointmentId: appointment._id.toString(),
+        diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+      })
+    ).rejects.toThrow();
+  });
+
+  it('errors cleanly with zero side effects when appendTimelineEntry loses its own internal atomic race', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+
+    // appendTimelineEntry's OWN internal atomic findOneAndUpdate is what actually
+    // guards the confirmed->completed transition. Simulate it losing that race (e.g.
+    // a concurrent cancel or a second prescription request winning first) by mocking
+    // it to return null directly, the same way its real implementation would when its
+    // filter matches nothing -- pre-mutating the DB before calling createPrescription
+    // can't reach this branch, since createPrescription's own earlier
+    // `appointment.status !== 'confirmed'` check intercepts that case first.
+    vi.spyOn(appointmentsServiceModule, 'appendTimelineEntry').mockResolvedValueOnce(null);
+
+    await expect(
+      createPrescription(doctorUser._id.toString(), {
+        appointmentId: appointment._id.toString(),
+        diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+      })
+    ).rejects.toMatchObject({ statusCode: 409, code: 'APPOINTMENT_STATE_CHANGED' });
+
+    // The key assertion: no orphaned Prescription was created for an
+    // appointment that never actually transitioned to 'completed'.
+    expect(await Prescription.countDocuments({ appointmentId: appointment._id })).toBe(0);
+  });
+});
+
+describe('amendPrescription', () => {
+  async function seedPrescription() {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids',
+    });
+    return { doctorUser, appointment, prescription };
+  }
+
+  it('amends a prescription and links original -> v2', async () => {
+    const { doctorUser, prescription } = await seedPrescription();
+
+    const amended = await amendPrescription(doctorUser._id.toString(), prescription._id.toString(), {
+      diagnosisNote: 'Viral fever (revised)',
+      medicines: [{ name: 'Paracetamol', dosage: '650mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest and fluids, revised',
+    });
+
+    expect(amended.version).toBe(2);
+
+    const original = await Prescription.findById(prescription._id);
+    expect(original!.supersededBy!.toString()).toBe(amended._id.toString());
+  });
+
+  it('rejects a doctor amending a prescription they did not write', async () => {
+    const { prescription } = await seedPrescription();
+    const otherDoctorUser = await User.create({
+      role: 'doctor', email: `other-doc-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Other',
+    });
+    await DoctorProfile.create({
+      userId: otherDoctorUser._id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+
+    await expect(
+      amendPrescription(otherDoctorUser._id.toString(), prescription._id.toString(), {
+        diagnosisNote: 'v2', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+      })
+    ).rejects.toThrow();
+
+    const reloaded = await Prescription.findById(prescription._id);
+    expect(reloaded!.supersededBy).toBeUndefined();
+  });
+
+  it('rejects amending when the atomic supersededBy-link claim loses its own race, without leaving an orphan v2', async () => {
+    const { doctorUser, prescription } = await seedPrescription();
+
+    // amendPrescription's own atomic linking step is `Prescription.findOneAndUpdate`
+    // with a `supersededBy: { $exists: false }` guard. Simulate THAT specific call
+    // losing its race (matching nothing, e.g. a concurrent amend already linked the
+    // original a moment earlier) by mocking it directly -- pre-mutating
+    // `supersededBy` on the DB before calling amendPrescription can't reach this
+    // branch, since amendPrescription's own earlier `original.supersededBy` truthy
+    // check intercepts that case first.
+    const deleteOneSpy = vi.spyOn(Prescription, 'deleteOne');
+    vi.spyOn(Prescription, 'findOneAndUpdate').mockResolvedValueOnce(null);
+
+    await expect(
+      amendPrescription(doctorUser._id.toString(), prescription._id.toString(), {
+        diagnosisNote: 'y',
+        medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
+        advice: 'y',
+      })
+    ).rejects.toMatchObject({ statusCode: 409, code: 'ALREADY_AMENDED' });
+
+    // The optimistically-created v2 must have been rolled back via deleteOne.
+    expect(deleteOneSpy).toHaveBeenCalledTimes(1);
+
+    // No orphaned v2 should survive: total count for this appointment/version
+    // must be unchanged (still just the original at version 1).
+    expect(
+      await Prescription.countDocuments({ appointmentId: prescription.appointmentId, version: prescription.version + 1 })
+    ).toBe(0);
+
+    const original = await Prescription.findById(prescription._id);
+    expect(original!.supersededBy).toBeUndefined();
+  });
+});
+
+describe('createPrescription PDF generation', () => {
+  it('generates a PDF file on disk and stores its path as pdfUrl', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+
+    expect(prescription.pdfUrl).toBeTruthy();
+    const diskPath = prescription.pdfUrl!.replace('/uploads/', '');
+    const fullPath = `${process.cwd()}/uploads/${diskPath}`;
+    expect(fs.existsSync(fullPath)).toBe(true);
+  });
+});
+
+describe('getPublicVerification', () => {
+  it('returns non-PHI verification info for a real prescription', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Secret diagnosis, must not leak',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+
+    const verification = await getPublicVerification(prescription._id.toString());
+
+    expect(verification).not.toBeNull();
+    expect(verification!.doctorName).toBe(doctorUser.name);
+    expect(verification!.isLatestVersion).toBe(true);
+    expect(JSON.stringify(verification)).not.toContain('Secret diagnosis');
+  });
+
+  it('returns null for a nonexistent prescription id', async () => {
+    const verification = await getPublicVerification(new mongoose.Types.ObjectId().toString());
+    expect(verification).toBeNull();
+  });
+
+  it('reports isLatestVersion: false for a superseded prescription', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const original = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'v1',
+      medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
+      advice: 'x',
+    });
+    await amendPrescription(doctorUser._id.toString(), original._id.toString(), {
+      diagnosisNote: 'v2',
+      medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }],
+      advice: 'x',
+    });
+
+    const verification = await getPublicVerification(original._id.toString());
+    expect(verification!.isLatestVersion).toBe(false);
+  });
+});
+
+describe('listMyPrescriptions', () => {
+  it('returns only the requesting patient\'s prescriptions, paginated', async () => {
+    const { doctorUser, patientUser, appointment } = await seedConfirmedAppointment();
+    await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+
+    const result = await listMyPrescriptions(patientUser._id.toString(), 1, 20);
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.patientId.toString()).toBe(patientUser._id.toString());
+  });
+});
+
+describe('getPrescriptionPdfPath', () => {
+  it('allows the owning patient to fetch the PDF path', async () => {
+    const { doctorUser, patientUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+
+    const diskPath = await getPrescriptionPdfPath(prescription._id.toString(), patientUser._id.toString(), 'patient');
+    expect(diskPath).toContain(prescription._id.toString());
+  });
+
+  it('allows the issuing doctor to fetch the PDF path', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+
+    const diskPath = await getPrescriptionPdfPath(prescription._id.toString(), doctorUser._id.toString(), 'doctor');
+    expect(diskPath).toContain(prescription._id.toString());
+  });
+
+  it('rejects a different patient fetching someone else\'s PDF', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+    const otherPatient = await User.create({ role: 'patient', email: `other-pat-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other Patient' });
+
+    await expect(
+      getPrescriptionPdfPath(prescription._id.toString(), otherPatient._id.toString(), 'patient')
+    ).rejects.toThrow();
+  });
+
+  it('rejects a different doctor (not the issuing one) fetching the PDF', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+    const otherDoctorUser = await User.create({
+      role: 'doctor', email: `other-pdf-doc-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Other',
+    });
+    await DoctorProfile.create({
+      userId: otherDoctorUser._id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+
+    await expect(
+      getPrescriptionPdfPath(prescription._id.toString(), otherDoctorUser._id.toString(), 'doctor')
+    ).rejects.toThrow();
+  });
+});
+
+async function registerLoginAndProfile(app: Express, role: 'doctor' | 'patient', email: string) {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Test User', phone: '9999999999', role });
+  const loginRes = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  const cookies = loginRes.headers['set-cookie'] as unknown as string[];
+  return cookies;
+}
+
+describe('POST /api/prescriptions', () => {
+  it('lets a doctor create a prescription for their own confirmed appointment', async () => {
+    const app = createApp();
+    const doctorEmail = `doc-http-${Date.now()}@medlink.demo`;
+    const doctorCookies = await registerLoginAndProfile(app, 'doctor', doctorEmail);
+    // Fetch the doctor's own profile id to seed a matching confirmed appointment directly via the model layer
+    const doctorUserDoc = await User.findOne({ email: doctorEmail });
+    const doctorProfile = await DoctorProfile.create({
+      userId: doctorUserDoc!._id, specialties: ['General Physician'], qualifications: ['MBBS'], regNo: 'DMC/R/11111',
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+    const patientUserDoc = await User.create({ role: 'patient', email: `pat-http-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'HTTP Patient' });
+    const appointment = await Appointment.create({
+      patientId: patientUserDoc._id, doctorId: doctorProfile._id,
+      slotStart: new Date(Date.now() - 60 * 60 * 1000), slotEnd: new Date(Date.now() - 30 * 60 * 1000),
+      status: 'confirmed', timeline: [{ status: 'confirmed', at: new Date(), by: doctorUserDoc!._id }],
+    });
+
+    const res = await request(app).post('/api/prescriptions').set('Cookie', doctorCookies).send({
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.prescription.diagnosisNote).toBe('Viral fever');
+  });
+
+  it('rejects a patient trying to create a prescription', async () => {
+    const app = createApp();
+    const patientCookies = await registerLoginAndProfile(app, 'patient', `pat-reject-${Date.now()}@medlink.demo`);
+    const res = await request(app).post('/api/prescriptions').set('Cookie', patientCookies).send({
+      appointmentId: new mongoose.Types.ObjectId().toString(), diagnosisNote: 'x',
+      medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/prescriptions/verify/:id', () => {
+  it('is publicly accessible with no auth cookie', async () => {
+    const app = createApp();
+    const res = await request(app).get(`/api/prescriptions/verify/${new mongoose.Types.ObjectId().toString()}`);
+    expect(res.status).toBe(404); // nonexistent id, but reached the handler without a 401
+  });
+});
+
+describe('GET /uploads/prescriptions/:file (static mount bypass regression)', () => {
+  it('does not serve a real, on-disk prescription PDF via the /uploads static mount, even to an authenticated doctor', async () => {
+    const app = createApp();
+    // Create a real prescription (with a real PDF written to disk by
+    // createPrescription -> generateAndSavePdf) so this test proves the file
+    // genuinely exists but still isn't reachable via the old broad
+    // `/uploads` mount -- not just that a nonexistent path 404s trivially.
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+    expect(prescription.pdfUrl).toBeTruthy();
+    const diskPath = prescription.pdfUrl!.replace('/uploads/', '');
+    const fullPath = `${process.cwd()}/uploads/${diskPath}`;
+    expect(fs.existsSync(fullPath)).toBe(true);
+
+    // Log in as SOME doctor (not necessarily the owning one) -- the whole
+    // point of this regression test is that the static mount must not serve
+    // this file at all, regardless of who is asking.
+    const otherDoctorEmail = `static-bypass-doc-${Date.now()}@medlink.demo`;
+    const doctorCookies = await registerLoginAndProfile(app, 'doctor', otherDoctorEmail);
+
+    const res = await request(app).get(prescription.pdfUrl!).set('Cookie', doctorCookies);
+    expect(res.status).toBe(404);
+  });
+});

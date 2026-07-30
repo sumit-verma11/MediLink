@@ -5,3 +5,5 @@ export * from './schemas/lab';
 export * from './schemas/admin';
 export * from './schemas/appointment';
 export * from './schemas/triage';
+export * from './schemas/prescription';
+export * from './genericMedicines';

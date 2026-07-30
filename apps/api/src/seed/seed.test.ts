@@ -8,6 +8,7 @@ import { LabProfile } from '../models/LabProfile';
 import { Appointment } from '../models/Appointment';
 import { AvailabilityRule } from '../models/AvailabilityRule';
 import { TriageSession } from '../models/TriageSession';
+import { Prescription } from '../models/Prescription';
 
 let mongod: MongoMemoryServer;
 
@@ -84,5 +85,22 @@ describe('runSeed — Phase 3 slice', () => {
 
     const linkedCount = await Appointment.countDocuments({ triageSessionId: { $ne: null } });
     expect(linkedCount).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('runSeed — Phase 4 slice', () => {
+  it('seeds exactly 6 prescriptions, at least 3 with recommendedTests, all linked to completed appointments', async () => {
+    await runSeed();
+    const prescriptions = await Prescription.find({});
+    expect(prescriptions).toHaveLength(6);
+
+    const withTests = prescriptions.filter((p) => p.recommendedTests.length > 0);
+    expect(withTests.length).toBeGreaterThanOrEqual(3);
+
+    for (const rx of prescriptions) {
+      const appointment = await Appointment.findById(rx.appointmentId);
+      expect(appointment).not.toBeNull();
+      expect(appointment!.status).toBe('completed');
+    }
   });
 });
