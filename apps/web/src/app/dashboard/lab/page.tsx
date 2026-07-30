@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useListMyLabBookingsQuery, useUpdateBookingStatusMutation } from '@/store/labBookingsApi';
+import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 
 export default function LabDashboardPage() {
   const { data, isLoading, refetch } = useListMyLabBookingsQuery();
   const [updateStatus] = useUpdateBookingStatusMutation();
+  const { data: notifData } = useListMyNotificationsQuery();
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -41,7 +44,12 @@ export default function LabDashboardPage() {
 
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-4">
-      <h1 className="text-2xl font-bold">Lab Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Lab Dashboard</h1>
+        <Link href="/notifications" className="text-sm underline">
+          Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
+        </Link>
+      </div>
       {uploadError ? <p className="text-sm text-red-600">{uploadError}</p> : null}
       <ul className="space-y-2">
         {data?.items.map((booking) => (
