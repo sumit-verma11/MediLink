@@ -15,6 +15,7 @@ import { TriageSession } from '../models/TriageSession';
 import { Prescription } from '../models/Prescription';
 import { LabReferral } from '../models/LabReferral';
 import { LabBooking } from '../models/LabBooking';
+import { createNotification } from '../lib/notifications';
 import { PATIENTS, DOCTORS, LABS, AVAILABILITY_RULES_BY_DOCTOR_EMAIL } from './data';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -435,7 +436,7 @@ export async function runSeed(): Promise<void> {
 
   // Referral 3: Dr. Meera → City Path Labs (CBC ₹285) → sent (patient hasn't clicked yet —
   // demo the click live). No LabBooking exists for this one.
-  await LabReferral.create({
+  const sentReferral = await LabReferral.create({
     prescriptionId: meeraRx!._id,
     doctorId: meera.profileId,
     patientId: meeraRx!.patientId,
@@ -445,6 +446,17 @@ export async function runSeed(): Promise<void> {
     status: 'sent',
     timeline: [{ status: 'sent', at: daysAgo(1) }],
     expiresAt: daysFromNow(29), // 30 days from its 'sent' timestamp (daysAgo(1))
+  });
+  // Mirrors the notification the real createReferral service sends on referral
+  // creation, so this seeded 'sent' referral is actually discoverable from the
+  // patient's notification bell -- otherwise there's no way to demo "the patient
+  // hasn't clicked yet" live, since nothing points at /r/{token}.
+  await createNotification({
+    userId: sentReferral.patientId.toString(),
+    type: 'lab_referral_sent',
+    title: 'Your doctor has recommended a lab test',
+    body: `${cityPathLab.labName} offers the recommended test(s). Tap to book.`,
+    link: `/r/${sentReferral.token}`,
   });
 
   // Walk-in booking: a patient books a lab test directly, with no referral at all.
