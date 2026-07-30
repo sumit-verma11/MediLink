@@ -310,4 +310,24 @@ describe('getPrescriptionPdfPath', () => {
       getPrescriptionPdfPath(prescription._id.toString(), otherPatient._id.toString(), 'patient')
     ).rejects.toThrow();
   });
+
+  it('rejects a different doctor (not the issuing one) fetching the PDF', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+    const otherDoctorUser = await User.create({
+      role: 'doctor', email: `other-pdf-doc-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Other',
+    });
+    await DoctorProfile.create({
+      userId: otherDoctorUser._id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+
+    await expect(
+      getPrescriptionPdfPath(prescription._id.toString(), otherDoctorUser._id.toString(), 'doctor')
+    ).rejects.toThrow();
+  });
 });
