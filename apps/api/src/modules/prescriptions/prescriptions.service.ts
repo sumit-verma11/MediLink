@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { HydratedDocument } from 'mongoose';
 import { Prescription, IPrescription } from '../../models/Prescription';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile, IDoctorProfile } from '../../models/DoctorProfile';
@@ -9,6 +10,7 @@ import { logAudit } from '../audit/audit.service';
 import { emitAppointmentUpdate } from '../../lib/socket';
 import { appendTimelineEntry } from '../appointments/appointments.service';
 import { generatePrescriptionPdf } from './prescriptions.pdf';
+import { logger } from '../../lib/logger';
 import type { CreatePrescriptionInput, AmendPrescriptionInput } from '@medlink/shared';
 
 const PDF_DIR = path.join(process.cwd(), 'uploads', 'prescriptions');
@@ -29,6 +31,22 @@ async function generateAndSavePdf(prescription: IPrescription, doctorProfile: ID
   const filename = `${prescription._id.toString()}.pdf`;
   fs.writeFileSync(path.join(PDF_DIR, filename), buffer);
   return `/uploads/prescriptions/${filename}`;
+}
+
+// PDF generation touches a separate User lookup and a filesystem write, either of
+// which can fail independently of the Prescription document itself being valid. A
+// failure here must never surface as a 500 to the caller: the appointment has
+// already atomically transitioned and the Prescription document (the source of
+// truth, already audit-logged by the caller) exists and is fully usable without a
+// PDF. Leave pdfUrl unset and let the caller return the degraded-but-recoverable
+// prescription rather than throwing into a stuck, unrecoverable state.
+async function tryAttachPdf(prescription: HydratedDocument<IPrescription>, doctorProfile: IDoctorProfile, context: string): Promise<void> {
+  try {
+    prescription.pdfUrl = await generateAndSavePdf(prescription, doctorProfile);
+    await prescription.save();
+  } catch (err) {
+    logger.error(err, `Failed to generate ${context} PDF; continuing without one`);
+  }
 }
 
 export async function createPrescription(
@@ -69,17 +87,19 @@ export async function createPrescription(
     recommendedTests: input.recommendedTests ?? [],
   });
 
-  prescription.pdfUrl = await generateAndSavePdf(prescription, doctorProfile);
-  await prescription.save();
-
-  emitAppointmentUpdate(doctorUserId, updatedAppointment);
-  emitAppointmentUpdate(updatedAppointment.patientId.toString(), updatedAppointment);
-
+  // Audit the creation immediately -- this is the real "a prescription was
+  // written" event, and it must be recorded regardless of whether PDF
+  // generation (a separate, independently-failable step) succeeds afterward.
   await logAudit({
     actorId: doctorUserId, actorRole: 'doctor', action: 'prescription.created',
     entityType: 'Prescription', entityId: prescription._id.toString(),
     meta: { appointmentId: appointment._id.toString() },
   });
+
+  await tryAttachPdf(prescription, doctorProfile, 'prescription');
+
+  emitAppointmentUpdate(doctorUserId, updatedAppointment);
+  emitAppointmentUpdate(updatedAppointment.patientId.toString(), updatedAppointment);
 
   return prescription;
 }
@@ -110,13 +130,13 @@ export async function amendPrescription(
     version: original.version + 1,
   });
 
-  amended.pdfUrl = await generateAndSavePdf(amended, doctorProfile);
-  await amended.save();
-
-  // Atomically claim the "not yet superseded" slot on the original -- the
-  // filter's `supersededBy: { $exists: false }` guard means at most one
-  // concurrent amend call can win this update, even though the v2 document
-  // above was already created optimistically.
+  // Atomically claim the "not yet superseded" slot on the original BEFORE
+  // generating a PDF for the v2 document -- the filter's
+  // `supersededBy: { $exists: false }` guard means at most one concurrent
+  // amend call can win this update. Doing this before PDF generation means a
+  // lost race never leaves an orphaned PDF file on disk: if we lose, no PDF
+  // was ever written for `amended`, so deleting the DB document is the only
+  // cleanup needed.
   const linked = await Prescription.findOneAndUpdate(
     { _id: original._id, doctorId: doctorProfile._id, supersededBy: { $exists: false } },
     { $set: { supersededBy: amended._id } },
@@ -130,11 +150,16 @@ export async function amendPrescription(
     throw new AppError(409, 'This prescription has already been amended', 'ALREADY_AMENDED');
   }
 
+  // The claim succeeded -- this amend is now real and permanent. Audit it
+  // immediately, before attempting PDF generation (a separate,
+  // independently-failable step further below).
   await logAudit({
     actorId: doctorUserId, actorRole: 'doctor', action: 'prescription.amended',
     entityType: 'Prescription', entityId: amended._id.toString(),
     meta: { supersedes: original._id.toString() },
   });
+
+  await tryAttachPdf(amended, doctorProfile, 'amended prescription');
 
   return amended;
 }
