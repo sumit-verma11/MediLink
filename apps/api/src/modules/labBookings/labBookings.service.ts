@@ -34,6 +34,21 @@ export async function createBooking(
     // can never be used to book on behalf of someone else.
     const referral = await LabReferral.findOne({ token: referralToken, patientId: patientUserId });
     if (!referral) throw new AppError(404, 'Referral not found', 'REFERRAL_NOT_FOUND');
+
+    // A referral is issued for a specific lab -- redeeming it anywhere else
+    // would still mark the referral 'booked'/'report_ready' against the
+    // ORIGINAL lab it points to, while the actual test happens (and the
+    // report gets uploaded) at a different lab entirely.
+    if (referral.labId.toString() !== labId) {
+      throw new AppError(400, 'This referral is for a different lab', 'REFERRAL_LAB_MISMATCH');
+    }
+    // One referral, one booking -- otherwise multiple bookings could compete
+    // to drive the same referral's status/reportUrl.
+    const existingBooking = await LabBooking.findOne({ referralId: referral._id });
+    if (existingBooking) {
+      throw new AppError(409, 'This referral has already been booked', 'REFERRAL_ALREADY_BOOKED');
+    }
+
     referralId = referral._id.toString();
   }
 
@@ -67,6 +82,17 @@ export async function createBooking(
   return booking;
 }
 
+// Ordering ranks for the forward-only pipeline a booking moves through. A
+// booking already at report_ready is terminal -- it cannot accept ANY further
+// status update -- and a booking cannot be moved sideways/backwards to a
+// status at or before its current rank. Mirrors the same no-regress invariant
+// getReferralByToken already enforces for reads on the linked LabReferral.
+const BOOKING_STATUS_RANK: Record<'booked' | 'sample_collected' | 'report_ready', number> = {
+  booked: 0,
+  sample_collected: 1,
+  report_ready: 2,
+};
+
 export async function updateBookingStatus(
   labUserId: string,
   bookingId: string,
@@ -78,6 +104,12 @@ export async function updateBookingStatus(
 
   const booking = await LabBooking.findOne({ _id: bookingId, labId: lab._id });
   if (!booking) throw new AppError(404, 'Booking not found', 'BOOKING_NOT_FOUND');
+
+  const currentRank = BOOKING_STATUS_RANK[booking.status as 'booked' | 'sample_collected' | 'report_ready'] ?? -1;
+  const targetRank = BOOKING_STATUS_RANK[status];
+  if (targetRank <= currentRank) {
+    throw new AppError(409, 'Invalid status transition', 'INVALID_STATUS_TRANSITION');
+  }
 
   booking.status = status;
   if (status === 'report_ready' && reportPath) {

@@ -10,7 +10,7 @@ import {
 } from './appointment';
 import { SendTriageMessageInput } from './triage';
 import { CreatePrescriptionInput, AmendPrescriptionInput } from './prescription';
-import { CreateLabReferralInput, CreateLabBookingInput, UpdateBookingStatusInput } from './labReferral';
+import { CreateLabReferralInput, CreateLabBookingInput, UpdateBookingStatusInput, PatchBookingStatusInput } from './labReferral';
 
 describe('RegisterInput', () => {
   it('rejects a password shorter than 8 chars', () => {
@@ -188,5 +188,13 @@ describe('UpdateBookingStatusInput', () => {
   it('only accepts the pipeline statuses a lab can set', () => {
     expect(UpdateBookingStatusInput.safeParse({ status: 'sample_collected' }).success).toBe(true);
     expect(UpdateBookingStatusInput.safeParse({ status: 'booked' }).success).toBe(false);
+  });
+});
+
+describe('PatchBookingStatusInput', () => {
+  it('only accepts sample_collected -- report_ready must go through the upload path, not this route', () => {
+    expect(PatchBookingStatusInput.safeParse({ status: 'sample_collected' }).success).toBe(true);
+    expect(PatchBookingStatusInput.safeParse({ status: 'report_ready' }).success).toBe(false);
+    expect(PatchBookingStatusInput.safeParse({ status: 'booked' }).success).toBe(false);
   });
 });

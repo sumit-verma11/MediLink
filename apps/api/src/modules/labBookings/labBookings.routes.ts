@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { CreateLabBookingInput, UpdateBookingStatusInput } from '@medlink/shared';
+import { CreateLabBookingInput, PatchBookingStatusInput } from '@medlink/shared';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { labReportUpload } from './labBookings.upload';
@@ -21,6 +21,6 @@ labBookingsRouter.post('/', requireRole('patient'), validate(CreateLabBookingInp
 // both are listed before the `/:id/...` dynamic routes below regardless.
 labBookingsRouter.get('/mine', requireRole('patient'), listBookingsForPatientHandler);
 labBookingsRouter.get('/me', requireRole('lab'), listBookingsForLabHandler);
-labBookingsRouter.patch('/:id/status', requireRole('lab'), validate(UpdateBookingStatusInput), updateBookingStatusHandler);
+labBookingsRouter.patch('/:id/status', requireRole('lab'), validate(PatchBookingStatusInput), updateBookingStatusHandler);
 labBookingsRouter.post('/:id/report', requireRole('lab'), verifyLabOwnsBooking, labReportUpload.single('report'), uploadReportHandler);
 labBookingsRouter.get('/:id/report', requireRole('patient', 'lab'), getReportHandler);
