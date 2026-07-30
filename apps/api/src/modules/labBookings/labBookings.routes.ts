@@ -10,6 +10,7 @@ import {
   updateBookingStatusHandler,
   uploadReportHandler,
   getReportHandler,
+  verifyLabOwnsBooking,
 } from './labBookings.controller';
 
 export const labBookingsRouter = Router();
@@ -21,5 +22,5 @@ labBookingsRouter.post('/', requireRole('patient'), validate(CreateLabBookingInp
 labBookingsRouter.get('/mine', requireRole('patient'), listBookingsForPatientHandler);
 labBookingsRouter.get('/me', requireRole('lab'), listBookingsForLabHandler);
 labBookingsRouter.patch('/:id/status', requireRole('lab'), validate(UpdateBookingStatusInput), updateBookingStatusHandler);
-labBookingsRouter.post('/:id/report', requireRole('lab'), labReportUpload.single('report'), uploadReportHandler);
+labBookingsRouter.post('/:id/report', requireRole('lab'), verifyLabOwnsBooking, labReportUpload.single('report'), uploadReportHandler);
 labBookingsRouter.get('/:id/report', requireRole('patient', 'lab'), getReportHandler);

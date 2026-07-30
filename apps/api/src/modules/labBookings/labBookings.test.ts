@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
+import path from 'node:path';
+import fs from 'node:fs';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import type { Express } from 'express';
@@ -426,5 +428,55 @@ describe('POST /api/lab-bookings/:id/report and GET /api/lab-bookings/:id/report
     const res = await request(app).get(`/api/lab-bookings/${bookingId}/report`).set('Cookie', otherPatientCookies);
 
     expect(res.status).toBe(404);
+  });
+
+  it('rejects a lab uploading a report to a booking that belongs to a DIFFERENT lab, leaving the original booking untouched', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+
+    const otherLabEmail = `other-lab-http-${Date.now()}@medlink.demo`;
+    const otherLabCookies = await registerAndLogin(app, 'lab', otherLabEmail);
+    const otherLabUser = await User.findOne({ email: otherLabEmail });
+    await LabProfile.create({
+      userId: otherLabUser!._id, labName: 'Rival Diagnostics', address: 'B', city: 'Delhi',
+      geo: { lat: 1, lng: 1 }, timings: '07:00-21:00', homeCollection: true, verificationStatus: 'approved',
+      tests: [{ code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6 }],
+    });
+
+    const attackRes = await request(app)
+      .post(`/api/lab-bookings/${bookingId}/report`)
+      .set('Cookie', otherLabCookies)
+      .attach('report', Buffer.from('%PDF-1.4 malicious report content'), { filename: 'evil.pdf', contentType: 'application/pdf' });
+
+    expect(attackRes.status).toBe(404);
+
+    const reloaded = await LabBooking.findById(bookingId);
+    expect(reloaded!.status).toBe('booked');
+    expect(reloaded!.reportUrl).toBeUndefined();
+
+    const uploadedFilePath = path.join(process.cwd(), 'uploads', 'lab-reports', `${bookingId}.pdf`);
+    expect(fs.existsSync(uploadedFilePath)).toBe(false);
+  });
+
+  it('rejects a malformed/path-traversal-like :id before any file is written to disk', async () => {
+    const app = createApp();
+    const { labCookies } = await seedLabAndPrescriptionHttp(app);
+
+    const maliciousId = encodeURIComponent('../../pwned');
+    const res = await request(app)
+      .post(`/api/lab-bookings/${maliciousId}/report`)
+      .set('Cookie', labCookies)
+      .attach('report', Buffer.from('%PDF-1.4 fake report content'), { filename: 'report.pdf', contentType: 'application/pdf' });
+
+    expect(res.status).toBe(404);
+
+    // The traversal target, relative to the fixed upload directory, would resolve
+    // two levels up (uploads/lab-reports -> uploads -> apps/api cwd).
+    const traversalTargetPath = path.join(process.cwd(), 'pwned.pdf');
+    expect(fs.existsSync(traversalTargetPath)).toBe(false);
   });
 });
