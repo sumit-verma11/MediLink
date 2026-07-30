@@ -1,13 +1,20 @@
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import type { Express } from 'express';
 import { createPrescription, amendPrescription, getPublicVerification, listMyPrescriptions, getPrescriptionPdfPath } from './prescriptions.service';
 import * as appointmentsServiceModule from '../appointments/appointments.service';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { User } from '../../models/User';
 import { Prescription } from '../../models/Prescription';
+import { createApp } from '../../app';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
+
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
 
 let mongod: MongoMemoryServer;
 
@@ -16,6 +23,11 @@ beforeAll(async () => {
   await mongoose.connect(mongod.getUri());
   await Prescription.init();
   await Appointment.init();
+});
+beforeEach(async () => {
+  // Shared helper: fresh Redis + flushed store, so the auth rate-limit budget starts
+  // empty for every test in this file. See src/test-utils/resetRateLimit.ts.
+  await resetTestRedis();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -329,5 +341,61 @@ describe('getPrescriptionPdfPath', () => {
     await expect(
       getPrescriptionPdfPath(prescription._id.toString(), otherDoctorUser._id.toString(), 'doctor')
     ).rejects.toThrow();
+  });
+});
+
+async function registerLoginAndProfile(app: Express, role: 'doctor' | 'patient', email: string) {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Test User', phone: '9999999999', role });
+  const loginRes = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  const cookies = loginRes.headers['set-cookie'] as unknown as string[];
+  return cookies;
+}
+
+describe('POST /api/prescriptions', () => {
+  it('lets a doctor create a prescription for their own confirmed appointment', async () => {
+    const app = createApp();
+    const doctorEmail = `doc-http-${Date.now()}@medlink.demo`;
+    const doctorCookies = await registerLoginAndProfile(app, 'doctor', doctorEmail);
+    // Fetch the doctor's own profile id to seed a matching confirmed appointment directly via the model layer
+    const doctorUserDoc = await User.findOne({ email: doctorEmail });
+    const doctorProfile = await DoctorProfile.create({
+      userId: doctorUserDoc!._id, specialties: ['General Physician'], qualifications: ['MBBS'], regNo: 'DMC/R/11111',
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+      consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+    });
+    const patientUserDoc = await User.create({ role: 'patient', email: `pat-http-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'HTTP Patient' });
+    const appointment = await Appointment.create({
+      patientId: patientUserDoc._id, doctorId: doctorProfile._id,
+      slotStart: new Date(Date.now() - 60 * 60 * 1000), slotEnd: new Date(Date.now() - 30 * 60 * 1000),
+      status: 'confirmed', timeline: [{ status: 'confirmed', at: new Date(), by: doctorUserDoc!._id }],
+    });
+
+    const res = await request(app).post('/api/prescriptions').set('Cookie', doctorCookies).send({
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.prescription.diagnosisNote).toBe('Viral fever');
+  });
+
+  it('rejects a patient trying to create a prescription', async () => {
+    const app = createApp();
+    const patientCookies = await registerLoginAndProfile(app, 'patient', `pat-reject-${Date.now()}@medlink.demo`);
+    const res = await request(app).post('/api/prescriptions').set('Cookie', patientCookies).send({
+      appointmentId: new mongoose.Types.ObjectId().toString(), diagnosisNote: 'x',
+      medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/prescriptions/verify/:id', () => {
+  it('is publicly accessible with no auth cookie', async () => {
+    const app = createApp();
+    const res = await request(app).get(`/api/prescriptions/verify/${new mongoose.Types.ObjectId().toString()}`);
+    expect(res.status).toBe(404); // nonexistent id, but reached the handler without a 401
   });
 });

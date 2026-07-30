@@ -15,6 +15,7 @@ import { doctorsRouter } from './modules/doctors/doctors.routes';
 import { labsRouter } from './modules/labs/labs.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 import { triageRouter } from './modules/triage/triage.routes';
+import { prescriptionsRouter } from './modules/prescriptions/prescriptions.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -40,6 +41,7 @@ export function createApp(): Express {
   app.use('/api/admin', adminRouter);
   app.use('/api/appointments', appointmentsRouter);
   app.use('/api/triage', triageRouter);
+  app.use('/api/prescriptions', prescriptionsRouter);
 
   app.use(errorHandler);
   return app;
