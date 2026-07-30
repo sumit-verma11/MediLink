@@ -1,5 +1,7 @@
 import { Schema, model, Types } from 'mongoose';
 
+export type LabBookingStatus = 'booked' | 'sample_collected' | 'report_ready' | 'cancelled';
+
 export interface ILabBooking {
   _id: Types.ObjectId;
   referralId?: Types.ObjectId;
@@ -9,7 +11,7 @@ export interface ILabBooking {
   totalPrice: number;
   scheduledAt: Date;
   homeCollection: boolean;
-  status: string;
+  status: LabBookingStatus;
   reportUrl?: string;
 }
 
@@ -21,7 +23,7 @@ const labBookingSchema = new Schema<ILabBooking>({
   totalPrice: { type: Number, required: true },
   scheduledAt: { type: Date, required: true },
   homeCollection: { type: Boolean, default: false },
-  status: { type: String, default: 'booked' },
+  status: { type: String, enum: ['booked', 'sample_collected', 'report_ready', 'cancelled'], default: 'booked' },
   reportUrl: String,
 });
 

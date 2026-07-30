@@ -10,6 +10,7 @@ import {
 } from './appointment';
 import { SendTriageMessageInput } from './triage';
 import { CreatePrescriptionInput, AmendPrescriptionInput } from './prescription';
+import { CreateLabReferralInput, CreateLabBookingInput, UpdateBookingStatusInput } from './labReferral';
 
 describe('RegisterInput', () => {
   it('rejects a password shorter than 8 chars', () => {
@@ -162,5 +163,28 @@ describe('AmendPrescriptionInput', () => {
       advice: 'Rest and fluids',
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('CreateLabReferralInput', () => {
+  it('requires a labId and at least one test code', () => {
+    expect(CreateLabReferralInput.safeParse({ labId: 'x', testCodes: [] }).success).toBe(false);
+    expect(CreateLabReferralInput.safeParse({ labId: 'x', testCodes: ['CBC'] }).success).toBe(true);
+  });
+});
+
+describe('CreateLabBookingInput', () => {
+  it('requires at least one test code and a scheduled date', () => {
+    expect(
+      CreateLabBookingInput.safeParse({ testCodes: ['CBC'], scheduledAt: new Date().toISOString(), homeCollection: false }).success
+    ).toBe(true);
+    expect(CreateLabBookingInput.safeParse({ testCodes: [], scheduledAt: new Date().toISOString(), homeCollection: false }).success).toBe(false);
+  });
+});
+
+describe('UpdateBookingStatusInput', () => {
+  it('only accepts the pipeline statuses a lab can set', () => {
+    expect(UpdateBookingStatusInput.safeParse({ status: 'sample_collected' }).success).toBe(true);
+    expect(UpdateBookingStatusInput.safeParse({ status: 'booked' }).success).toBe(false);
   });
 });

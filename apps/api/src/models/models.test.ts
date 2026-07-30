@@ -7,6 +7,8 @@ import { Prescription } from './Prescription';
 import { BlockedDate } from './BlockedDate';
 import { Appointment } from './Appointment';
 import { TriageSession } from './TriageSession';
+import { LabBooking } from './LabBooking';
+import { LabReferral } from './LabReferral';
 
 let mongod: MongoMemoryServer;
 
@@ -19,7 +21,7 @@ beforeAll(async () => {
   // unique constraint yet, letting a duplicate email insert incorrectly succeed.
   // Model.init() resolves once a models indexes actually exist in MongoDB -- the
   // documented fix for exactly this race per Mongoose own testing guidance.
-  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init(), TriageSession.init()]);
+  await Promise.all([User.init(), DoctorProfile.init(), Prescription.init(), BlockedDate.init(), Appointment.init(), TriageSession.init(), LabBooking.init(), LabReferral.init()]);
 });
 
 afterEach(async () => {
@@ -153,5 +155,31 @@ describe('TriageSession model', () => {
   it('persists isRedFlag: true when set', async () => {
     const session = await TriageSession.create({ patientId: new mongoose.Types.ObjectId(), isRedFlag: true });
     expect(session.isRedFlag).toBe(true);
+  });
+});
+
+describe('LabBooking model', () => {
+  it('defaults status to booked and rejects an invalid status value', async () => {
+    const booking = await LabBooking.create({
+      patientId: new mongoose.Types.ObjectId(),
+      labId: new mongoose.Types.ObjectId(),
+      testCodes: ['CBC'],
+      totalPrice: 250,
+      scheduledAt: new Date(),
+      homeCollection: false,
+    });
+    expect(booking.status).toBe('booked');
+
+    await expect(
+      LabBooking.create({
+        patientId: new mongoose.Types.ObjectId(),
+        labId: new mongoose.Types.ObjectId(),
+        testCodes: ['CBC'],
+        totalPrice: 250,
+        scheduledAt: new Date(),
+        homeCollection: false,
+        status: 'not_a_real_status' as any,
+      })
+    ).rejects.toThrow();
   });
 });
