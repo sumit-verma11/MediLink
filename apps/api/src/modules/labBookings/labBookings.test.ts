@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createBooking, updateBookingStatus } from './labBookings.service';
+import { createBooking, updateBookingStatus, getReportPath } from './labBookings.service';
 import { createReferral, getReferralByToken } from '../labReferrals/labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -136,5 +136,36 @@ describe('updateBookingStatus', () => {
     const otherLabUser = await User.create({ role: 'lab', email: `otherlab-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other Lab' });
 
     await expect(updateBookingStatus(otherLabUser._id.toString(), booking._id.toString(), 'sample_collected')).rejects.toThrow();
+  });
+});
+
+describe('getReportPath', () => {
+  it('allows the owning patient and the lab that issued the report to fetch the path', async () => {
+    const { doctorUser, patientUser, labUser, labProfile, prescription } = await seedLabAndPrescription();
+    const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+    const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
+      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+    }, referral.token);
+    await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'sample_collected');
+    await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'report_ready', '/uploads/lab-reports/fake.pdf');
+
+    const asPatient = await getReportPath(booking._id.toString(), patientUser._id.toString(), 'patient');
+    expect(asPatient).toContain('lab-reports');
+
+    const asLab = await getReportPath(booking._id.toString(), labUser._id.toString(), 'lab');
+    expect(asLab).toContain('lab-reports');
+  });
+
+  it('rejects a different patient fetching someone else\'s report', async () => {
+    const { doctorUser, patientUser, labUser, labProfile, prescription } = await seedLabAndPrescription();
+    const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+    const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
+      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+    }, referral.token);
+    await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'sample_collected');
+    await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'report_ready', '/uploads/lab-reports/fake.pdf');
+    const otherPatient = await User.create({ role: 'patient', email: `other-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other' });
+
+    await expect(getReportPath(booking._id.toString(), otherPatient._id.toString(), 'patient')).rejects.toThrow();
   });
 });

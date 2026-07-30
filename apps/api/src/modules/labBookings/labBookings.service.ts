@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { LabBooking, ILabBooking, LabBookingStatus } from '../../models/LabBooking';
 import { LabReferral } from '../../models/LabReferral';
 import { LabProfile } from '../../models/LabProfile';
@@ -132,4 +133,25 @@ export async function updateBookingStatus(
   });
 
   return booking;
+}
+
+export async function getReportPath(
+  bookingId: string,
+  requestingUserId: string,
+  requestingRole: string
+): Promise<string> {
+  const booking = await LabBooking.findById(bookingId);
+  if (!booking) throw new AppError(404, 'Booking not found', 'BOOKING_NOT_FOUND');
+
+  let authorized = false;
+  if (requestingRole === 'patient' && booking.patientId.toString() === requestingUserId) {
+    authorized = true;
+  } else if (requestingRole === 'lab') {
+    const lab = await LabProfile.findOne({ userId: requestingUserId });
+    if (lab && booking.labId.toString() === lab._id.toString()) authorized = true;
+  }
+  if (!authorized) throw new AppError(404, 'Booking not found', 'BOOKING_NOT_FOUND');
+  if (!booking.reportUrl) throw new AppError(404, 'Report not available', 'REPORT_NOT_AVAILABLE');
+
+  return path.join(process.cwd(), booking.reportUrl.replace(/^\//, ''));
 }
