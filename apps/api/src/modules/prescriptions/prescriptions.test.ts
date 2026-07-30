@@ -399,3 +399,33 @@ describe('GET /api/prescriptions/verify/:id', () => {
     expect(res.status).toBe(404); // nonexistent id, but reached the handler without a 401
   });
 });
+
+describe('GET /uploads/prescriptions/:file (static mount bypass regression)', () => {
+  it('does not serve a real, on-disk prescription PDF via the /uploads static mount, even to an authenticated doctor', async () => {
+    const app = createApp();
+    // Create a real prescription (with a real PDF written to disk by
+    // createPrescription -> generateAndSavePdf) so this test proves the file
+    // genuinely exists but still isn't reachable via the old broad
+    // `/uploads` mount -- not just that a nonexistent path 404s trivially.
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'Viral fever',
+      medicines: [{ name: 'Paracetamol', dosage: '500mg', frequency: 'BD', durationDays: 5 }],
+      advice: 'Rest',
+    });
+    expect(prescription.pdfUrl).toBeTruthy();
+    const diskPath = prescription.pdfUrl!.replace('/uploads/', '');
+    const fullPath = `${process.cwd()}/uploads/${diskPath}`;
+    expect(fs.existsSync(fullPath)).toBe(true);
+
+    // Log in as SOME doctor (not necessarily the owning one) -- the whole
+    // point of this regression test is that the static mount must not serve
+    // this file at all, regardless of who is asking.
+    const otherDoctorEmail = `static-bypass-doc-${Date.now()}@medlink.demo`;
+    const doctorCookies = await registerLoginAndProfile(app, 'doctor', otherDoctorEmail);
+
+    const res = await request(app).get(prescription.pdfUrl!).set('Cookie', doctorCookies);
+    expect(res.status).toBe(404);
+  });
+});

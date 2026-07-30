@@ -29,8 +29,18 @@ export function createApp(): Express {
 
   // Verification docs are medical registration certificates and ID scans. Serving
   // them unauthenticated would expose them to anyone who can guess a file path,
-  // so restrict to admins (who review them) and doctors (who own them).
-  app.use('/uploads', requireAuth, requireRole('admin', 'doctor'), express.static(path.join(process.cwd(), 'uploads')));
+  // so restrict to admins (who review them) and doctors (who own them). This mount
+  // is scoped to ONLY the verification-docs subdirectory -- it must never cover the
+  // whole `uploads/` tree, since other subdirectories (e.g. `uploads/prescriptions/`)
+  // hold PHI that is ownership-scoped to a single patient/doctor pair, which this
+  // admin-or-any-doctor check does not enforce. Those files are served exclusively
+  // through their own dedicated, ownership-checked routes (see prescriptions.routes.ts).
+  app.use(
+    '/uploads/verification-docs',
+    requireAuth,
+    requireRole('admin', 'doctor'),
+    express.static(path.join(process.cwd(), 'uploads', 'verification-docs'))
+  );
 
   app.use('/api/auth', authRouter);
   app.use('/api/patients', patientsRouter);
