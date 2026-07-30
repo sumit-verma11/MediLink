@@ -32,6 +32,19 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
       </div>
       <p><strong>Advice:</strong> {prescription.advice}</p>
       {prescription.followUpDate ? <p><strong>Follow-up:</strong> {new Date(prescription.followUpDate).toDateString()}</p> : null}
+      {prescription.recommendedTests.length > 0 ? (
+        <div>
+          <strong>Recommended Tests:</strong>
+          <ul className="list-disc pl-6">
+            {prescription.recommendedTests.map((t, i) => (
+              <li key={i}>
+                {t.testName}
+                {t.labReferralId ? <span className="text-green-700 text-sm"> (referred to a lab)</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {prescription.pdfUrl ? (
         <a
           className="inline-block bg-black text-white px-4 py-2"

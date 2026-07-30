@@ -3,16 +3,19 @@
 import Link from 'next/link';
 import { useListMyAppointmentsQuery } from '@/store/appointmentsApi';
 import { useListMyPrescriptionsQuery } from '@/store/prescriptionsApi';
+import { useListMyLabBookingsQuery } from '@/store/labBookingsApi';
 
 type TimelineEntry =
   | { kind: 'appointment'; at: string; label: string; id: string }
-  | { kind: 'prescription'; at: string; label: string; id: string };
+  | { kind: 'prescription'; at: string; label: string; id: string }
+  | { kind: 'labBooking'; at: string; label: string; id: string };
 
 export default function PatientTimelinePage() {
   const { data: appointmentsData, isLoading: appointmentsLoading } = useListMyAppointmentsQuery({ status: undefined });
   const { data: prescriptionsData, isLoading: prescriptionsLoading } = useListMyPrescriptionsQuery({ page: 1, limit: 50 });
+  const { data: bookingsData, isLoading: bookingsLoading } = useListMyLabBookingsQuery({ page: 1, limit: 50 });
 
-  if (appointmentsLoading || prescriptionsLoading) {
+  if (appointmentsLoading || prescriptionsLoading || bookingsLoading) {
     return <main className="max-w-2xl mx-auto mt-12">Loading...</main>;
   }
 
@@ -28,6 +31,12 @@ export default function PatientTimelinePage() {
       at: p.createdAt,
       label: 'Prescription issued',
       id: p._id,
+    })) ?? []),
+    ...(bookingsData?.items.map((b) => ({
+      kind: 'labBooking' as const,
+      at: b.scheduledAt,
+      label: `Lab test: ${b.testCodes.join(', ')} (${b.status})`,
+      id: b._id,
     })) ?? []),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
