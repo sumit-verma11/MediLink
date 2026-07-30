@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import type { Express } from 'express';
 import { createReferral, getReferralByToken, listReferralsForDoctor } from './labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -8,6 +10,11 @@ import { LabProfile } from '../../models/LabProfile';
 import { Prescription } from '../../models/Prescription';
 import { LabReferral } from '../../models/LabReferral';
 import { Notification } from '../../models/Notification';
+import { createApp } from '../../app';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
+
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
 
 let mongod: MongoMemoryServer;
 
@@ -15,6 +22,9 @@ beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
   await LabReferral.init();
+});
+beforeEach(async () => {
+  await resetTestRedis();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -134,5 +144,120 @@ describe('listReferralsForDoctor', () => {
     const result = await listReferralsForDoctor(doctorUser._id.toString(), 1, 20);
     expect(result.total).toBe(1);
     expect(result.items[0]!.suggestedTestCodes).toEqual(['CBC']);
+  });
+});
+
+async function registerAndLogin(app: Express, role: 'doctor' | 'patient' | 'lab', email: string): Promise<string[]> {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Test User', phone: '9999999999', role });
+  const loginRes = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  return loginRes.headers['set-cookie'] as unknown as string[];
+}
+
+async function seedPrescriptionAndLabHttp(app: Express) {
+  const doctorEmail = `doc-http-${Date.now()}-${Math.random()}@medlink.demo`;
+  const doctorCookies = await registerAndLogin(app, 'doctor', doctorEmail);
+  const doctorUser = await User.findOne({ email: doctorEmail });
+  const doctorProfile = await DoctorProfile.create({
+    userId: doctorUser!._id, specialties: ['General Physician'], qualifications: ['MBBS'], regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+    experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+    consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+  });
+  const patientUser = await User.create({ role: 'patient', email: `pat-http-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Patient Test' });
+  const labUser = await User.create({ role: 'lab', email: `lab-http-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'HealthFirst' });
+  const labProfile = await LabProfile.create({
+    userId: labUser._id, labName: 'HealthFirst Diagnostics', address: 'A', city: 'Noida',
+    geo: { lat: 1, lng: 1 }, timings: '07:00-21:00', homeCollection: true, verificationStatus: 'approved',
+    tests: [{ code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6 }],
+  });
+  const prescription = await Prescription.create({
+    appointmentId: new mongoose.Types.ObjectId(), doctorId: doctorProfile._id, patientId: patientUser._id,
+    diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    recommendedTests: [{ testName: 'Complete Blood Count' }],
+  });
+  return { doctorCookies, doctorUser, patientUser, labProfile, prescription };
+}
+
+describe('POST /api/lab-referrals', () => {
+  it('lets a doctor create a referral for their own prescription', async () => {
+    const app = createApp();
+    const { doctorCookies, prescription, labProfile } = await seedPrescriptionAndLabHttp(app);
+
+    const res = await request(app).post('/api/lab-referrals').set('Cookie', doctorCookies).send({
+      prescriptionId: prescription._id.toString(),
+      labId: labProfile._id.toString(),
+      testCodes: ['CBC'],
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.referral.status).toBe('sent');
+    expect(res.body.referral.suggestedTestCodes).toEqual(['CBC']);
+  });
+
+  it('rejects a patient trying to create a referral', async () => {
+    const app = createApp();
+    const patientCookies = await registerAndLogin(app, 'patient', `pat-reject-${Date.now()}@medlink.demo`);
+
+    const res = await request(app).post('/api/lab-referrals').set('Cookie', patientCookies).send({
+      prescriptionId: new mongoose.Types.ObjectId().toString(),
+      labId: new mongoose.Types.ObjectId().toString(),
+      testCodes: ['CBC'],
+    });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects a request missing prescriptionId with a validation error', async () => {
+    const app = createApp();
+    const { doctorCookies, labProfile } = await seedPrescriptionAndLabHttp(app);
+
+    const res = await request(app).post('/api/lab-referrals').set('Cookie', doctorCookies).send({
+      labId: labProfile._id.toString(),
+      testCodes: ['CBC'],
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/lab-referrals/me', () => {
+  it('returns the requesting doctor\'s own referrals, paginated', async () => {
+    const app = createApp();
+    const { doctorCookies, prescription, labProfile } = await seedPrescriptionAndLabHttp(app);
+    await request(app).post('/api/lab-referrals').set('Cookie', doctorCookies).send({
+      prescriptionId: prescription._id.toString(),
+      labId: labProfile._id.toString(),
+      testCodes: ['CBC'],
+    });
+
+    const res = await request(app).get('/api/lab-referrals/me').set('Cookie', doctorCookies);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].suggestedTestCodes).toEqual(['CBC']);
+  });
+});
+
+describe('GET /api/r/:token', () => {
+  it('is publicly reachable with no auth cookie', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/r/nonexistent-token');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns the lab, referred tests, and total price for a real token with no auth cookie', async () => {
+    const app = createApp();
+    const { doctorCookies, prescription, labProfile } = await seedPrescriptionAndLabHttp(app);
+    const createRes = await request(app).post('/api/lab-referrals').set('Cookie', doctorCookies).send({
+      prescriptionId: prescription._id.toString(),
+      labId: labProfile._id.toString(),
+      testCodes: ['CBC'],
+    });
+    const token = createRes.body.referral.token;
+
+    const res = await request(app).get(`/api/r/${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.lab.labName).toBe('HealthFirst Diagnostics');
+    expect(res.body.totalPrice).toBe(250);
   });
 });

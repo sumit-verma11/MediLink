@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import type { Express } from 'express';
 import { createBooking, updateBookingStatus, getReportPath, listBookingsForLab } from './labBookings.service';
 import { createReferral, getReferralByToken } from '../labReferrals/labReferrals.service';
 import { User } from '../../models/User';
@@ -10,6 +12,11 @@ import { Prescription } from '../../models/Prescription';
 import { LabReferral } from '../../models/LabReferral';
 import { LabBooking } from '../../models/LabBooking';
 import { Notification } from '../../models/Notification';
+import { createApp } from '../../app';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
+
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
 
 let mongod: MongoMemoryServer;
 
@@ -17,6 +24,9 @@ beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
   await LabReferral.init();
+});
+beforeEach(async () => {
+  await resetTestRedis();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -54,7 +64,7 @@ describe('createBooking', () => {
     const { patientUser, labProfile } = await seedLabAndPrescription();
 
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     });
 
     expect(booking.totalPrice).toBe(250);
@@ -68,7 +78,7 @@ describe('createBooking', () => {
     await getReferralByToken(referral.token); // simulate the patient opening the link first
 
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: true,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: true,
     }, referral.token);
 
     expect(booking.referralId!.toString()).toBe(referral._id.toString());
@@ -84,7 +94,7 @@ describe('createBooking', () => {
 
     await expect(
       createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-        testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: true,
+        labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: true,
       })
     ).rejects.toThrow();
   });
@@ -95,7 +105,7 @@ describe('updateBookingStatus', () => {
     const { doctorUser, patientUser, labUser, labProfile, prescription } = await seedLabAndPrescription();
     const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     }, referral.token);
 
     await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'sample_collected');
@@ -117,7 +127,7 @@ describe('updateBookingStatus', () => {
   it('notifies the patient on report_ready even for a walk-in booking with no referral', async () => {
     const { patientUser, labUser, labProfile } = await seedLabAndPrescription();
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     });
     expect(booking.referralId).toBeUndefined();
 
@@ -131,7 +141,7 @@ describe('updateBookingStatus', () => {
   it('rejects a lab updating a booking that is not its own', async () => {
     const { patientUser, labProfile } = await seedLabAndPrescription();
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     });
     const otherLabUser = await User.create({ role: 'lab', email: `otherlab-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other Lab' });
 
@@ -144,7 +154,7 @@ describe('getReportPath', () => {
     const { doctorUser, patientUser, labUser, labProfile, prescription } = await seedLabAndPrescription();
     const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     }, referral.token);
     await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'sample_collected');
     await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'report_ready', '/uploads/lab-reports/fake.pdf');
@@ -160,7 +170,7 @@ describe('getReportPath', () => {
     const { doctorUser, patientUser, labUser, labProfile, prescription } = await seedLabAndPrescription();
     const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     }, referral.token);
     await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'sample_collected');
     await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'report_ready', '/uploads/lab-reports/fake.pdf');
@@ -174,11 +184,200 @@ describe('listBookingsForLab', () => {
   it('returns only the requesting lab\'s own bookings, paginated', async () => {
     const { patientUser, labUser, labProfile } = await seedLabAndPrescription();
     await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
-      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
     });
 
     const result = await listBookingsForLab(labUser._id.toString(), 1, 20);
     expect(result.total).toBe(1);
     expect(result.items[0]!.testCodes).toEqual(['CBC']);
+  });
+});
+
+async function registerAndLogin(app: Express, role: 'doctor' | 'patient' | 'lab', email: string): Promise<string[]> {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Test User', phone: '9999999999', role });
+  const loginRes = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  return loginRes.headers['set-cookie'] as unknown as string[];
+}
+
+async function seedLabAndPrescriptionHttp(app: Express) {
+  const patientEmail = `pat-http-${Date.now()}-${Math.random()}@medlink.demo`;
+  const patientCookies = await registerAndLogin(app, 'patient', patientEmail);
+  const patientUser = await User.findOne({ email: patientEmail });
+
+  const labEmail = `lab-http-${Date.now()}-${Math.random()}@medlink.demo`;
+  const labCookies = await registerAndLogin(app, 'lab', labEmail);
+  const labUser = await User.findOne({ email: labEmail });
+  const labProfile = await LabProfile.create({
+    userId: labUser!._id, labName: 'HealthFirst Diagnostics', address: 'A', city: 'Noida',
+    geo: { lat: 1, lng: 1 }, timings: '07:00-21:00', homeCollection: true, verificationStatus: 'approved',
+    tests: [{ code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6 }],
+  });
+
+  const doctorUser = await User.create({ role: 'doctor', email: `doc-http-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Dr Test' });
+  const doctorProfile = await DoctorProfile.create({
+    userId: doctorUser._id, specialties: ['General Physician'], qualifications: ['MBBS'], regNo: `DMC/R/${Math.floor(Math.random() * 100000)}`,
+    experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 },
+    consultationFee: 500, languages: ['English'], verificationStatus: 'approved', avgRating: 4.5,
+  });
+  const prescription = await Prescription.create({
+    appointmentId: new mongoose.Types.ObjectId(), doctorId: doctorProfile._id, patientId: patientUser!._id,
+    diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    recommendedTests: [{ testName: 'Complete Blood Count' }],
+  });
+
+  return { patientCookies, patientUser: patientUser!, labCookies, labUser: labUser!, labProfile, doctorUser, prescription };
+}
+
+describe('POST /api/lab-bookings', () => {
+  it('rejects an unauthenticated request', async () => {
+    const app = createApp();
+    const res = await request(app).post('/api/lab-bookings').send({ labId: 'x', testCodes: ['CBC'], scheduledAt: new Date().toISOString(), homeCollection: false });
+    expect(res.status).toBe(401);
+  });
+
+  it('lets a patient create a walk-in booking with a computed total price', async () => {
+    const app = createApp();
+    const { patientCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+
+    const res = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(),
+      testCodes: ['CBC'],
+      scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+      homeCollection: false,
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.booking.totalPrice).toBe(250);
+    expect(res.body.booking.status).toBe('booked');
+  });
+
+  it('lets a patient book against a referral via ?referralToken=', async () => {
+    const app = createApp();
+    const { patientCookies, patientUser, labProfile, doctorUser, prescription } = await seedLabAndPrescriptionHttp(app);
+    const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+    await getReferralByToken(referral.token);
+    expect(referral.patientId.toString()).toBe(patientUser._id.toString());
+
+    const res = await request(app)
+      .post(`/api/lab-bookings?referralToken=${referral.token}`)
+      .set('Cookie', patientCookies)
+      .send({ labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false });
+
+    expect(res.status).toBe(201);
+    expect(res.body.booking.referralId).toBeTruthy();
+  });
+
+  it('rejects a lab trying to create a booking', async () => {
+    const app = createApp();
+    const { labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+
+    const res = await request(app).post('/api/lab-bookings').set('Cookie', labCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/lab-bookings/me', () => {
+  it('returns the requesting lab\'s own bookings, paginated', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+
+    const res = await request(app).get('/api/lab-bookings/me').set('Cookie', labCookies);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].testCodes).toEqual(['CBC']);
+  });
+});
+
+describe('PATCH /api/lab-bookings/:id/status', () => {
+  it('lets the owning lab transition a booking to sample_collected', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+
+    const res = await request(app).patch(`/api/lab-bookings/${bookingId}/status`).set('Cookie', labCookies).send({ status: 'sample_collected' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.booking.status).toBe('sample_collected');
+  });
+
+  it('rejects an invalid status value', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+
+    const res = await request(app).patch(`/api/lab-bookings/${bookingId}/status`).set('Cookie', labCookies).send({ status: 'booked' });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/lab-bookings/:id/report and GET /api/lab-bookings/:id/report', () => {
+  it('lets the owning lab upload a report, then the owning patient and lab download it', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+    await request(app).patch(`/api/lab-bookings/${bookingId}/status`).set('Cookie', labCookies).send({ status: 'sample_collected' });
+
+    const uploadRes = await request(app)
+      .post(`/api/lab-bookings/${bookingId}/report`)
+      .set('Cookie', labCookies)
+      .attach('report', Buffer.from('%PDF-1.4 fake report content'), { filename: 'report.pdf', contentType: 'application/pdf' });
+
+    expect(uploadRes.status).toBe(200);
+    expect(uploadRes.body.booking.status).toBe('report_ready');
+    expect(uploadRes.body.booking.reportUrl).toBe(`/uploads/lab-reports/${bookingId}.pdf`);
+
+    const patientDownload = await request(app).get(`/api/lab-bookings/${bookingId}/report`).set('Cookie', patientCookies);
+    expect(patientDownload.status).toBe(200);
+
+    const labDownload = await request(app).get(`/api/lab-bookings/${bookingId}/report`).set('Cookie', labCookies);
+    expect(labDownload.status).toBe(200);
+  });
+
+  it('rejects the upload when no file is attached', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+
+    const res = await request(app).post(`/api/lab-bookings/${bookingId}/report`).set('Cookie', labCookies);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a different patient downloading someone else\'s report', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+    await request(app)
+      .post(`/api/lab-bookings/${bookingId}/report`)
+      .set('Cookie', labCookies)
+      .attach('report', Buffer.from('%PDF-1.4 fake report content'), { filename: 'report.pdf', contentType: 'application/pdf' });
+
+    const otherPatientCookies = await registerAndLogin(app, 'patient', `other-pat-http-${Date.now()}@medlink.demo`);
+    const res = await request(app).get(`/api/lab-bookings/${bookingId}/report`).set('Cookie', otherPatientCookies);
+
+    expect(res.status).toBe(404);
   });
 });

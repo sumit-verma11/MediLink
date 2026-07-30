@@ -167,18 +167,20 @@ describe('AmendPrescriptionInput', () => {
 });
 
 describe('CreateLabReferralInput', () => {
-  it('requires a labId and at least one test code', () => {
-    expect(CreateLabReferralInput.safeParse({ labId: 'x', testCodes: [] }).success).toBe(false);
-    expect(CreateLabReferralInput.safeParse({ labId: 'x', testCodes: ['CBC'] }).success).toBe(true);
+  it('requires a prescriptionId, labId, and at least one test code', () => {
+    expect(CreateLabReferralInput.safeParse({ prescriptionId: 'p', labId: 'x', testCodes: [] }).success).toBe(false);
+    expect(CreateLabReferralInput.safeParse({ labId: 'x', testCodes: ['CBC'] }).success).toBe(false);
+    expect(CreateLabReferralInput.safeParse({ prescriptionId: 'p', labId: 'x', testCodes: ['CBC'] }).success).toBe(true);
   });
 });
 
 describe('CreateLabBookingInput', () => {
-  it('requires at least one test code and a scheduled date', () => {
+  it('requires a labId, at least one test code, and a scheduled date', () => {
     expect(
-      CreateLabBookingInput.safeParse({ testCodes: ['CBC'], scheduledAt: new Date().toISOString(), homeCollection: false }).success
+      CreateLabBookingInput.safeParse({ labId: 'x', testCodes: ['CBC'], scheduledAt: new Date().toISOString(), homeCollection: false }).success
     ).toBe(true);
-    expect(CreateLabBookingInput.safeParse({ testCodes: [], scheduledAt: new Date().toISOString(), homeCollection: false }).success).toBe(false);
+    expect(CreateLabBookingInput.safeParse({ testCodes: ['CBC'], scheduledAt: new Date().toISOString(), homeCollection: false }).success).toBe(false);
+    expect(CreateLabBookingInput.safeParse({ labId: 'x', testCodes: [], scheduledAt: new Date().toISOString(), homeCollection: false }).success).toBe(false);
   });
 });
 
