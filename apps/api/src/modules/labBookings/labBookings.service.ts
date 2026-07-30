@@ -90,18 +90,25 @@ export async function updateBookingStatus(
       (update.$set as Record<string, unknown>).reportUrl = reportPath;
     }
     await LabReferral.findByIdAndUpdate(booking.referralId, update);
+  }
 
-    if (status === 'report_ready') {
+  // The patient is notified on every report_ready transition, referral or
+  // not (a walk-in booking has no referral but still has a patient waiting
+  // on their report). The referring doctor is only notified when a referral
+  // actually links this booking back to them.
+  if (status === 'report_ready') {
+    await createNotification({
+      userId: booking.patientId.toString(),
+      type: 'lab_report_ready',
+      title: 'Your lab report is ready',
+      body: `${lab.labName} has uploaded your report.`,
+      link: `/dashboard/patient/timeline`,
+    });
+
+    if (booking.referralId) {
       const referral = await LabReferral.findById(booking.referralId);
       if (referral) {
         const doctorProfile = await DoctorProfile.findById(referral.doctorId);
-        await createNotification({
-          userId: referral.patientId.toString(),
-          type: 'lab_report_ready',
-          title: 'Your lab report is ready',
-          body: `${lab.labName} has uploaded your report.`,
-          link: `/dashboard/patient/timeline`,
-        });
         if (doctorProfile) {
           await createNotification({
             userId: doctorProfile.userId.toString(),

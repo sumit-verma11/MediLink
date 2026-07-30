@@ -114,6 +114,20 @@ describe('updateBookingStatus', () => {
     expect(doctorNotifications).toHaveLength(1);
   });
 
+  it('notifies the patient on report_ready even for a walk-in booking with no referral', async () => {
+    const { patientUser, labUser, labProfile } = await seedLabAndPrescription();
+    const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
+      testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+    });
+    expect(booking.referralId).toBeUndefined();
+
+    await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'sample_collected');
+    await updateBookingStatus(labUser._id.toString(), booking._id.toString(), 'report_ready', '/uploads/lab-reports/walkin.pdf');
+
+    const patientNotifications = await Notification.find({ userId: patientUser._id, type: 'lab_report_ready' });
+    expect(patientNotifications).toHaveLength(1);
+  });
+
   it('rejects a lab updating a booking that is not its own', async () => {
     const { patientUser, labProfile } = await seedLabAndPrescription();
     const booking = await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
