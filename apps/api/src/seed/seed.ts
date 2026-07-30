@@ -9,6 +9,7 @@ import { Notification } from '../models/Notification';
 import { AvailabilityRule } from '../models/AvailabilityRule';
 import { Appointment } from '../models/Appointment';
 import { TriageSession } from '../models/TriageSession';
+import { Prescription } from '../models/Prescription';
 import { PATIENTS, DOCTORS, LABS, AVAILABILITY_RULES_BY_DOCTOR_EMAIL } from './data';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -26,6 +27,7 @@ export async function runSeed(): Promise<void> {
   await AvailabilityRule.deleteMany({});
   await Appointment.deleteMany({});
   await TriageSession.deleteMany({});
+  await Prescription.deleteMany({});
 
   const passwordHash = await hashed();
 
@@ -160,6 +162,61 @@ export async function runSeed(): Promise<void> {
       status: seed.status,
       rejectionReason: (seed as { rejectionReason?: string }).rejectionReason,
       timeline: withTimeline(seed.status, seed.patientId),
+    });
+  }
+
+  // CLAUDE.md §6.4: 6 Prescriptions, one per completed appointment (7 exist; the oldest —
+  // Rohit/patientUsers[4], daysAgo(14) — is deliberately left prescription-less per the
+  // appointmentSeeds comment above). No pdfUrl here: generating real PDFs (letterhead, QR,
+  // pdf-lib/qrcode) on every `npm run seed` run is slow and isn't required by the seed spec,
+  // which only describes prescription data — only the real createPrescription/amendPrescription
+  // code paths (exercised by their own tests) produce actual PDF files.
+  const completedAppointments = await Appointment.find({ status: 'completed' }).sort({ slotStart: -1 }).limit(6);
+
+  const medicineSets = [
+    [{ name: 'Cetirizine', dosage: '10mg', frequency: 'OD', durationDays: 5, instructions: 'At night' }],
+    [{ name: 'Pantoprazole', dosage: '40mg', frequency: 'OD', durationDays: 14, instructions: 'Before breakfast' }],
+    [{ name: 'Paracetamol', dosage: '500mg', frequency: 'SOS', durationDays: 3 }],
+    [{ name: 'Amoxicillin', dosage: '500mg', frequency: 'TDS', durationDays: 7, instructions: 'After food' }],
+    [{ name: 'Ibuprofen', dosage: '400mg', frequency: 'BD', durationDays: 5 }],
+    [{ name: 'Montelukast', dosage: '10mg', frequency: 'OD', durationDays: 30, instructions: 'At night' }],
+  ];
+  const diagnosisNotes = [
+    'Allergic dermatitis',
+    'Acid reflux (GERD)',
+    'Viral fever',
+    'Bacterial throat infection',
+    'Mild sprain',
+    'Seasonal allergic rhinitis',
+  ];
+  const adviceNotes = [
+    'Avoid known allergens. Follow up if rash persists.',
+    'Avoid spicy food, elevate head while sleeping.',
+    'Rest, plenty of fluids.',
+    'Complete the full course even if symptoms improve.',
+    'Ice pack for 15 minutes, avoid strain.',
+    'Avoid dust exposure, use a humidifier at night.',
+  ];
+  const recommendedTestSets: { testName: string }[][] = [
+    [],
+    [{ testName: 'Complete Blood Count' }],
+    [],
+    [{ testName: 'Complete Blood Count' }, { testName: 'Throat Swab Culture' }],
+    [],
+    [{ testName: 'Allergy Panel' }],
+  ];
+
+  for (let i = 0; i < completedAppointments.length; i++) {
+    const appointment = completedAppointments[i]!;
+    await Prescription.create({
+      appointmentId: appointment._id,
+      doctorId: appointment.doctorId,
+      patientId: appointment.patientId,
+      diagnosisNote: diagnosisNotes[i % diagnosisNotes.length],
+      medicines: medicineSets[i % medicineSets.length],
+      advice: adviceNotes[i % adviceNotes.length],
+      recommendedTests: recommendedTestSets[i % recommendedTestSets.length],
+      createdAt: appointment.slotStart,
     });
   }
 
