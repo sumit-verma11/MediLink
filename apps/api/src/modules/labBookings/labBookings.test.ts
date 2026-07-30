@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import type { Express } from 'express';
-import { createBooking, updateBookingStatus, getReportPath, listBookingsForLab } from './labBookings.service';
+import { createBooking, updateBookingStatus, getReportPath, listBookingsForLab, listBookingsForPatient } from './labBookings.service';
 import { createReferral, getReferralByToken } from '../labReferrals/labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -193,6 +193,24 @@ describe('listBookingsForLab', () => {
   });
 });
 
+describe('listBookingsForPatient', () => {
+  it('returns only the requesting patient\'s own bookings, paginated', async () => {
+    const { patientUser, labProfile } = await seedLabAndPrescription();
+    await createBooking(patientUser._id.toString(), labProfile._id.toString(), {
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000), homeCollection: false,
+    });
+    const otherPatient = await User.create({ role: 'patient', email: `other-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other' });
+
+    const result = await listBookingsForPatient(patientUser._id.toString(), 1, 20);
+    expect(result.total).toBe(1);
+    expect(result.items[0]!.testCodes).toEqual(['CBC']);
+
+    const otherResult = await listBookingsForPatient(otherPatient._id.toString(), 1, 20);
+    expect(otherResult.total).toBe(0);
+    expect(otherResult.items).toEqual([]);
+  });
+});
+
 async function registerAndLogin(app: Express, role: 'doctor' | 'patient' | 'lab', email: string): Promise<string[]> {
   await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Test User', phone: '9999999999', role });
   const loginRes = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
@@ -292,6 +310,35 @@ describe('GET /api/lab-bookings/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.total).toBe(1);
     expect(res.body.items[0].testCodes).toEqual(['CBC']);
+  });
+});
+
+describe('GET /api/lab-bookings/mine', () => {
+  it('returns the requesting patient\'s own bookings, paginated, and not another patient\'s', async () => {
+    const app = createApp();
+    const { patientCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+
+    const res = await request(app).get('/api/lab-bookings/mine').set('Cookie', patientCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].testCodes).toEqual(['CBC']);
+
+    const otherPatientCookies = await registerAndLogin(app, 'patient', `other-mine-${Date.now()}@medlink.demo`);
+    const otherRes = await request(app).get('/api/lab-bookings/mine').set('Cookie', otherPatientCookies);
+    expect(otherRes.status).toBe(200);
+    expect(otherRes.body.total).toBe(0);
+    expect(otherRes.body.items).toEqual([]);
+  });
+
+  it('rejects a lab calling the patient-scoped endpoint', async () => {
+    const app = createApp();
+    const { labCookies } = await seedLabAndPrescriptionHttp(app);
+
+    const res = await request(app).get('/api/lab-bookings/mine').set('Cookie', labCookies);
+    expect(res.status).toBe(403);
   });
 });
 

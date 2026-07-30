@@ -174,3 +174,22 @@ export async function listBookingsForLab(
   ]);
   return { items, total, page, limit: cappedLimit };
 }
+
+// Unlike listBookingsForLab, no LabProfile lookup is needed here: patientUserId
+// IS the patientId stored directly on LabBooking (the patient books it themselves),
+// whereas a lab's own bookings are scoped via its LabProfile._id.
+export async function listBookingsForPatient(
+  patientUserId: string,
+  page: number,
+  limit: number
+): Promise<{ items: ILabBooking[]; total: number; page: number; limit: number }> {
+  const cappedLimit = Math.min(50, limit);
+  const [items, total] = await Promise.all([
+    LabBooking.find({ patientId: patientUserId })
+      .sort({ scheduledAt: 1 })
+      .skip((page - 1) * cappedLimit)
+      .limit(cappedLimit),
+    LabBooking.countDocuments({ patientId: patientUserId }),
+  ]);
+  return { items, total, page, limit: cappedLimit };
+}

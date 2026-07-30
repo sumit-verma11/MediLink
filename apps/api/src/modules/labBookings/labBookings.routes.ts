@@ -6,6 +6,7 @@ import { labReportUpload } from './labBookings.upload';
 import {
   createBookingHandler,
   listBookingsForLabHandler,
+  listBookingsForPatientHandler,
   updateBookingStatusHandler,
   uploadReportHandler,
   getReportHandler,
@@ -14,6 +15,10 @@ import {
 export const labBookingsRouter = Router();
 labBookingsRouter.use(requireAuth);
 labBookingsRouter.post('/', requireRole('patient'), validate(CreateLabBookingInput), createBookingHandler);
+// `/mine` (patient-scoped) and `/me` (lab-scoped) are distinct literal segments,
+// so registration order between them doesn't matter for Express route matching;
+// both are listed before the `/:id/...` dynamic routes below regardless.
+labBookingsRouter.get('/mine', requireRole('patient'), listBookingsForPatientHandler);
 labBookingsRouter.get('/me', requireRole('lab'), listBookingsForLabHandler);
 labBookingsRouter.patch('/:id/status', requireRole('lab'), validate(UpdateBookingStatusInput), updateBookingStatusHandler);
 labBookingsRouter.post('/:id/report', requireRole('lab'), labReportUpload.single('report'), uploadReportHandler);

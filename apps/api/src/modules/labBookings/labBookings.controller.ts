@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { createBooking, listBookingsForLab, updateBookingStatus, getReportPath } from './labBookings.service';
+import { createBooking, listBookingsForLab, listBookingsForPatient, updateBookingStatus, getReportPath } from './labBookings.service';
 
 export async function createBookingHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -16,6 +16,17 @@ export async function listBookingsForLabHandler(req: Request, res: Response, nex
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.max(1, Number(req.query.limit) || 20);
     const result = await listBookingsForLab(req.user!.id, page, limit);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listBookingsForPatientHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 20);
+    const result = await listBookingsForPatient(req.user!.id, page, limit);
     res.status(200).json(result);
   } catch (err) {
     next(err);
