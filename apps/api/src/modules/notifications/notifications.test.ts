@@ -1,9 +1,16 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import type { Express } from 'express';
 import { listNotificationsForUser, markNotificationRead } from './notifications.service';
 import { Notification } from '../../models/Notification';
 import { User } from '../../models/User';
+import { createApp } from '../../app';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
+
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
 
 let mongo: MongoMemoryServer;
 
@@ -14,6 +21,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await Promise.all(Object.values(mongoose.connection.collections).map((c) => c.deleteMany({})));
+  await resetTestRedis();
 });
 
 afterAll(async () => {
@@ -50,5 +58,29 @@ describe('markNotificationRead', () => {
     const notification = await Notification.create({ userId: owner._id, type: 't', title: 'A', body: 'a' });
 
     await expect(markNotificationRead(other._id.toString(), notification._id.toString())).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+async function registerAndLogin(app: Express, role: 'doctor' | 'patient' | 'lab', email: string): Promise<string[]> {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'Test User', phone: '9999999999', role });
+  const loginRes = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  return loginRes.headers['set-cookie'] as unknown as string[];
+}
+
+describe('GET /api/notifications/me and PATCH /api/notifications/:id/read', () => {
+  it('lets a user list and mark-read only their own notifications', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'patient', `notif-http-${Date.now()}@medlink.demo`);
+    const user = await User.findOne({ email: /notif-http-/ }).sort({ _id: -1 });
+    await Notification.create({ userId: user!._id, type: 't', title: 'Hi', body: 'body' });
+
+    const listRes = await request(app).get('/api/notifications/me').set('Cookie', cookies);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.unreadCount).toBe(1);
+
+    const notificationId = listRes.body.items[0]._id;
+    const readRes = await request(app).patch(`/api/notifications/${notificationId}/read`).set('Cookie', cookies);
+    expect(readRes.status).toBe(200);
+    expect(readRes.body.notification.readAt).toBeDefined();
   });
 });
