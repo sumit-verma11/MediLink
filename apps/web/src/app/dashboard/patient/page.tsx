@@ -49,6 +49,11 @@ export default function PatientDashboard() {
               Cancel
             </button>
           ) : null}
+          {appt.status === 'completed' && !appt.rated ? (
+            <a href={`/appointments/${appt._id}/rate`} className="text-sm underline">
+              Rate this appointment
+            </a>
+          ) : null}
         </div>
       ))}
     </main>

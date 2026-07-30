@@ -5,6 +5,7 @@ export interface AppointmentTimelineEntry { status: string; at: string; by: stri
 export interface Appointment {
   _id: string; doctorId: string; patientId: string; slotStart: string; slotEnd: string;
   status: string; rejectionReason?: string; timeline: AppointmentTimelineEntry[]; triageSummary?: string[] | null;
+  rated?: boolean;
 }
 
 export const appointmentsApi = baseApi.injectEndpoints({
