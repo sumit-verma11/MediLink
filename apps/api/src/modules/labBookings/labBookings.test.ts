@@ -526,6 +526,33 @@ describe('POST /api/lab-bookings/:id/report and GET /api/lab-bookings/:id/report
     expect(fs.existsSync(uploadedFilePath)).toBe(false);
   });
 
+  it('rejects re-uploading a report to an already report_ready booking, leaving the original file untouched', async () => {
+    const app = createApp();
+    const { patientCookies, labCookies, labProfile } = await seedLabAndPrescriptionHttp(app);
+    const createRes = await request(app).post('/api/lab-bookings').set('Cookie', patientCookies).send({
+      labId: labProfile._id.toString(), testCodes: ['CBC'], scheduledAt: new Date(Date.now() + 86400000).toISOString(), homeCollection: false,
+    });
+    const bookingId = createRes.body.booking._id;
+    await request(app).patch(`/api/lab-bookings/${bookingId}/status`).set('Cookie', labCookies).send({ status: 'sample_collected' });
+
+    await request(app)
+      .post(`/api/lab-bookings/${bookingId}/report`)
+      .set('Cookie', labCookies)
+      .attach('report', Buffer.from('%PDF-1.4 ORIGINAL GENUINE REPORT'), { filename: 'report.pdf', contentType: 'application/pdf' });
+
+    const secondUploadRes = await request(app)
+      .post(`/api/lab-bookings/${bookingId}/report`)
+      .set('Cookie', labCookies)
+      .attach('report', Buffer.from('%PDF-1.4 TAMPERED SWAPPED REPORT'), { filename: 'report.pdf', contentType: 'application/pdf' });
+
+    expect(secondUploadRes.status).toBe(409);
+
+    const uploadedFilePath = path.join(process.cwd(), 'uploads', 'lab-reports', `${bookingId}.pdf`);
+    const fileContents = fs.readFileSync(uploadedFilePath, 'utf-8');
+    expect(fileContents).toContain('ORIGINAL GENUINE REPORT');
+    expect(fileContents).not.toContain('TAMPERED');
+  });
+
   it('rejects a malformed/path-traversal-like :id before any file is written to disk', async () => {
     const app = createApp();
     const { labCookies } = await seedLabAndPrescriptionHttp(app);

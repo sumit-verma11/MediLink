@@ -20,6 +20,9 @@ export async function verifyLabOwnsBooking(req: Request, res: Response, next: Ne
     if (!lab) throw new AppError(404, 'Booking not found', 'BOOKING_NOT_FOUND');
     const booking = await LabBooking.findOne({ _id: req.params.id, labId: lab._id });
     if (!booking) throw new AppError(404, 'Booking not found', 'BOOKING_NOT_FOUND');
+    if (booking.status === 'report_ready') {
+      throw new AppError(409, 'Invalid status transition', 'INVALID_STATUS_TRANSITION');
+    }
     next();
   } catch (err) {
     next(err);
