@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 import { LabReferral, ILabReferral } from '../../models/LabReferral';
 import { Prescription } from '../../models/Prescription';
 import { DoctorProfile } from '../../models/DoctorProfile';
-import { LabProfile } from '../../models/LabProfile';
+import { LabProfile, ILabTest } from '../../models/LabProfile';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { createNotification } from '../../lib/notifications';
@@ -68,4 +68,36 @@ export async function createReferral(
   });
 
   return referral;
+}
+
+export async function getReferralByToken(token: string): Promise<{
+  referral: ILabReferral;
+  lab: { labName: string; city: string; homeCollection: boolean };
+  tests: ILabTest[];
+  totalPrice: number;
+} | null> {
+  const referral = await LabReferral.findOne({ token });
+  if (!referral) return null;
+
+  const lab = await LabProfile.findById(referral.labId);
+  if (!lab) return null;
+
+  // Only advance status to 'opened' the first time -- a referral that's
+  // already progressed further in the pipeline (booked, sample_collected,
+  // etc.) must never regress on a later re-view of the same link.
+  if (referral.status === 'sent') {
+    referral.status = 'opened';
+    referral.timeline.push({ status: 'opened', at: new Date() });
+    await referral.save();
+  }
+
+  const tests = lab.tests.filter((t) => referral.suggestedTestCodes.includes(t.code));
+  const totalPrice = tests.reduce((sum, t) => sum + t.price, 0);
+
+  return {
+    referral,
+    lab: { labName: lab.labName, city: lab.city, homeCollection: lab.homeCollection },
+    tests,
+    totalPrice,
+  };
 }

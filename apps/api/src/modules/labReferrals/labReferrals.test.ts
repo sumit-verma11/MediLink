@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createReferral } from './labReferrals.service';
+import { createReferral, getReferralByToken } from './labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { LabProfile } from '../../models/LabProfile';
@@ -87,5 +87,41 @@ describe('createReferral', () => {
     await expect(
       createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['LFT'])
     ).rejects.toThrow();
+  });
+});
+
+describe('getReferralByToken', () => {
+  it('returns the lab, referred tests, and total price, marking the referral opened on first view', async () => {
+    const { doctorUser, prescription, labProfile } = await seedPrescriptionAndLab();
+    const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+    expect(referral.status).toBe('sent');
+
+    const result = await getReferralByToken(referral.token);
+
+    expect(result).not.toBeNull();
+    expect(result!.lab.labName).toBe('HealthFirst Diagnostics');
+    expect(result!.tests).toHaveLength(1);
+    expect(result!.tests[0]!.code).toBe('CBC');
+    expect(result!.totalPrice).toBe(250);
+
+    const reloaded = await LabReferral.findById(referral._id);
+    expect(reloaded!.status).toBe('opened');
+    expect(reloaded!.timeline.map((t) => t.status)).toContain('opened');
+  });
+
+  it('does not regress status from booked/further back to opened on a re-view', async () => {
+    const { doctorUser, prescription, labProfile } = await seedPrescriptionAndLab();
+    const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+    await LabReferral.findByIdAndUpdate(referral._id, { status: 'booked', $push: { timeline: { status: 'booked', at: new Date() } } });
+
+    await getReferralByToken(referral.token);
+
+    const reloaded = await LabReferral.findById(referral._id);
+    expect(reloaded!.status).toBe('booked');
+  });
+
+  it('returns null for an unknown token', async () => {
+    const result = await getReferralByToken('nonexistent-token-xyz');
+    expect(result).toBeNull();
   });
 });
