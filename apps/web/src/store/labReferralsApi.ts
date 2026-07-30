@@ -37,7 +37,10 @@ export const labReferralsApi = baseApi.injectEndpoints({
     listMyReferrals: builder.query<{ items: LabReferral[]; total: number }, { page?: number; limit?: number } | void>({
       query: (params) => ({ url: '/lab-referrals/me', params: params ?? undefined }),
     }),
+    listReferralsForLab: builder.query<{ items: LabReferral[]; total: number }, { page?: number; limit?: number } | void>({
+      query: (params) => ({ url: '/lab-referrals/for-lab', params: params ?? undefined }),
+    }),
   }),
 });
 
-export const { useCreateReferralMutation, useGetReferralByTokenQuery, useListMyReferralsQuery } = labReferralsApi;
+export const { useCreateReferralMutation, useGetReferralByTokenQuery, useListMyReferralsQuery, useListReferralsForLabQuery } = labReferralsApi;
