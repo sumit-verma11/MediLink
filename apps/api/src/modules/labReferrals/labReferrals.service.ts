@@ -69,6 +69,13 @@ export async function createReferral(
     link: `/r/${referral.token}`,
   });
 
+  await createNotification({
+    userId: lab.userId.toString(),
+    type: 'lab_referral_received',
+    title: 'New lab referral',
+    body: `A doctor referred a patient to you for: ${testCodes.join(', ')}.`,
+  });
+
   return referral;
 }
 
@@ -124,6 +131,25 @@ export async function listReferralsForDoctor(
       .skip((page - 1) * cappedLimit)
       .limit(cappedLimit),
     LabReferral.countDocuments({ doctorId: doctorProfile._id }),
+  ]);
+  return { items, total, page, limit: cappedLimit };
+}
+
+export async function listReferralsForLab(
+  labUserId: string,
+  page: number,
+  limit: number
+): Promise<{ items: ILabReferral[]; total: number; page: number; limit: number }> {
+  const lab = await LabProfile.findOne({ userId: labUserId });
+  if (!lab) throw new AppError(404, 'Lab profile not found', 'PROFILE_NOT_FOUND');
+
+  const cappedLimit = Math.min(50, limit);
+  const [items, total] = await Promise.all([
+    LabReferral.find({ labId: lab._id })
+      .sort({ _id: -1 })
+      .skip((page - 1) * cappedLimit)
+      .limit(cappedLimit),
+    LabReferral.countDocuments({ labId: lab._id }),
   ]);
   return { items, total, page, limit: cappedLimit };
 }

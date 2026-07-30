@@ -16,7 +16,7 @@ import { labsRouter } from './modules/labs/labs.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 import { triageRouter } from './modules/triage/triage.routes';
 import { prescriptionsRouter } from './modules/prescriptions/prescriptions.routes';
-import { labReferralsRouter, publicReferralRouter } from './modules/labReferrals/labReferrals.routes';
+import { labReferralsRouter, publicReferralRouter, labFacingReferralsRouter } from './modules/labReferrals/labReferrals.routes';
 import { labBookingsRouter } from './modules/labBookings/labBookings.routes';
 import { ratingsRouter } from './modules/ratings/ratings.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
@@ -57,6 +57,7 @@ export function createApp(): Express {
   app.use('/api/triage', triageRouter);
   app.use('/api/prescriptions', prescriptionsRouter);
   app.use('/api/lab-referrals', labReferralsRouter);
+  app.use('/api/lab-referrals', labFacingReferralsRouter);
   app.use('/api/r', publicReferralRouter);
   app.use('/api/lab-bookings', labBookingsRouter);
   app.use('/api/ratings', ratingsRouter);

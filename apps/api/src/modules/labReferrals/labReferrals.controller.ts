@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { createReferral, getReferralByToken, listReferralsForDoctor } from './labReferrals.service';
+import { createReferral, getReferralByToken, listReferralsForDoctor, listReferralsForLab } from './labReferrals.service';
+import { toPositiveInt } from '../../lib/pagination';
 
 export async function createReferralHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -28,6 +29,17 @@ export async function listReferralsForDoctorHandler(req: Request, res: Response,
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.max(1, Number(req.query.limit) || 20);
     const result = await listReferralsForDoctor(req.user!.id, page, limit);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listReferralsForLabHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const page = toPositiveInt(req.query.page, 1);
+    const limit = Math.min(50, toPositiveInt(req.query.limit, 20));
+    const result = await listReferralsForLab(req.user!.id, page, limit);
     res.status(200).json(result);
   } catch (err) {
     next(err);

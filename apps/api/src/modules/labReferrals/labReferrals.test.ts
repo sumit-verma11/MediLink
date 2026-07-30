@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import type { Express } from 'express';
-import { createReferral, getReferralByToken, listReferralsForDoctor } from './labReferrals.service';
+import { createReferral, getReferralByToken, listReferralsForDoctor, listReferralsForLab } from './labReferrals.service';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { LabProfile } from '../../models/LabProfile';
@@ -187,6 +187,39 @@ async function seedPrescriptionAndLabHttp(app: Express) {
   });
   return { doctorCookies, doctorUser, patientUser, labProfile, prescription };
 }
+
+describe('listReferralsForLab', () => {
+  it('returns only the requesting lab\'s own referrals, paginated', async () => {
+    const { doctorUser, prescription, labProfile } = await seedPrescriptionAndLab();
+    await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+
+    const { doctorUser: otherDoctorUser, prescription: otherPrescription, labProfile: otherLabProfile } = await seedPrescriptionAndLab();
+    await createReferral(otherDoctorUser._id.toString(), otherPrescription._id.toString(), otherLabProfile._id.toString(), ['CBC']);
+
+    const result = await listReferralsForLab(labProfile.userId.toString(), 1, 20);
+
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.labId.toString()).toBe(labProfile._id.toString());
+    expect(result.items[0]!.suggestedTestCodes).toEqual(['CBC']);
+  });
+});
+
+describe('createReferral notifications', () => {
+  it('notifies both the patient and the referred lab', async () => {
+    const { doctorUser, patientUser, prescription, labProfile } = await seedPrescriptionAndLab();
+
+    await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+
+    const patientNotifications = await Notification.find({ userId: patientUser._id, type: 'lab_referral_sent' });
+    expect(patientNotifications).toHaveLength(1);
+
+    const labNotifications = await Notification.find({ userId: labProfile.userId, type: 'lab_referral_received' });
+    expect(labNotifications).toHaveLength(1);
+    expect(labNotifications[0]!.title).toBe('New lab referral');
+    expect(labNotifications[0]!.body).toContain('CBC');
+  });
+});
 
 describe('POST /api/lab-referrals', () => {
   it('lets a doctor create a referral for their own prescription', async () => {
