@@ -7,6 +7,7 @@ export default function LabDashboardPage() {
   const { data, isLoading, refetch } = useListMyLabBookingsQuery();
   const [updateStatus] = useUpdateBookingStatusMutation();
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   async function markCollected(id: string) {
     await updateStatus({ id, status: 'sample_collected' }).unwrap();
@@ -15,15 +16,25 @@ export default function LabDashboardPage() {
 
   async function onUploadReport(id: string, file: File) {
     setUploadingId(id);
+    setUploadError(null);
     const formData = new FormData();
     formData.append('report', file);
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${id}/report`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-    setUploadingId(null);
-    refetch();
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${id}/report`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        setUploadError('Upload failed — please try again.');
+        return;
+      }
+      refetch();
+    } catch {
+      setUploadError('Upload failed — please try again.');
+    } finally {
+      setUploadingId(null);
+    }
   }
 
   if (isLoading) return <main className="max-w-3xl mx-auto mt-12">Loading...</main>;
@@ -31,6 +42,7 @@ export default function LabDashboardPage() {
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-4">
       <h1 className="text-2xl font-bold">Lab Dashboard</h1>
+      {uploadError ? <p className="text-sm text-red-600">{uploadError}</p> : null}
       <ul className="space-y-2">
         {data?.items.map((booking) => (
           <li key={booking._id} className="border p-3 rounded space-y-2">
