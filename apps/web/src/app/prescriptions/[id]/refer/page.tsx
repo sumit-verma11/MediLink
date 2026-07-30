@@ -1,17 +1,20 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCreateReferralMutation } from '@/store/labReferralsApi';
-import { useListMyPrescriptionsQuery } from '@/store/prescriptionsApi';
 
 export default function ReferToLabPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: prescriptionId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // The doctor who was just redirected here from the prescription composer has
+  // no access to GET /prescriptions/me (patient-only), so the composer threads
+  // the recommended test names through as a query param instead of this page
+  // re-fetching them from an endpoint it's forbidden to call.
+  const recommendedTestNames = (searchParams.get('tests') ?? '').split(',').filter(Boolean);
   const [labId, setLabId] = useState('');
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
-  const { data } = useListMyPrescriptionsQuery({ page: 1, limit: 50 });
-  const prescription = data?.items.find((p) => p._id === prescriptionId);
   const [createReferral, { isLoading, error }] = useCreateReferralMutation();
 
   async function onSubmit() {
@@ -27,7 +30,7 @@ export default function ReferToLabPage({ params }: { params: Promise<{ id: strin
   return (
     <main className="max-w-xl mx-auto mt-12 space-y-4">
       <h1 className="text-2xl font-bold">Refer to a Lab</h1>
-      <p className="text-sm text-gray-600">Recommended tests: {prescription?.recommendedTests.map((t) => t.testName).join(', ') || 'none'}</p>
+      <p className="text-sm text-gray-600">Recommended tests: {recommendedTestNames.join(', ') || 'none'}</p>
 
       <div>
         <label className="block text-sm font-medium">Lab ID</label>

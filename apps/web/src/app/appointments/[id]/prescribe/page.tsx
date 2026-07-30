@@ -45,7 +45,8 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
       }).unwrap();
 
       if (recommendedTests.length > 0) {
-        router.push(`/prescriptions/${result.prescription._id}/refer`);
+        const testNames = recommendedTests.map((t) => t.testName).join(',');
+        router.push(`/prescriptions/${result.prescription._id}/refer?tests=${encodeURIComponent(testNames)}`);
       } else {
         router.push('/dashboard/doctor');
       }
