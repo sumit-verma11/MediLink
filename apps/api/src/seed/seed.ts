@@ -380,6 +380,7 @@ export async function runSeed(): Promise<void> {
       { status: 'sample_collected', at: daysAgo(3) },
       { status: 'report_ready', at: daysAgo(2) },
     ],
+    expiresAt: daysFromNow(25), // 30 days from its 'sent' timestamp (daysAgo(5))
   });
   const reportReadyBooking = await LabBooking.create({
     referralId: reportReadyReferral._id,
@@ -419,6 +420,7 @@ export async function runSeed(): Promise<void> {
       { status: 'opened', at: daysAgo(3) },
       { status: 'booked', at: daysAgo(3) },
     ],
+    expiresAt: daysFromNow(26), // 30 days from its 'sent' timestamp (daysAgo(4))
   });
   await LabBooking.create({
     referralId: bookedReferral._id,
@@ -442,6 +444,7 @@ export async function runSeed(): Promise<void> {
     token: nanoid(),
     status: 'sent',
     timeline: [{ status: 'sent', at: daysAgo(1) }],
+    expiresAt: daysFromNow(29), // 30 days from its 'sent' timestamp (daysAgo(1))
   });
 
   // Walk-in booking: a patient books a lab test directly, with no referral at all.

@@ -28,6 +28,7 @@ export async function createReferral(
     throw new AppError(400, `This lab does not offer: ${unavailable.join(', ')}`, 'TEST_NOT_OFFERED');
   }
 
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
   const referral = await LabReferral.create({
     prescriptionId: prescription._id,
     doctorId: doctorProfile._id,
@@ -37,6 +38,7 @@ export async function createReferral(
     token: nanoid(),
     status: 'sent',
     timeline: [{ status: 'sent', at: new Date() }],
+    expiresAt: new Date(Date.now() + THIRTY_DAYS_MS),
   });
 
   // Link the referral back onto the prescription's recommendedTests entries
@@ -78,6 +80,11 @@ export async function getReferralByToken(token: string): Promise<{
 } | null> {
   const referral = await LabReferral.findOne({ token });
   if (!referral) return null;
+
+  // Existence-blind, consistent with the project's pattern for sensitive
+  // lookups: an expired referral returns the same null an unknown token would,
+  // rather than distinguishing "expired" from "doesn't exist" in the response.
+  if (referral.expiresAt < new Date()) return null;
 
   const lab = await LabProfile.findById(referral.labId);
   if (!lab) return null;

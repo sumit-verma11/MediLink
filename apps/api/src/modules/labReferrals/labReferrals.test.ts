@@ -134,6 +134,17 @@ describe('getReferralByToken', () => {
     const result = await getReferralByToken('nonexistent-token-xyz');
     expect(result).toBeNull();
   });
+
+  it('returns null (existence-blind) for a referral whose token has expired (I7)', async () => {
+    const { doctorUser, prescription, labProfile } = await seedPrescriptionAndLab();
+    const referral = await createReferral(doctorUser._id.toString(), prescription._id.toString(), labProfile._id.toString(), ['CBC']);
+    expect(referral.expiresAt).toBeTruthy();
+
+    await LabReferral.findByIdAndUpdate(referral._id, { expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000) });
+
+    const result = await getReferralByToken(referral.token);
+    expect(result).toBeNull();
+  });
 });
 
 describe('listReferralsForDoctor', () => {
