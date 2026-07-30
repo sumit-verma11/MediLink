@@ -164,3 +164,42 @@ export async function getPublicVerification(prescriptionId: string): Promise<{
     isLatestVersion: !prescription.supersededBy,
   };
 }
+
+export async function listMyPrescriptions(
+  patientUserId: string,
+  page: number,
+  limit: number
+): Promise<{ items: IPrescription[]; total: number; page: number; limit: number }> {
+  const cappedLimit = Math.min(50, limit);
+  const [items, total] = await Promise.all([
+    Prescription.find({ patientId: patientUserId })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * cappedLimit)
+      .limit(cappedLimit),
+    Prescription.countDocuments({ patientId: patientUserId }),
+  ]);
+  return { items, total, page, limit: cappedLimit };
+}
+
+export async function getPrescriptionPdfPath(
+  prescriptionId: string,
+  requestingUserId: string,
+  requestingRole: string
+): Promise<string> {
+  const prescription = await Prescription.findById(prescriptionId);
+  if (!prescription) throw new AppError(404, 'Prescription not found', 'PRESCRIPTION_NOT_FOUND');
+
+  let authorized = false;
+  if (requestingRole === 'patient' && prescription.patientId.toString() === requestingUserId) {
+    authorized = true;
+  } else if (requestingRole === 'doctor') {
+    const doctorProfile = await DoctorProfile.findOne({ userId: requestingUserId });
+    if (doctorProfile && prescription.doctorId.toString() === doctorProfile._id.toString()) {
+      authorized = true;
+    }
+  }
+  if (!authorized) throw new AppError(404, 'Prescription not found', 'PRESCRIPTION_NOT_FOUND');
+  if (!prescription.pdfUrl) throw new AppError(404, 'Prescription PDF not available', 'PDF_NOT_AVAILABLE');
+
+  return path.join(process.cwd(), prescription.pdfUrl.replace(/^\//, ''));
+}

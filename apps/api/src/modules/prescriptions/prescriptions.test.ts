@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest
 import fs from 'node:fs';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createPrescription, amendPrescription, getPublicVerification } from './prescriptions.service';
+import { createPrescription, amendPrescription, getPublicVerification, listMyPrescriptions, getPrescriptionPdfPath } from './prescriptions.service';
 import * as appointmentsServiceModule from '../appointments/appointments.service';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
@@ -257,5 +257,57 @@ describe('getPublicVerification', () => {
 
     const verification = await getPublicVerification(original._id.toString());
     expect(verification!.isLatestVersion).toBe(false);
+  });
+});
+
+describe('listMyPrescriptions', () => {
+  it('returns only the requesting patient\'s prescriptions, paginated', async () => {
+    const { doctorUser, patientUser, appointment } = await seedConfirmedAppointment();
+    await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+
+    const result = await listMyPrescriptions(patientUser._id.toString(), 1, 20);
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]!.patientId.toString()).toBe(patientUser._id.toString());
+  });
+});
+
+describe('getPrescriptionPdfPath', () => {
+  it('allows the owning patient to fetch the PDF path', async () => {
+    const { doctorUser, patientUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+
+    const diskPath = await getPrescriptionPdfPath(prescription._id.toString(), patientUser._id.toString(), 'patient');
+    expect(diskPath).toContain(prescription._id.toString());
+  });
+
+  it('allows the issuing doctor to fetch the PDF path', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+
+    const diskPath = await getPrescriptionPdfPath(prescription._id.toString(), doctorUser._id.toString(), 'doctor');
+    expect(diskPath).toContain(prescription._id.toString());
+  });
+
+  it('rejects a different patient fetching someone else\'s PDF', async () => {
+    const { doctorUser, appointment } = await seedConfirmedAppointment();
+    const prescription = await createPrescription(doctorUser._id.toString(), {
+      appointmentId: appointment._id.toString(),
+      diagnosisNote: 'x', medicines: [{ name: 'Paracetamol', dosage: '1', frequency: '1', durationDays: 1 }], advice: 'x',
+    });
+    const otherPatient = await User.create({ role: 'patient', email: `other-pat-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'Other Patient' });
+
+    await expect(
+      getPrescriptionPdfPath(prescription._id.toString(), otherPatient._id.toString(), 'patient')
+    ).rejects.toThrow();
   });
 });
