@@ -60,3 +60,15 @@ export const triageLimiter = rateLimit({
   legacyHeaders: false,
   store: new SimpleRedisStore('rl:triage:'),
 });
+
+// GET /api/prescriptions/verify/:id is the only unauthenticated route in this
+// API. Without a limiter it's an unthrottled enumeration oracle over
+// prescription IDs, disclosing doctor name/regNo/clinic/issue-date at
+// whatever rate an attacker wants.
+export const rxVerifyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SimpleRedisStore('rl:rxverify:'),
+});
