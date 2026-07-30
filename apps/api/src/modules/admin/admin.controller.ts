@@ -5,6 +5,7 @@ import { LabProfile } from '../../models/LabProfile';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { toPositiveInt } from '../../lib/pagination';
+import { getAnalytics } from './analytics.service';
 
 // DoctorProfile and LabProfile are both Mongoose models but differ on most fields; a
 // union of the two model types breaks overload resolution for find/findByIdAndUpdate.
@@ -64,6 +65,15 @@ export async function decideVerification(req: Request, res: Response, next: Next
     });
 
     res.status(200).json({ profile });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAnalyticsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const summary = await getAnalytics();
+    res.status(200).json(summary);
   } catch (err) {
     next(err);
   }
