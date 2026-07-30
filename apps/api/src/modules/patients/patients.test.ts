@@ -64,3 +64,17 @@ describe('GET /api/patients/me', () => {
     expect(res.body.profile.city).toBe('Ghaziabad');
   });
 });
+
+describe('rate limiting', () => {
+  it('returns 429 once the apiLimiter budget is exhausted', async () => {
+    const app = createApp();
+    const cookies = await registerAndLogin(app, 'patient', `ratelimit-patients-${Date.now()}@medlink.demo`);
+
+    let lastStatus = 200;
+    for (let i = 0; i < 101; i += 1) {
+      const res = await request(app).get('/api/patients/me').set('Cookie', cookies);
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+});

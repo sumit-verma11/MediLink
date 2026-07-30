@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { CreateAppointmentInput, RejectAppointmentInput } from '@medlink/shared';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
+import { apiLimiter } from '../../middleware/rateLimit';
 import { createAppointmentHandler, confirmAppointmentHandler, rejectAppointmentHandler, cancelAppointmentHandler, listMyAppointments } from './appointments.controller';
 
 export const appointmentsRouter = Router();
 
+appointmentsRouter.use(apiLimiter);
 appointmentsRouter.use(requireAuth);
 appointmentsRouter.post('/', requireRole('patient'), validate(CreateAppointmentInput), createAppointmentHandler);
 appointmentsRouter.get('/me', requireRole('patient', 'doctor'), listMyAppointments);

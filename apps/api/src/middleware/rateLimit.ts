@@ -84,3 +84,14 @@ export const referralLookupLimiter = rateLimit({
   legacyHeaders: false,
   store: new SimpleRedisStore('rl:referral:'),
 });
+
+// General-purpose limiter for routers that have no more specific one. 100/min is loose
+// enough not to interfere with normal dashboard polling (the existing 10s-interval
+// fallback refetches on several dashboards) while still bounding abuse.
+export const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SimpleRedisStore('rl:api:'),
+});

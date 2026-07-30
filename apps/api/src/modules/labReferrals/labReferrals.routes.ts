@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { CreateLabReferralInput } from '@medlink/shared';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { referralLookupLimiter } from '../../middleware/rateLimit';
+import { apiLimiter, referralLookupLimiter } from '../../middleware/rateLimit';
 import {
   createReferralHandler,
   getReferralByTokenHandler,
@@ -20,6 +20,7 @@ labReferralsRouter.get('/me', listReferralsForDoctorHandler);
 // on it without changing that gate. Mirrors how publicReferralRouter already coexists at
 // the same /api/lab-referrals base path for the same structural reason.
 export const labFacingReferralsRouter = Router();
+labFacingReferralsRouter.use(apiLimiter);
 labFacingReferralsRouter.get('/for-lab', requireAuth, requireRole('lab'), listReferralsForLabHandler);
 
 // Public token lookup -- no auth, no role check. Registered as a SEPARATE
