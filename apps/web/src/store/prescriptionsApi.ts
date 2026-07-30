@@ -9,6 +9,7 @@ export interface Medicine {
 }
 export interface RecommendedTest {
   testName: string;
+  labReferralId?: string;
 }
 export interface Prescription {
   _id: string;

@@ -35,7 +35,7 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
       .map((testName) => ({ testName }));
 
     try {
-      await createPrescription({
+      const result = await createPrescription({
         appointmentId,
         diagnosisNote,
         medicines,
@@ -43,7 +43,13 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
         followUpDate: followUpDate || undefined,
         recommendedTests,
       }).unwrap();
-      router.push('/dashboard/doctor');
+
+      if (recommendedTests.length > 0) {
+        const testNames = recommendedTests.map((t) => t.testName).join(',');
+        router.push(`/prescriptions/${result.prescription._id}/refer?tests=${encodeURIComponent(testNames)}`);
+      } else {
+        router.push('/dashboard/doctor');
+      }
     } catch {
       // error state below already reflects the failure
     }

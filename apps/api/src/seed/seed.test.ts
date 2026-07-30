@@ -9,6 +9,8 @@ import { Appointment } from '../models/Appointment';
 import { AvailabilityRule } from '../models/AvailabilityRule';
 import { TriageSession } from '../models/TriageSession';
 import { Prescription } from '../models/Prescription';
+import { LabReferral } from '../models/LabReferral';
+import { LabBooking } from '../models/LabBooking';
 
 let mongod: MongoMemoryServer;
 
@@ -102,5 +104,24 @@ describe('runSeed — Phase 4 slice', () => {
       expect(appointment).not.toBeNull();
       expect(appointment!.status).toBe('completed');
     }
+  });
+});
+
+describe('runSeed — Phase 5 slice', () => {
+  it('seeds exactly 3 lab referrals in the documented statuses, plus lab bookings including one walk-in', async () => {
+    await runSeed();
+    const referrals = await LabReferral.find({});
+    expect(referrals).toHaveLength(3);
+
+    const statuses = referrals.map((r) => r.status).sort();
+    expect(statuses).toEqual(['booked', 'report_ready', 'sent'].sort());
+
+    const reportReadyReferral = referrals.find((r) => r.status === 'report_ready');
+    expect(reportReadyReferral!.reportUrl).toBeTruthy();
+
+    const bookings = await LabBooking.find({});
+    expect(bookings.length).toBeGreaterThanOrEqual(3); // 2 progressed referrals + 1 walk-in
+    const walkIns = bookings.filter((b) => !b.referralId);
+    expect(walkIns.length).toBeGreaterThanOrEqual(1);
   });
 });

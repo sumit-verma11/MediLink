@@ -1,5 +1,8 @@
 import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
 import bcrypt from 'bcryptjs';
+import { nanoid } from 'nanoid';
 import { connectDB, disconnectDB } from '../lib/db';
 import { User } from '../models/User';
 import { PatientProfile } from '../models/PatientProfile';
@@ -10,6 +13,9 @@ import { AvailabilityRule } from '../models/AvailabilityRule';
 import { Appointment } from '../models/Appointment';
 import { TriageSession } from '../models/TriageSession';
 import { Prescription } from '../models/Prescription';
+import { LabReferral } from '../models/LabReferral';
+import { LabBooking } from '../models/LabBooking';
+import { createNotification } from '../lib/notifications';
 import { PATIENTS, DOCTORS, LABS, AVAILABILITY_RULES_BY_DOCTOR_EMAIL } from './data';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -28,6 +34,8 @@ export async function runSeed(): Promise<void> {
   await Appointment.deleteMany({});
   await TriageSession.deleteMany({});
   await Prescription.deleteMany({});
+  await LabReferral.deleteMany({});
+  await LabBooking.deleteMany({});
 
   const passwordHash = await hashed();
 
@@ -325,6 +333,142 @@ export async function runSeed(): Promise<void> {
     acidityAppointment.triageSessionId = aciditySession._id;
     await acidityAppointment.save();
   }
+
+  // CLAUDE.md §6.4: 3 LabReferrals + their LabBookings, plus 1 walk-in booking.
+  //
+  // The real createReferral service (labReferrals.service.ts) enforces
+  // `Prescription.findOne({ _id: prescriptionId, doctorId: doctorProfile._id })` —
+  // i.e. a referral's doctorId must be the doctor who actually authored the linked
+  // prescription. Of the 6 Phase 4 prescriptions above, only Meera (i=0, patientUsers[0]),
+  // Kavita (i=1, patientUsers[1]) and Rohit (i=2, patientUsers[2]) have prescriptions
+  // recorded against a completed appointment; Neha is never assigned a completed
+  // appointment anywhere in appointmentSeeds (she only appears as a recommended
+  // doctor on the acidity TriageSession), so no real Neha-authored prescription
+  // exists to reference. Rather than fabricate a referral whose prescriptionId
+  // belongs to a different doctor than its doctorId (breaking the same invariant the
+  // real service enforces), or inflate the Phase 1-4 appointment/prescription counts
+  // that other describe blocks in this file assert exactly (7 completed, 6 prescriptions),
+  // Dr. Rohit Malhotra's real completed-appointment prescription stands in for the
+  // "report_ready" HealthFirst referral that CLAUDE.md attributes to Dr. Neha.
+  const meeraRx = await Prescription.findOne({ doctorId: meera.profileId, patientId: patientUsers[0]!._id });
+  const kavitaRx = await Prescription.findOne({ doctorId: kavita.profileId, patientId: patientUsers[1]!._id });
+  const rohitRx = await Prescription.findOne({ doctorId: rohit.profileId, patientId: patientUsers[2]!._id });
+
+  const labUserEmails = ['healthfirst.l@medlink.demo', 'citypath.l@medlink.demo', 'ghaziabaddiag.l@medlink.demo'];
+  const labProfilesByEmail = new Map<string, InstanceType<typeof LabProfile>>();
+  for (const email of labUserEmails) {
+    const labUser = await User.findOne({ email });
+    const labProfile = await LabProfile.findOne({ userId: labUser!._id });
+    labProfilesByEmail.set(email, labProfile!);
+  }
+  const healthfirstLab = labProfilesByEmail.get('healthfirst.l@medlink.demo')!;
+  const cityPathLab = labProfilesByEmail.get('citypath.l@medlink.demo')!;
+  const ghaziabadLab = labProfilesByEmail.get('ghaziabaddiag.l@medlink.demo')!;
+
+  // Referral 1: HealthFirst (LFT ₹450 + CBC ₹250 = ₹700) → report_ready, dummy PDF uploaded.
+  const reportReadyReferral = await LabReferral.create({
+    prescriptionId: rohitRx!._id,
+    doctorId: rohit.profileId,
+    patientId: rohitRx!.patientId,
+    labId: healthfirstLab._id,
+    suggestedTestCodes: ['LFT', 'CBC'],
+    token: nanoid(),
+    status: 'report_ready',
+    timeline: [
+      { status: 'sent', at: daysAgo(5) },
+      { status: 'opened', at: daysAgo(4) },
+      { status: 'booked', at: daysAgo(4) },
+      { status: 'sample_collected', at: daysAgo(3) },
+      { status: 'report_ready', at: daysAgo(2) },
+    ],
+    expiresAt: daysFromNow(25), // 30 days from its 'sent' timestamp (daysAgo(5))
+  });
+  const reportReadyBooking = await LabBooking.create({
+    referralId: reportReadyReferral._id,
+    patientId: reportReadyReferral.patientId,
+    labId: reportReadyReferral.labId,
+    testCodes: ['LFT', 'CBC'],
+    totalPrice: 700,
+    scheduledAt: daysAgo(3),
+    homeCollection: true,
+    status: 'report_ready',
+  });
+  // Reports are stored keyed by the LabBooking's id, not the referral's id — this
+  // mirrors the real upload path in labBookings.controller.ts/service.ts
+  // (`/uploads/lab-reports/${bookingId}.pdf`), not the referral._id.
+  const reportSamplePath = path.join(__dirname, 'assets', 'report_sample.pdf');
+  const reportDestDir = path.join(process.cwd(), 'uploads', 'lab-reports');
+  fs.mkdirSync(reportDestDir, { recursive: true });
+  const reportDestPath = path.join(reportDestDir, `${reportReadyBooking._id.toString()}.pdf`);
+  fs.copyFileSync(reportSamplePath, reportDestPath);
+  const reportUrl = `/uploads/lab-reports/${reportReadyBooking._id.toString()}.pdf`;
+  reportReadyBooking.reportUrl = reportUrl;
+  await reportReadyBooking.save();
+  reportReadyReferral.reportUrl = reportUrl;
+  await reportReadyReferral.save();
+
+  // Referral 2: Dr. Kavita → Ghaziabad Diagnostic Centre (HBA1C ₹300 + BLOODSUGAR ₹120 = ₹420) → booked.
+  const bookedReferral = await LabReferral.create({
+    prescriptionId: kavitaRx!._id,
+    doctorId: kavita.profileId,
+    patientId: kavitaRx!.patientId,
+    labId: ghaziabadLab._id,
+    suggestedTestCodes: ['HBA1C', 'BLOODSUGAR'],
+    token: nanoid(),
+    status: 'booked',
+    timeline: [
+      { status: 'sent', at: daysAgo(4) },
+      { status: 'opened', at: daysAgo(3) },
+      { status: 'booked', at: daysAgo(3) },
+    ],
+    expiresAt: daysFromNow(26), // 30 days from its 'sent' timestamp (daysAgo(4))
+  });
+  await LabBooking.create({
+    referralId: bookedReferral._id,
+    patientId: bookedReferral.patientId,
+    labId: bookedReferral.labId,
+    testCodes: ['HBA1C', 'BLOODSUGAR'],
+    totalPrice: 420,
+    scheduledAt: daysFromNow(1),
+    homeCollection: false, // Ghaziabad Diagnostic Centre offers no home collection
+    status: 'booked',
+  });
+
+  // Referral 3: Dr. Meera → City Path Labs (CBC ₹285) → sent (patient hasn't clicked yet —
+  // demo the click live). No LabBooking exists for this one.
+  const sentReferral = await LabReferral.create({
+    prescriptionId: meeraRx!._id,
+    doctorId: meera.profileId,
+    patientId: meeraRx!.patientId,
+    labId: cityPathLab._id,
+    suggestedTestCodes: ['CBC'],
+    token: nanoid(),
+    status: 'sent',
+    timeline: [{ status: 'sent', at: daysAgo(1) }],
+    expiresAt: daysFromNow(29), // 30 days from its 'sent' timestamp (daysAgo(1))
+  });
+  // Mirrors the notification the real createReferral service sends on referral
+  // creation, so this seeded 'sent' referral is actually discoverable from the
+  // patient's notification bell -- otherwise there's no way to demo "the patient
+  // hasn't clicked yet" live, since nothing points at /r/{token}.
+  await createNotification({
+    userId: sentReferral.patientId.toString(),
+    type: 'lab_referral_sent',
+    title: 'Your doctor has recommended a lab test',
+    body: `${cityPathLab.labName} offers the recommended test(s). Tap to book.`,
+    link: `/r/${sentReferral.token}`,
+  });
+
+  // Walk-in booking: a patient books a lab test directly, with no referral at all.
+  await LabBooking.create({
+    patientId: patientUsers[5]!._id,
+    labId: healthfirstLab._id,
+    testCodes: ['TSH'],
+    totalPrice: 300,
+    scheduledAt: daysFromNow(2),
+    homeCollection: false,
+    status: 'booked',
+  });
 
   await Notification.create({
     userId: admin._id, type: 'admin', title: 'Pending verifications',

@@ -13,6 +13,7 @@ export interface ILabReferral {
   status: LabReferralStatus;
   reportUrl?: string;
   timeline: { status: LabReferralStatus; at: Date }[];
+  expiresAt: Date;
 }
 
 const labReferralSchema = new Schema<ILabReferral>({
@@ -32,6 +33,10 @@ const labReferralSchema = new Schema<ILabReferral>({
     type: [{ status: { type: String, required: true }, at: { type: Date, required: true } }],
     default: [],
   },
+  // CLAUDE.md §1: the referral's direct link "expires in 30 days" -- set by
+  // createReferral at creation time, enforced (existence-blind) by
+  // getReferralByToken.
+  expiresAt: { type: Date, required: true },
 });
 
 export const LabReferral = model<ILabReferral>('LabReferral', labReferralSchema);

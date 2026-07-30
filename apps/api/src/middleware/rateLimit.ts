@@ -72,3 +72,15 @@ export const rxVerifyLimiter = rateLimit({
   legacyHeaders: false,
   store: new SimpleRedisStore('rl:rxverify:'),
 });
+
+// GET /api/r/:token is the second unauthenticated route in this API. The token
+// is unguessable (nanoid), but without a limiter this is still an unthrottled
+// endpoint an attacker could hammer while brute-forcing tokens, so it gets its
+// own dedicated limiter -- same shape as rxVerifyLimiter.
+export const referralLookupLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SimpleRedisStore('rl:referral:'),
+});
