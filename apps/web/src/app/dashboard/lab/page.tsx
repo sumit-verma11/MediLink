@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useListMyLabBookingsQuery, useUpdateBookingStatusMutation } from '@/store/labBookingsApi';
 import { useListReferralsForLabQuery } from '@/store/labReferralsApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
-import { DashboardAnimation } from '@/components/ui/dashboard-animation';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,7 +54,7 @@ export default function LabDashboardPage() {
       <div className="flex items-center justify-between flex-wrap">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
-            <DashboardAnimation path="/animations/lab-header.json" size={96} />
+            <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
           </div>
           <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         </div>
@@ -65,7 +65,7 @@ export default function LabDashboardPage() {
       {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Incoming referrals</h2>
-        {referralsData?.items.length === 0 ? <EmptyState message="No incoming referrals yet." /> : null}
+        {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
         {referralsData?.items.map((r) => (
           <Card key={r._id}>
             <CardContent className="space-y-2">
@@ -76,7 +76,7 @@ export default function LabDashboardPage() {
         ))}
       </section>
       <div className="space-y-2">
-        {data?.items.length === 0 ? <EmptyState message="No bookings yet." /> : null}
+        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." /> : null}
         {data?.items.map((booking) => (
           <Card key={booking._id}>
             <CardContent className="space-y-2">
