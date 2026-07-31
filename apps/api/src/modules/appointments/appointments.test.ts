@@ -8,6 +8,8 @@ import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { AvailabilityRule } from '../../models/AvailabilityRule';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { TriageSession } from '../../models/TriageSession';
+import { Appointment } from '../../models/Appointment';
+import { Rating } from '../../models/Rating';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -425,6 +427,62 @@ describe('GET /api/appointments/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].status).toBe('requested');
+  });
+});
+
+describe('GET /api/appointments/me — rated flag', () => {
+  it('marks a patient\'s completed-and-rated appointment as rated: true and an unrated one as rated: false', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'ratedflag@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=7`).set('Cookie', patientCookies);
+
+    const book = async (slot: { start: string; end: string }) => {
+      const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+        doctorId, slotStart: slot.start, slotEnd: slot.end,
+      });
+      return res.body.appointment._id as string;
+    };
+
+    const ratedAppointmentId = await book(slotsRes.body.slots[0]);
+    const unratedAppointmentId = await book(slotsRes.body.slots[1]);
+
+    await Appointment.updateOne({ _id: ratedAppointmentId }, { status: 'completed' });
+    await Appointment.updateOne({ _id: unratedAppointmentId }, { status: 'completed' });
+
+    const patientRes = await request(app).post('/api/auth/login').send({ email: 'ratedflag@medlink.demo', password: 'longenough1' });
+    const patientId = patientRes.body.user.id;
+    await Rating.create({
+      doctorId,
+      patientId,
+      appointmentId: ratedAppointmentId,
+      score: 5,
+      text: 'Great',
+    });
+
+    const res = await request(app).get('/api/appointments/me').set('Cookie', patientCookies);
+    expect(res.status).toBe(200);
+    const rated = res.body.items.find((i: { _id: string }) => i._id === ratedAppointmentId);
+    const unrated = res.body.items.find((i: { _id: string }) => i._id === unratedAppointmentId);
+    expect(rated.rated).toBe(true);
+    expect(unrated.rated).toBe(false);
+  });
+
+  it('does not include a rated field for a doctor\'s own appointment listing', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', 'ratedflagdoc@medlink.demo');
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const appointmentId = (
+      await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+        doctorId, slotStart: slotsRes.body.slots[0].start, slotEnd: slotsRes.body.slots[0].end,
+      })
+    ).body.appointment._id;
+    await Appointment.updateOne({ _id: appointmentId }, { status: 'completed' });
+
+    const res = await request(app).get('/api/appointments/me').set('Cookie', docCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].rated).toBeUndefined();
   });
 });
 

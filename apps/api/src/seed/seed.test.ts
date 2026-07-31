@@ -11,6 +11,8 @@ import { TriageSession } from '../models/TriageSession';
 import { Prescription } from '../models/Prescription';
 import { LabReferral } from '../models/LabReferral';
 import { LabBooking } from '../models/LabBooking';
+import { Rating } from '../models/Rating';
+import { Notification } from '../models/Notification';
 
 let mongod: MongoMemoryServer;
 
@@ -123,5 +125,56 @@ describe('runSeed — Phase 5 slice', () => {
     expect(bookings.length).toBeGreaterThanOrEqual(3); // 2 progressed referrals + 1 walk-in
     const walkIns = bookings.filter((b) => !b.referralId);
     expect(walkIns.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('runSeed — Phase 6 slice (ratings, lab referral notification)', () => {
+  it('seeds one rating per completed appointment via the real createRating path, recomputing avgRating/ratingCount per doctor', async () => {
+    await runSeed();
+
+    const ratings = await Rating.find({});
+    // Rating.appointmentId is unique and createRating requires status 'completed' --
+    // with exactly 7 completed appointments seeded (Phase 2 slice above), 7 is the
+    // maximum achievable, in place of CLAUDE.md §6.4's "8" (written before that
+    // constraint was enforced by the real service).
+    expect(ratings).toHaveLength(7);
+
+    const meeraUser = await User.findOne({ email: 'meera.d@medlink.demo' });
+    const meeraProfile = await DoctorProfile.findOne({ userId: meeraUser!._id });
+    expect(meeraProfile!.ratingCount).toBe(2);
+    expect(meeraProfile!.avgRating).toBeCloseTo(3.5, 5);
+
+    const kavitaUser = await User.findOne({ email: 'kavita.d@medlink.demo' });
+    const kavitaProfile = await DoctorProfile.findOne({ userId: kavitaUser!._id });
+    expect(kavitaProfile!.ratingCount).toBe(2);
+    expect(kavitaProfile!.avgRating).toBeCloseTo(4.5, 5);
+
+    const rohitUser = await User.findOne({ email: 'rohit.d@medlink.demo' });
+    const rohitProfile = await DoctorProfile.findOne({ userId: rohitUser!._id });
+    expect(rohitProfile!.ratingCount).toBe(2);
+    expect(rohitProfile!.avgRating).toBeCloseTo(4.0, 5);
+
+    const anjaliUser = await User.findOne({ email: 'anjali.d@medlink.demo' });
+    const anjaliProfile = await DoctorProfile.findOne({ userId: anjaliUser!._id });
+    expect(anjaliProfile!.ratingCount).toBe(1);
+    expect(anjaliProfile!.avgRating).toBeCloseTo(3.0, 5);
+
+    // A doctor with no completed appointments keeps the schema default (0), not a
+    // Math.random() fake -- this is the behavior this task's change is actually about.
+    const arjunUser = await User.findOne({ email: 'arjun.d@medlink.demo' });
+    const arjunProfile = await DoctorProfile.findOne({ userId: arjunUser!._id });
+    expect(arjunProfile!.ratingCount).toBe(0);
+    expect(arjunProfile!.avgRating).toBe(0);
+  });
+
+  it('notifies both the patient and the lab for the seeded "sent" lab referral', async () => {
+    await runSeed();
+
+    const cityPathUser = await User.findOne({ email: 'citypath.l@medlink.demo' });
+    const labNotifications = await Notification.find({ userId: cityPathUser!._id });
+    // 1 welcome notification (seeded for every lab) + 1 lab_referral_received for the
+    // 'sent' CBC referral from Dr. Meera -- mirrors what createReferral itself sends.
+    expect(labNotifications).toHaveLength(2);
+    expect(labNotifications.some((n) => n.type === 'lab_referral_received')).toBe(true);
   });
 });

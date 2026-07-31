@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { LabProfile } from '../../models/LabProfile';
+import { FilterQuery } from 'mongoose';
+import { LabProfile, ILabProfile } from '../../models/LabProfile';
 import { AppError } from '../../lib/errors';
+import { escapeRegex } from '../../lib/regex';
+import { toPositiveInt } from '../../lib/pagination';
 
 export async function getMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -65,6 +68,42 @@ export async function removeTest(req: Request, res: Response, next: NextFunction
     );
     if (!profile) throw new AppError(404, 'Lab profile not found', 'PROFILE_NOT_FOUND');
     res.status(200).json({ profile });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listLabsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const page = toPositiveInt(req.query.page, 1);
+    const limit = Math.min(50, toPositiveInt(req.query.limit, 20));
+
+    const filter: FilterQuery<ILabProfile> = { verificationStatus: 'approved' };
+    if (typeof req.query.city === 'string' && req.query.city) {
+      filter.city = { $regex: `^${escapeRegex(req.query.city)}$`, $options: 'i' };
+    }
+    if (typeof req.query.testCode === 'string' && req.query.testCode) {
+      filter['tests.code'] = req.query.testCode.toUpperCase();
+    }
+    if (typeof req.query.testName === 'string' && req.query.testName) {
+      filter['tests.name'] = { $regex: escapeRegex(req.query.testName), $options: 'i' };
+    }
+
+    // Public, unauthenticated list endpoint -- explicitly project to only the fields a
+    // lab-search result displays, for consistency with the same fix on the doctor list
+    // endpoint (see doctors.controller.ts). LabProfile has no verificationDocs field, so
+    // the impact here is smaller (just verificationStatus on an already-approved-filtered
+    // query), but the same allowlist approach applies. getPublicProfile below is unchanged.
+    const [items, total] = await Promise.all([
+      LabProfile.find(filter)
+        .select('labName city homeCollection tests')
+        .sort({ _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      LabProfile.countDocuments(filter),
+    ]);
+
+    res.status(200).json({ items, total, page, limit });
   } catch (err) {
     next(err);
   }

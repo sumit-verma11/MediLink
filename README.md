@@ -3,12 +3,44 @@
 A healthcare platform connecting patients, doctors, and diagnostic labs, with an
 admin role that verifies doctor and lab credentials.
 
-**Phase 1 (Foundation) is complete:** four roles can register, log in, manage
-role-specific profiles, and an admin can approve or reject doctor and lab
-verification. An approved doctor's public profile page is live and a full demo
-dataset is seeded. Later phases (booking, AI triage, prescriptions, lab
-referrals) are planned but not yet built — see
-[`docs/superpowers/plans/`](docs/superpowers/plans/).
+**All six planned phases are complete:**
+
+1. **Foundation** — four roles register, log in, and manage role-specific profiles; admin approves/rejects doctor and lab verification; public doctor/lab profile pages.
+2. **Availability & Booking** — doctors publish weekly availability, patients book slots with Redis-backed locking that makes double-booking impossible, live status updates over Socket.io, email notifications.
+3. **AI Triage & Doctor Matching** — a FastAPI service maps free-text symptoms to specialties via local sentence-transformer embeddings, with a red-flag layer that short-circuits to an emergency banner before any matching runs.
+4. **Prescriptions** — doctors issue immutable, PDF prescriptions with a QR-verifiable link; patients get a chronological health timeline.
+5. **Lab Referral Flow** — doctors refer patients to a lab for specific tests via an unguessable, expiring link; the lab tracks the booking through to report upload, notifying both patient and referring doctor.
+6. **Polish, Admin, Deploy** — doctor ratings, an admin analytics dashboard, a notification center, global doctor/lab search, a rate-limiting pass across every route, and CI image publishing.
+
+See [`docs/superpowers/plans/`](docs/superpowers/plans/) for the phase-by-phase
+implementation plans this was built from, and [`CLAUDE.md`](CLAUDE.md) for the
+full product/engineering brief.
+
+## Architecture
+
+```text
+┌─────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
+│  Next.js    │ ──► │  Node.js/Express API │ ──► │  MongoDB (primary)  │
+│  (frontend) │     │  auth, bookings,     │     │  Redis (slots,      │
+│             │     │  profiles, rx, labs  │     │  cache, queues)     │
+│             │ ──► │──────────────────────│     └─────────────────────┘
+│             │     │  FastAPI (Python)    │
+│             │     │  symptom triage +    │
+│             │     │  doctor matching     │
+└─────────────┘     └──────────────────────┘
+```
+
+Two backends, deliberately:
+
+- **Node/Express** owns the *transactional* domain — auth, CRUD, bookings, file
+  uploads. I/O-bound work where Node's async model excels.
+- **FastAPI** owns the *intelligence* domain — embeddings, symptom→specialty
+  mapping, ranking. Python's ML ecosystem (sentence-transformers, scikit-learn)
+  is the natural fit, and it costs nothing to run since the model runs locally.
+- The two services talk over HTTP inside the Docker network only — FastAPI is
+  never exposed publicly. Node proxies every request to it, with a timeout and
+  a fallback to a manual specialty picker if the AI service is down, so a
+  single service outage never blocks the booking flow.
 
 ## Layout
 
@@ -76,6 +108,16 @@ npm run seed --workspace=apps/api
 The seed is idempotent — it wipes the collections it owns and re-inserts, so you
 can run it as often as you like.
 
+## Deployment
+
+The target free-tier stack is Vercel (web), Render or Railway (api, ai),
+MongoDB Atlas, and Upstash Redis — all ₹0. `.github/workflows/ci.yml` builds
+and pushes Docker images for all three services to GHCR on every push to
+`main`, using the `Dockerfile`s already in each app directory. Provisioning
+the actual hosted accounts (Vercel project, Render/Railway services, Atlas
+cluster, Upstash instance) and wiring their env vars is a one-time manual step
+outside this repo — nothing here does it automatically.
+
 ## Demo credentials
 
 All seeded accounts use the password **`Demo@123`**.
@@ -92,6 +134,14 @@ All seeded accounts use the password **`Demo@123`**.
 The two pending accounts exist so the admin verification flow has something to
 act on. Log in as the admin to approve or reject them. The full list — 6
 patients, 12 doctors, 4 labs — is in `apps/api/src/seed/data.ts`.
+
+## Screenshots
+
+<!-- TODO: add screenshots from a live run -->
+
+## Demo video
+
+<!-- TODO: record and link a 2-minute Loom walkthrough -->
 
 ## Checks
 

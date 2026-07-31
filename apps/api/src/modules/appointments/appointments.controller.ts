@@ -3,6 +3,7 @@ import { createAppointment, confirmAppointment, rejectAppointment, cancelAppoint
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { Appointment } from '../../models/Appointment';
 import { TriageSession } from '../../models/TriageSession';
+import { Rating } from '../../models/Rating';
 import { toPositiveInt } from '../../lib/pagination';
 
 export async function createAppointmentHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -69,14 +70,30 @@ export async function listMyAppointments(req: Request, res: Response, next: Next
       Appointment.countDocuments(filter),
     ]);
 
+    // A patient's dashboard needs to know which completed appointments are already rated
+    // (to swap the "Rate this appointment" link for nothing) without a per-appointment
+    // round trip. Doctors listing their own appointments never need this, so it's only
+    // computed on the patient branch above. Batched as a single $in query rather than one
+    // Rating.exists per appointment.
+    let ratedAppointmentIds: Set<string> | null = null;
+    if (req.user!.role === 'patient') {
+      const completedIds = items.filter((item) => item.status === 'completed').map((item) => item._id);
+      const ratings = completedIds.length ? await Rating.find({ appointmentId: { $in: completedIds } }, 'appointmentId') : [];
+      ratedAppointmentIds = new Set(ratings.map((r) => r.appointmentId.toString()));
+    }
+
     const itemsWithTriageSummary = await Promise.all(
       items.map(async (item) => {
         const plain = item.toObject();
+        const rated =
+          ratedAppointmentIds && item.status === 'completed'
+            ? ratedAppointmentIds.has(item._id.toString())
+            : undefined;
         if (!item.triageSessionId) {
-          return { ...plain, triageSummary: null };
+          return { ...plain, triageSummary: null, rated };
         }
         const session = await TriageSession.findById(item.triageSessionId);
-        return { ...plain, triageSummary: session?.extractedSymptoms ?? null };
+        return { ...plain, triageSummary: session?.extractedSymptoms ?? null, rated };
       })
     );
 

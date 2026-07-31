@@ -35,3 +35,28 @@ jobs:
         working-directory: apps/ai
       - run: python -m pytest tests
         working-directory: apps/ai
+  docker:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, ai]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        app: [api, web, ai]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/medlink-${{ matrix.app }}:latest
+            ghcr.io/${{ github.repository_owner }}/medlink-${{ matrix.app }}:${{ github.sha }}

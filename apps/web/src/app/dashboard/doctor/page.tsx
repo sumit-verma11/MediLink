@@ -7,10 +7,12 @@ import {
   useConfirmAppointmentMutation,
   useRejectAppointmentMutation,
 } from '@/store/appointmentsApi';
+import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 import { getSocket } from '@/lib/socket';
 
 export default function DoctorDashboard() {
   const { data, isLoading, refetch } = useListMyAppointmentsQuery({ status: 'requested' });
+  const { data: notifData } = useListMyNotificationsQuery();
   const {
     data: confirmedData,
     isLoading: isConfirmedLoading,
@@ -41,9 +43,14 @@ export default function DoctorDashboard() {
     <main className="max-w-2xl mx-auto mt-12 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
-        <Link href="/dashboard/doctor/referrals" className="text-sm underline">
-          Lab referrals sent
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/notifications" className="text-sm underline">
+            Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
+          </Link>
+          <Link href="/dashboard/doctor/referrals" className="text-sm underline">
+            Lab referrals sent
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-2">

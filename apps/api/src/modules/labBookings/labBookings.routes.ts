@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { CreateLabBookingInput, PatchBookingStatusInput } from '@medlink/shared';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
+import { apiLimiter } from '../../middleware/rateLimit';
 import { labReportUpload } from './labBookings.upload';
 import {
   createBookingHandler,
@@ -14,6 +15,7 @@ import {
 } from './labBookings.controller';
 
 export const labBookingsRouter = Router();
+labBookingsRouter.use(apiLimiter);
 labBookingsRouter.use(requireAuth);
 labBookingsRouter.post('/', requireRole('patient'), validate(CreateLabBookingInput), createBookingHandler);
 // `/mine` (patient-scoped) and `/me` (lab-scoped) are distinct literal segments,

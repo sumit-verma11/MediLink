@@ -6,6 +6,10 @@ import type { Express } from 'express';
 import { createApp } from '../../app';
 import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { AuditLog } from '../../models/AuditLog';
+import { User } from '../../models/User';
+import { DoctorProfile } from '../../models/DoctorProfile';
+import { Appointment } from '../../models/Appointment';
+import { TriageSession } from '../../models/TriageSession';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -94,5 +98,99 @@ describe('POST /api/admin/verifications/:role/:id/decision', () => {
       .send({ decision: 'rejected' });
 
     expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/admin/analytics', () => {
+  it('returns registration counts, per-day appointment counts, top specialties, and triage conversion', async () => {
+    const app = createApp();
+    const adminCookies = await registerAndLogin(app, 'admin', `admin-analytics-${Date.now()}@medlink.demo`);
+
+    const patientEmail = `patient-analytics-${Date.now()}@medlink.demo`;
+    await registerAndLogin(app, 'patient', patientEmail);
+
+    const doctorEmail = `doctor-analytics-${Date.now()}@medlink.demo`;
+    const docCookies = await registerAndLogin(app, 'doctor', doctorEmail);
+    const putRes = await request(app).put('/api/doctors/me').set('Cookie', docCookies).send(validDoctor);
+    await DoctorProfile.findByIdAndUpdate(putRes.body.profile._id, { verificationStatus: 'approved' });
+
+    const patientUser = await User.findOne({ email: patientEmail });
+    const now = new Date();
+    await Appointment.create({
+      patientId: patientUser!._id,
+      doctorId: putRes.body.profile._id,
+      slotStart: now,
+      slotEnd: new Date(now.getTime() + 15 * 60 * 1000),
+      status: 'completed',
+    });
+    await TriageSession.create({ patientId: patientUser!._id });
+
+    const res = await request(app).get('/api/admin/analytics').set('Cookie', adminCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.totalRegistrations).toBeDefined();
+    expect(res.body.totalRegistrations.patients).toBeGreaterThanOrEqual(1);
+    expect(res.body.totalRegistrations.doctors).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(res.body.appointmentsPerDay)).toBe(true);
+    const todayStr = now.toISOString().slice(0, 10);
+    const todayEntry = res.body.appointmentsPerDay.find((row: { date: string; count: number }) => row.date === todayStr);
+    expect(todayEntry).toBeDefined();
+    expect(todayEntry.count).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(res.body.topSpecialties)).toBe(true);
+    const dermatology = res.body.topSpecialties.find((row: { specialty: string; count: number }) => row.specialty === 'Dermatology');
+    expect(dermatology).toBeDefined();
+    expect(dermatology.count).toBeGreaterThanOrEqual(1);
+    expect(res.body.triageToBookingConversion).toBeDefined();
+    expect(res.body.triageToBookingConversion.totalSessions).toBeGreaterThanOrEqual(1);
+  });
+
+  it('rejects a non-admin caller', async () => {
+    const app = createApp();
+    const patientCookies = await registerAndLogin(app, 'patient', `patient-analytics-reject-${Date.now()}@medlink.demo`);
+    const res = await request(app).get('/api/admin/analytics').set('Cookie', patientCookies);
+    expect(res.status).toBe(403);
+  });
+
+  it('counts a single triage session as 1 even when it produced two booked appointments (I2 regression)', async () => {
+    const app = createApp();
+    const adminCookies = await registerAndLogin(app, 'admin', `admin-conversion-${Date.now()}@medlink.demo`);
+
+    const patientEmail = `patient-conversion-${Date.now()}@medlink.demo`;
+    await registerAndLogin(app, 'patient', patientEmail);
+    const patientUser = await User.findOne({ email: patientEmail });
+
+    const doctorEmail = `doctor-conversion-${Date.now()}@medlink.demo`;
+    const docCookies = await registerAndLogin(app, 'doctor', doctorEmail);
+    const putRes = await request(app).put('/api/doctors/me').set('Cookie', docCookies).send(validDoctor);
+    await DoctorProfile.findByIdAndUpdate(putRes.body.profile._id, { verificationStatus: 'approved' });
+
+    const session = await TriageSession.create({ patientId: patientUser!._id });
+    const now = new Date();
+    // Same triageSessionId attached to TWO separate appointments -- one triage session,
+    // two bookings. sessionsWithBooking must still come out to 1, not 2, otherwise the
+    // conversion rate can exceed 100%.
+    await Appointment.create({
+      patientId: patientUser!._id,
+      doctorId: putRes.body.profile._id,
+      slotStart: now,
+      slotEnd: new Date(now.getTime() + 15 * 60 * 1000),
+      status: 'cancelled',
+      triageSessionId: session._id,
+    });
+    await Appointment.create({
+      patientId: patientUser!._id,
+      doctorId: putRes.body.profile._id,
+      slotStart: new Date(now.getTime() + 60 * 60 * 1000),
+      slotEnd: new Date(now.getTime() + 75 * 60 * 1000),
+      status: 'confirmed',
+      triageSessionId: session._id,
+    });
+
+    const res = await request(app).get('/api/admin/analytics').set('Cookie', adminCookies);
+
+    expect(res.status).toBe(200);
+    expect(res.body.triageToBookingConversion.totalSessions).toBe(1);
+    expect(res.body.triageToBookingConversion.sessionsWithBooking).toBe(1);
+    expect(res.body.triageToBookingConversion.conversionRate).toBeLessThanOrEqual(100);
+    expect(res.body.triageToBookingConversion.conversionRate).toBe(100);
   });
 });

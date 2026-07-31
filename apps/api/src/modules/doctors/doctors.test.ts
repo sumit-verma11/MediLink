@@ -7,6 +7,7 @@ import type { Express } from 'express';
 import { createApp } from '../../app';
 import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { DoctorProfile } from '../../models/DoctorProfile';
+import { User } from '../../models/User';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -113,5 +114,63 @@ describe('POST /api/doctors/me/verification-docs', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('BAD_FILE_TYPE');
+  });
+});
+
+describe('GET /api/doctors', () => {
+  it('filters approved doctors by specialty and city, and excludes pending/rejected ones', async () => {
+    const app = createApp();
+    await DoctorProfile.create({
+      userId: (await User.create({ role: 'doctor', email: `d1-${Date.now()}@medlink.demo`, phone: '1', passwordHash: 'x', name: 'Dr. Approved' }))._id,
+      specialties: ['Dermatology'], qualifications: ['MBBS'], regNo: 'DMC/R/00001', experienceYears: 5, bio: 'b',
+      clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 }, consultationFee: 500,
+      languages: ['English'], verificationStatus: 'approved',
+    });
+    await DoctorProfile.create({
+      userId: (await User.create({ role: 'doctor', email: `d2-${Date.now()}@medlink.demo`, phone: '2', passwordHash: 'x', name: 'Dr. Pending' }))._id,
+      specialties: ['Dermatology'], qualifications: ['MBBS'], regNo: 'DMC/R/00002', experienceYears: 5, bio: 'b',
+      clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 }, consultationFee: 500,
+      languages: ['English'], verificationStatus: 'pending',
+    });
+
+    const res = await request(app).get('/api/doctors').query({ specialty: 'Dermatology', city: 'Noida' });
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].userId.name).toBe('Dr. Approved');
+  });
+
+  it('treats regex metacharacters in the city filter literally, not as a wildcard', async () => {
+    const app = createApp();
+    await DoctorProfile.create({
+      userId: (await User.create({ role: 'doctor', email: `d3-${Date.now()}@medlink.demo`, phone: '3', passwordHash: 'x', name: 'Dr. X' }))._id,
+      specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: 'DMC/R/00003', experienceYears: 5, bio: 'b',
+      clinicName: 'C', clinicAddress: 'A', city: 'Delhi', geo: { lat: 1, lng: 1 }, consultationFee: 500,
+      languages: ['English'], verificationStatus: 'approved',
+    });
+
+    const res = await request(app).get('/api/doctors').query({ city: '.*' });
+    expect(res.body.total).toBe(0);
+  });
+
+  it('does not leak verificationDocs or regNo in the public list response (I1 regression)', async () => {
+    const app = createApp();
+    await DoctorProfile.create({
+      userId: (await User.create({ role: 'doctor', email: `d4-${Date.now()}@medlink.demo`, phone: '4', passwordHash: 'x', name: 'Dr. Private' }))._id,
+      specialties: ['Dermatology'], qualifications: ['MBBS'], regNo: 'DMC/R/09999', experienceYears: 5, bio: 'b',
+      clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 }, consultationFee: 500,
+      languages: ['English'], verificationStatus: 'approved',
+      verificationDocs: ['/uploads/verification-docs/secret-reg-cert.pdf'],
+    });
+
+    const res = await request(app).get('/api/doctors').query({ specialty: 'Dermatology' });
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].verificationDocs).toBeUndefined();
+    expect(res.body.items[0].regNo).toBeUndefined();
+    // Fields the search UI does display must still be present.
+    expect(res.body.items[0].specialties).toEqual(['Dermatology']);
+    expect(res.body.items[0].city).toBe('Noida');
+    expect(res.body.items[0].consultationFee).toBe(500);
+    expect(res.body.items[0].userId.name).toBe('Dr. Private');
   });
 });

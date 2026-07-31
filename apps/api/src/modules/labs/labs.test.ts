@@ -96,3 +96,55 @@ describe('GET /api/labs/public/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('GET /api/labs', () => {
+  it('filters approved labs by testCode and city', async () => {
+    const app = createApp();
+    const { LabProfile } = await import('../../models/LabProfile');
+    const { User } = await import('../../models/User');
+
+    await LabProfile.create({
+      userId: (await User.create({ role: 'lab', email: `l1-${Date.now()}@medlink.demo`, phone: '1', passwordHash: 'x', name: 'Lab One' }))._id,
+      labName: 'HealthFirst', address: 'A', city: 'Noida', geo: { lat: 1, lng: 1 }, timings: '07:00-21:00',
+      homeCollection: true, verificationStatus: 'approved',
+      tests: [{ code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6 }],
+    });
+    await LabProfile.create({
+      userId: (await User.create({ role: 'lab', email: `l2-${Date.now()}@medlink.demo`, phone: '2', passwordHash: 'x', name: 'Lab Two' }))._id,
+      labName: 'OtherLab', address: 'A', city: 'Delhi', geo: { lat: 1, lng: 1 }, timings: '07:00-21:00',
+      homeCollection: false, verificationStatus: 'approved',
+      tests: [{ code: 'TSH', name: 'Thyroid Profile', price: 300, turnaroundHours: 12 }],
+    });
+
+    const res = await request(app).get('/api/labs').query({ testCode: 'CBC' });
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].labName).toBe('HealthFirst');
+  });
+
+  it('does not leak address, geo, timings, or verificationStatus in the public list response (I1 regression)', async () => {
+    const app = createApp();
+    const { LabProfile } = await import('../../models/LabProfile');
+    const { User } = await import('../../models/User');
+
+    await LabProfile.create({
+      userId: (await User.create({ role: 'lab', email: `l3-${Date.now()}@medlink.demo`, phone: '3', passwordHash: 'x', name: 'Lab Three' }))._id,
+      labName: 'PrivacyLab', address: '42 Secret Lane', city: 'Noida', geo: { lat: 1, lng: 1 }, timings: '07:00-21:00',
+      homeCollection: true, verificationStatus: 'approved',
+      tests: [{ code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6 }],
+    });
+
+    const res = await request(app).get('/api/labs').query({ testCode: 'CBC' });
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].address).toBeUndefined();
+    expect(res.body.items[0].geo).toBeUndefined();
+    expect(res.body.items[0].timings).toBeUndefined();
+    expect(res.body.items[0].verificationStatus).toBeUndefined();
+    // Fields the search UI does display must still be present.
+    expect(res.body.items[0].labName).toBe('PrivacyLab');
+    expect(res.body.items[0].city).toBe('Noida');
+    expect(res.body.items[0].homeCollection).toBe(true);
+    expect(res.body.items[0].tests[0].code).toBe('CBC');
+  });
+});

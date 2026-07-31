@@ -2,10 +2,13 @@ import { Router } from 'express';
 import { LabProfileInput, LabTestInput, LabTestPatchInput } from '@medlink/shared';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { getMyProfile, upsertMyProfile, addTest, editTest, removeTest, getPublicProfile } from './labs.controller';
+import { apiLimiter } from '../../middleware/rateLimit';
+import { getMyProfile, upsertMyProfile, addTest, editTest, removeTest, listLabsHandler, getPublicProfile } from './labs.controller';
 
 export const labsRouter = Router();
 
+labsRouter.use(apiLimiter);
+labsRouter.get('/', listLabsHandler);
 labsRouter.get('/public/:id', getPublicProfile);
 
 labsRouter.use(requireAuth, requireRole('lab'));
