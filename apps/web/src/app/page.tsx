@@ -26,49 +26,53 @@ const STEPS = [
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col">
-      <section className="relative overflow-hidden px-6 py-24 text-center">
-        <HeartbeatBackground />
-        <div className="relative mx-auto max-w-2xl space-y-4">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">MedLink</h1>
-          <p className="text-lg text-muted-foreground">
-            AI symptom triage, doctor matching, appointment booking, prescriptions, and
-            lab referrals &mdash; one connected healthcare flow.
-          </p>
-          <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
-          <Button size="lg" render={<Link href="/login">Get started</Link>} />
-        </div>
-      </section>
-
-      <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
-        {ROLES.map(({ label, description, icon: Icon }) => (
-          <Link key={label} href="/login">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <CardHeader>
-                <Icon className="size-6 text-primary" />
-                <CardTitle>{label}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
-      </section>
-
-      <section className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-3">
-        {STEPS.map(({ label, description, icon: Icon }, i) => (
-          <div key={label} className="space-y-2 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10">
-              <Icon className="size-6 text-primary" />
-            </div>
-            <h3 className="font-semibold">{i + 1}. {label}</h3>
-            <p className="text-sm text-muted-foreground">{description}</p>
+    <>
+      <main className="flex flex-1 flex-col">
+        <section className="relative overflow-hidden px-6 py-24 text-center">
+          <HeartbeatBackground />
+          <div className="relative mx-auto max-w-2xl space-y-4">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">MedLink</h1>
+            <p className="text-lg text-muted-foreground">
+              AI symptom triage, doctor matching, appointment booking, prescriptions, and
+              lab referrals &mdash; one connected healthcare flow.
+            </p>
+            <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
+            <Button size="lg" render={<Link href="/login">Get started</Link>} />
           </div>
-        ))}
-      </section>
+        </section>
+
+        <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
+          {ROLES.map(({ label, description, icon: Icon }) => (
+            <Link key={label} href="/login">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardHeader>
+                  <Icon className="size-6 text-primary" />
+                  <CardTitle>{label}</CardTitle>
+                  <CardDescription>{description}</CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
+        </section>
+
+        <section className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-3">
+          {STEPS.map(({ label, description, icon: Icon }, i) => (
+            <div key={label} className="space-y-2 text-center">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10">
+                <Icon className="size-6 text-primary" />
+              </div>
+              <h3 className="font-semibold">{i + 1}. {label}</h3>
+              <p className="text-sm text-muted-foreground">{description}</p>
+            </div>
+          ))}
+        </section>
+      </main>
 
       <footer className="border-t px-6 py-8 text-center text-sm text-muted-foreground">
-        MedLink
+        <Link href="/search" className="underline">
+          Search doctors &amp; labs
+        </Link>
       </footer>
-    </main>
+    </>
   );
 }

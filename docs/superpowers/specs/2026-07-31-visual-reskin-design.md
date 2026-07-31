@@ -108,8 +108,10 @@ variants, no configurable colors — this is a single signature visual, not a
 themeable component.
 
 Usage sites: landing page hero section, and a shared panel behind both
-login and register forms. This stays the landing hero's one signature
-animated moment — it does not appear anywhere else.
+login and register forms. `HeartbeatBackground` is the app's one signature
+animated component — as opposed to `MedicalIconField` (§2b), a separate
+global ambient background — and it's deliberately reused on both the
+landing hero and the auth panel rather than scoped to a single page.
 
 ### 2b. `<MedicalIconField />` component (global ambient background)
 

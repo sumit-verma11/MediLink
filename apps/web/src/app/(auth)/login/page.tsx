@@ -34,12 +34,14 @@ export default function LoginPage() {
         <form onSubmit={onSubmit} className="space-y-4">
           <Input
             placeholder="Email"
+            aria-label="Email"
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
           <Input
             placeholder="Password"
+            aria-label="Password"
             type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
