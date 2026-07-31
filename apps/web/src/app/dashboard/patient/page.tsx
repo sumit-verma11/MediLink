@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { useListMyAppointmentsQuery, useCancelAppointmentMutation } from '@/store/appointmentsApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 import { getSocket } from '@/lib/socket';
+import { DashboardAnimation } from '@/components/ui/dashboard-animation';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function PatientDashboard() {
   const { data, isLoading, refetch } = useListMyAppointmentsQuery();
@@ -27,42 +32,56 @@ export default function PatientDashboard() {
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading…</main>;
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-2">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">My appointments</h1>
+    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <DashboardAnimation path="/animations/patient-header.json" size={96} />
+          <h1 className="text-2xl font-bold">My appointments</h1>
+        </div>
         <Link href="/notifications" className="text-sm underline">
           Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
         </Link>
       </div>
+      {data?.items.length === 0 ? <EmptyState message="No appointments yet." /> : null}
       {data?.items.map((appt) => (
-        <div key={appt._id} className="border p-3 rounded flex justify-between items-center">
-          <div>
-            <p>{new Date(appt.slotStart).toLocaleString()}</p>
-            <p className="text-sm text-gray-600">Status: {appt.status}</p>
-          </div>
-          {appt.status === 'confirmed' || appt.status === 'requested' ? (
-            <button
-              className="border px-3 py-1 rounded"
-              onClick={async () => {
-                // A rejected cancel (e.g. inside the 2-hour cutoff) must not become an
-                // unhandled rejection; refetch either way so the list reflects reality.
-                try {
-                  await cancelAppointment(appt._id).unwrap();
-                } catch {
-                  /* error state is already tracked by the mutation hook */
-                }
-                refetch();
-              }}
-            >
-              Cancel
-            </button>
-          ) : null}
-          {appt.status === 'completed' && !appt.rated ? (
-            <a href={`/appointments/${appt._id}/rate`} className="text-sm underline">
-              Rate this appointment
-            </a>
-          ) : null}
-        </div>
+        <Card key={appt._id}>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-lg">{new Date(appt.slotStart).toLocaleString()}</p>
+              <StatusBadge status={appt.status} />
+            </div>
+            <div className="flex items-center gap-2">
+              {appt.status === 'confirmed' || appt.status === 'requested' ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={async () => {
+                    // A rejected cancel (e.g. inside the 2-hour cutoff) must not become an
+                    // unhandled rejection; refetch either way so the list reflects reality.
+                    try {
+                      await cancelAppointment(appt._id).unwrap();
+                    } catch {
+                      /* error state is already tracked by the mutation hook */
+                    }
+                    refetch();
+                  }}
+                >
+                  Cancel
+                </Button>
+              ) : null}
+              {appt.status === 'completed' && !appt.rated ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/appointments/${appt._id}/rate`} />}
+                >
+                  Rate this appointment
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </main>
   );
