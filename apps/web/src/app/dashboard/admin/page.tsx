@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useListVerificationsQuery, useDecideVerificationMutation, useGetAnalyticsQuery } from '@/store/adminApi';
-import { DashboardAnimation } from '@/components/ui/dashboard-animation';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ export default function AdminDashboardPage() {
       <div className="flex items-center justify-between flex-wrap">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
-            <DashboardAnimation path="/animations/admin-header.json" size={96} />
+            <FloatingIcon3D src="/icons-3d/bar-chart.png" size={160} alt="" />
           </div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         </div>
@@ -37,7 +37,7 @@ export default function AdminDashboardPage() {
           </Button>
         </div>
         {loadingVerifications ? <p>Loading…</p> : null}
-        {verifications?.items.length === 0 ? <EmptyState message={`No pending ${role}s.`} /> : null}
+        {verifications?.items.length === 0 ? <EmptyState icon="/icons-3d/shield.png" message={`No pending ${role}s.`} /> : null}
         {verifications?.items.map((p) => (
           <Card key={p._id}>
             <CardContent className="flex items-center justify-between gap-4">
