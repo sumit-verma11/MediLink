@@ -9,7 +9,7 @@ import {
 } from '@/store/appointmentsApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 import { getSocket } from '@/lib/socket';
-import { DashboardAnimation } from '@/components/ui/dashboard-animation';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,7 +49,7 @@ export default function DoctorDashboard() {
       <div className="flex items-center justify-between flex-wrap">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
-            <DashboardAnimation path="/animations/doctor-header.json" size={96} />
+            <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
           </div>
           <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
         </div>
@@ -65,7 +65,7 @@ export default function DoctorDashboard() {
 
       <div className="space-y-2">
         <h2 className="text-xl font-bold">Pending requests</h2>
-        {data?.items.length === 0 ? <EmptyState message="No pending requests." /> : null}
+        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No pending requests." /> : null}
         {data?.items.map((appt) => (
           <Card key={appt._id}>
             <CardContent className="flex items-center justify-between gap-4">
@@ -99,7 +99,7 @@ export default function DoctorDashboard() {
       <div className="space-y-2">
         <h2 className="text-xl font-bold">Confirmed appointments</h2>
         {isConfirmedLoading ? <p>Loading…</p> : null}
-        {confirmedData?.items.length === 0 ? <EmptyState message="No confirmed appointments." /> : null}
+        {confirmedData?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No confirmed appointments." /> : null}
         {confirmedData?.items.map((appt) => (
           <Card key={appt._id}>
             <CardContent className="flex items-center justify-between gap-4">
