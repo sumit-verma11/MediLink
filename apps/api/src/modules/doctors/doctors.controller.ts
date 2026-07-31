@@ -61,8 +61,15 @@ export async function listDoctorsHandler(req: Request, res: Response, next: Next
       filter.userId = { $in: matchingUsers.map((u) => u._id) };
     }
 
+    // Public, unauthenticated list endpoint -- explicitly project to only the fields a
+    // doctor-search result displays. Without this, every field serializes, including
+    // verificationDocs (storage paths to medical registration certs/ID scans) and regNo,
+    // making them bulk-enumerable by any anonymous caller paging through the list. The
+    // single-doctor getPublicProfile endpoint below is a separate, pre-existing surface
+    // and intentionally keeps the fuller profile (bio, qualifications, etc.).
     const [items, total] = await Promise.all([
       DoctorProfile.find(filter)
+        .select('specialties city consultationFee avgRating ratingCount userId')
         .sort({ avgRating: -1 })
         .skip((page - 1) * limit)
         .limit(limit)

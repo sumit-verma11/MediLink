@@ -151,4 +151,26 @@ describe('GET /api/doctors', () => {
     const res = await request(app).get('/api/doctors').query({ city: '.*' });
     expect(res.body.total).toBe(0);
   });
+
+  it('does not leak verificationDocs or regNo in the public list response (I1 regression)', async () => {
+    const app = createApp();
+    await DoctorProfile.create({
+      userId: (await User.create({ role: 'doctor', email: `d4-${Date.now()}@medlink.demo`, phone: '4', passwordHash: 'x', name: 'Dr. Private' }))._id,
+      specialties: ['Dermatology'], qualifications: ['MBBS'], regNo: 'DMC/R/09999', experienceYears: 5, bio: 'b',
+      clinicName: 'C', clinicAddress: 'A', city: 'Noida', geo: { lat: 1, lng: 1 }, consultationFee: 500,
+      languages: ['English'], verificationStatus: 'approved',
+      verificationDocs: ['/uploads/verification-docs/secret-reg-cert.pdf'],
+    });
+
+    const res = await request(app).get('/api/doctors').query({ specialty: 'Dermatology' });
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].verificationDocs).toBeUndefined();
+    expect(res.body.items[0].regNo).toBeUndefined();
+    // Fields the search UI does display must still be present.
+    expect(res.body.items[0].specialties).toEqual(['Dermatology']);
+    expect(res.body.items[0].city).toBe('Noida');
+    expect(res.body.items[0].consultationFee).toBe(500);
+    expect(res.body.items[0].userId.name).toBe('Dr. Private');
+  });
 });

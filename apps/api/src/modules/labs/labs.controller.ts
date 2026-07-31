@@ -89,8 +89,17 @@ export async function listLabsHandler(req: Request, res: Response, next: NextFun
       filter['tests.name'] = { $regex: escapeRegex(req.query.testName), $options: 'i' };
     }
 
+    // Public, unauthenticated list endpoint -- explicitly project to only the fields a
+    // lab-search result displays, for consistency with the same fix on the doctor list
+    // endpoint (see doctors.controller.ts). LabProfile has no verificationDocs field, so
+    // the impact here is smaller (just verificationStatus on an already-approved-filtered
+    // query), but the same allowlist approach applies. getPublicProfile below is unchanged.
     const [items, total] = await Promise.all([
-      LabProfile.find(filter).sort({ _id: -1 }).skip((page - 1) * limit).limit(limit),
+      LabProfile.find(filter)
+        .select('labName city homeCollection tests')
+        .sort({ _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
       LabProfile.countDocuments(filter),
     ]);
 
