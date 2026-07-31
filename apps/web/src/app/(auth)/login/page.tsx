@@ -3,6 +3,16 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLoginMutation } from '@/store/authApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+
+const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
+  patient: '/dashboard/patient',
+  doctor: '/dashboard/doctor',
+  lab: '/dashboard/lab',
+  admin: '/dashboard/admin',
+};
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -11,17 +21,37 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await login(form).unwrap();
-    router.push('/');
+    const { user } = await login(form).unwrap();
+    router.push(DASHBOARD_PATH_BY_ROLE[user.role] ?? '/');
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-sm mx-auto mt-16 space-y-4">
-      <h1 className="text-xl font-semibold">Login</h1>
-      <input className="border p-2 w-full" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-      <input className="border p-2 w-full" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-      <button className="bg-black text-white px-4 py-2 w-full" disabled={isLoading}>Login</button>
-      {error ? <p className="text-red-600">Login failed</p> : null}
-    </form>
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle className="text-xl">Log in</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Input
+            placeholder="Email"
+            aria-label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+          <Input
+            placeholder="Password"
+            aria-label="Password"
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+          {error ? <p className="text-sm text-destructive">Login failed</p> : null}
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? 'Logging in…' : 'Log in'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
