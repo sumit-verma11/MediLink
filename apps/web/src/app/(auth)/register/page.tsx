@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRegisterMutation } from '@/store/authApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type RegisterRole = 'patient' | 'doctor' | 'lab' | 'admin';
 
@@ -20,19 +23,31 @@ export default function RegisterPage() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-sm mx-auto mt-16 space-y-4">
-      <h1 className="text-xl font-semibold">Register</h1>
-      <input className="border p-2 w-full" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-      <input className="border p-2 w-full" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-      <input className="border p-2 w-full" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-      <input className="border p-2 w-full" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-      <select className="border p-2 w-full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as RegisterRole })}>
-        <option value="patient">Patient</option>
-        <option value="doctor">Doctor</option>
-        <option value="lab">Lab</option>
-      </select>
-      <button className="bg-black text-white px-4 py-2 w-full" disabled={isLoading}>Register</button>
-      {error ? <p className="text-red-600">Registration failed</p> : null}
-    </form>
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle className="text-xl">Register</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Input placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <select
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none md:text-sm dark:bg-input/30"
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value as RegisterRole })}
+          >
+            <option value="patient">Patient</option>
+            <option value="doctor">Doctor</option>
+            <option value="lab">Lab</option>
+          </select>
+          {error ? <p className="text-sm text-destructive">Registration failed</p> : null}
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? 'Registering…' : 'Register'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
