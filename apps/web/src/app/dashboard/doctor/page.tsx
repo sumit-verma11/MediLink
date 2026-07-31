@@ -46,9 +46,11 @@ export default function DoctorDashboard() {
 
   return (
     <main className="max-w-2xl mx-auto mt-12 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap">
         <div className="flex items-center gap-3">
-          <DashboardAnimation path="/animations/doctor-header.json" size={96} />
+          <div className="shrink-0">
+            <DashboardAnimation path="/animations/doctor-header.json" size={96} />
+          </div>
           <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
         </div>
         <div className="flex gap-3">

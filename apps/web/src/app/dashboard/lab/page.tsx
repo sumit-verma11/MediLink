@@ -51,9 +51,11 @@ export default function LabDashboardPage() {
 
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap">
         <div className="flex items-center gap-3">
-          <DashboardAnimation path="/animations/lab-header.json" size={96} />
+          <div className="shrink-0">
+            <DashboardAnimation path="/animations/lab-header.json" size={96} />
+          </div>
           <h1 className="text-2xl font-bold">Lab Dashboard</h1>
         </div>
         <Link href="/notifications" className="text-sm underline">
@@ -66,7 +68,7 @@ export default function LabDashboardPage() {
         {referralsData?.items.length === 0 ? <EmptyState message="No incoming referrals yet." /> : null}
         {referralsData?.items.map((r) => (
           <Card key={r._id}>
-            <CardContent>
+            <CardContent className="space-y-2">
               <p className="text-lg">Tests: {r.suggestedTestCodes.join(', ')}</p>
               <StatusBadge status={r.status} />
             </CardContent>

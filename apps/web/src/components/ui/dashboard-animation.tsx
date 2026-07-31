@@ -12,15 +12,27 @@ export function DashboardAnimation({ path, size = 96 }: { path: string; size?: n
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) setAnimationData(data);
-      });
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [path]);
 
   if (!animationData) {
-    return <div style={{ height: size, width: size }} />;
+    return <div style={{ height: size, width: size }} aria-hidden="true" />;
   }
 
-  return <Lottie animationData={animationData} loop autoplay style={{ height: size, width: size }} />;
+  const prefersReducedMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  return (
+    <Lottie
+      animationData={animationData}
+      loop={!prefersReducedMotion}
+      autoplay={!prefersReducedMotion}
+      style={{ height: size, width: size }}
+      aria-hidden="true"
+    />
+  );
 }
