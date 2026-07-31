@@ -149,4 +149,48 @@ describe('GET /api/admin/analytics', () => {
     const res = await request(app).get('/api/admin/analytics').set('Cookie', patientCookies);
     expect(res.status).toBe(403);
   });
+
+  it('counts a single triage session as 1 even when it produced two booked appointments (I2 regression)', async () => {
+    const app = createApp();
+    const adminCookies = await registerAndLogin(app, 'admin', `admin-conversion-${Date.now()}@medlink.demo`);
+
+    const patientEmail = `patient-conversion-${Date.now()}@medlink.demo`;
+    await registerAndLogin(app, 'patient', patientEmail);
+    const patientUser = await User.findOne({ email: patientEmail });
+
+    const doctorEmail = `doctor-conversion-${Date.now()}@medlink.demo`;
+    const docCookies = await registerAndLogin(app, 'doctor', doctorEmail);
+    const putRes = await request(app).put('/api/doctors/me').set('Cookie', docCookies).send(validDoctor);
+    await DoctorProfile.findByIdAndUpdate(putRes.body.profile._id, { verificationStatus: 'approved' });
+
+    const session = await TriageSession.create({ patientId: patientUser!._id });
+    const now = new Date();
+    // Same triageSessionId attached to TWO separate appointments -- one triage session,
+    // two bookings. sessionsWithBooking must still come out to 1, not 2, otherwise the
+    // conversion rate can exceed 100%.
+    await Appointment.create({
+      patientId: patientUser!._id,
+      doctorId: putRes.body.profile._id,
+      slotStart: now,
+      slotEnd: new Date(now.getTime() + 15 * 60 * 1000),
+      status: 'cancelled',
+      triageSessionId: session._id,
+    });
+    await Appointment.create({
+      patientId: patientUser!._id,
+      doctorId: putRes.body.profile._id,
+      slotStart: new Date(now.getTime() + 60 * 60 * 1000),
+      slotEnd: new Date(now.getTime() + 75 * 60 * 1000),
+      status: 'confirmed',
+      triageSessionId: session._id,
+    });
+
+    const res = await request(app).get('/api/admin/analytics').set('Cookie', adminCookies);
+
+    expect(res.status).toBe(200);
+    expect(res.body.triageToBookingConversion.totalSessions).toBe(1);
+    expect(res.body.triageToBookingConversion.sessionsWithBooking).toBe(1);
+    expect(res.body.triageToBookingConversion.conversionRate).toBeLessThanOrEqual(100);
+    expect(res.body.triageToBookingConversion.conversionRate).toBe(100);
+  });
 });

@@ -38,7 +38,14 @@ export async function getAnalytics(): Promise<AnalyticsSummary> {
   const topSpecialties = topSpecialtiesAgg.map((row) => ({ specialty: row._id, count: row.count }));
 
   const totalSessions = await TriageSession.countDocuments();
-  const sessionsWithBooking = await Appointment.countDocuments({ triageSessionId: { $exists: true } });
+  // Count DISTINCT triage sessions that led to a booking, not the number of appointments
+  // carrying a triageSessionId -- a single session can produce more than one booked
+  // appointment (e.g. the patient books, cancels, then books again with the same
+  // triageSessionId attached), and counting appointments would let sessionsWithBooking
+  // exceed totalSessions, pushing conversionRate above 100%.
+  const sessionsWithBooking = (
+    await Appointment.distinct('triageSessionId', { triageSessionId: { $exists: true } })
+  ).length;
   const conversionRate = totalSessions > 0 ? Math.round((sessionsWithBooking / totalSessions) * 1000) / 10 : 0;
 
   return {
