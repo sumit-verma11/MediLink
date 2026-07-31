@@ -22,6 +22,10 @@ visual companion across two mockup screens (session
   radial-gradient color blobs (the Stripe/Linear "glow" trick). Chosen over
   a tiled medical icon-line texture and desaturated editorial photography.
 
+A follow-up request (after this spec's first draft was written and
+committed) asked for the discarded tiled medical-icon-texture direction
+back, applied globally rather than scoped to one section — see §2b.
+
 ## Goals
 
 1. Apply the Clinical Trust palette as shadcn CSS variables in `globals.css`
@@ -31,7 +35,11 @@ visual companion across two mockup screens (session
    landing page and unstyled auth forms with content that reflects what
    MedLink actually is.
 3. Introduce one reusable heartbeat-motif background component as the
-   product's signature visual element.
+   landing hero's signature visual element.
+4. Add a subtle, low-opacity medical-icon texture as an ambient background
+   layer behind every page in the app (added after the initial design pass,
+   per follow-up user request) — a decoration layer only, not a redesign of
+   any existing page's content or layout.
 
 ## Non-goals (explicitly out of scope this pass)
 
@@ -40,11 +48,16 @@ visual companion across two mockup screens (session
   designing a matching dark variant is deferred as follow-up work.
 - Retrofitting layout/content of existing dashboard pages (patient/doctor/
   lab/admin, appointment views, prescriptions, etc.) beyond the automatic
-  re-color they get for free via shared tokens. No bespoke redesign of those
+  re-color they get for free via shared tokens, and the global
+  `<MedicalIconField />` background layer (§2b), which is mounted once at the
+  root layout and touches no page's own code. No bespoke redesign of those
   pages in this pass.
-- The tiled icon-line texture background option (not the chosen direction).
-- Any animation library or canvas/WebGL work — the motif is inline SVG + CSS
-  only.
+- Any animation library or canvas/WebGL work — both background components
+  are inline SVG/CSS only.
+- Any new icon package — `lucide-react` (already installed) already has a
+  sufficient medical icon set (verified: stethoscope, pill, syringe,
+  heart-pulse, bandage, thermometer, cross, microscope, flask, test-tube,
+  clipboard-plus, tablets, and more).
 
 ## Design
 
@@ -95,7 +108,35 @@ variants, no configurable colors — this is a single signature visual, not a
 themeable component.
 
 Usage sites: landing page hero section, and a shared panel behind both
-login and register forms.
+login and register forms. This stays the landing hero's one signature
+animated moment — it does not appear anywhere else.
+
+### 2b. `<MedicalIconField />` component (global ambient background)
+
+New file: `apps/web/src/components/ui/medical-icon-field.tsx`.
+
+A fixed, full-viewport, non-interactive layer (`position: fixed; inset: 0;
+z-index: -1; pointer-events: none; overflow: hidden`) tiling a repeating grid
+of medical icons from `lucide-react` — already installed, no new dependency.
+Icon set: `Stethoscope`, `Pill`, `Syringe`, `HeartPulse`, `Bandage`,
+`Thermometer`, `Cross`, `Microscope`, `FlaskConical`, `TestTube`,
+`ClipboardPlus`, `Tablets` (12 icons, cycled).
+
+Implementation: a CSS grid (`grid-template-columns: repeat(auto-fill,
+minmax(120px, 1fr))`) rendering the icon list cycled by index
+(`icons[i % icons.length]`), each at `opacity: 0.05`, `color: var(--primary)`,
+with a small deterministic rotation per cell (`(i % 5) * 7deg`, e.g.) for a
+scattered, non-grid-aligned feel. **Rotation/placement must be a pure
+function of index, not `Math.random()`** — Next.js renders this on the
+server first, and a client-side random value would mismatch the
+server-rendered markup and throw a hydration error. Deterministic variation
+avoids this entirely.
+
+Mounted once in `apps/web/src/app/layout.tsx`, behind `{children}` — every
+existing and future page gets it automatically with zero per-page changes.
+At `opacity: 0.05` against the `--background` token, it reads as texture,
+not as icons competing with real content (tables, forms, dashboards stay
+fully legible).
 
 ### 3. Landing page (`apps/web/src/app/page.tsx`)
 
@@ -149,12 +190,14 @@ logic.
 
 No automated test suite for this — it's a visual/content change with no new
 business logic. One manual pass: `npm run dev`, confirm landing/login/
-register render with the new palette and the motif appears on both,
-`prefers-reduced-motion` shows the EKG line static, then spot-check one
-already-built page (e.g. patient dashboard) to confirm it re-colored via the
-shared tokens with no layout breakage. No new automated test is added since
-there's no branching logic to assert against beyond the reduced-motion CSS
-guard, which is a browser-native behavior, not app logic.
+register render with the new palette and the heartbeat motif appears on
+both, `prefers-reduced-motion` shows the EKG line static, then spot-check
+one already-built page (e.g. patient dashboard) to confirm both (a) it
+re-colored via the shared tokens with no layout breakage, and (b) the
+`<MedicalIconField />` texture renders behind it with no React hydration
+warning in the console (the risk called out in §2b). No new automated test
+is added since there's no branching logic to assert against beyond CSS
+behavior (reduced-motion, deterministic layout), none of which is app logic.
 
 ## Open questions
 
