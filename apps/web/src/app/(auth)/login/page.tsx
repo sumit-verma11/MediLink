@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLoginMutation } from '@/store/authApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,12 @@ export default function LoginPage() {
             {isLoading ? 'Logging in…' : 'Log in'}
           </Button>
         </form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="underline">
+            Register
+          </Link>
+        </p>
       </CardContent>
     </Card>
   );
