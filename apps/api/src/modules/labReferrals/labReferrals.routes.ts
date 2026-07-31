@@ -24,9 +24,13 @@ labReferralsRouter.get('/me', listReferralsForDoctorHandler);
 // so if labReferralsRouter (whose requireRole('doctor') is a router-wide `.use()`) were
 // mounted first, a lab caller hitting GET /for-lab would be rejected there before ever
 // reaching this router. See the mount-order comment in app.ts.
+//
+// apiLimiter is applied directly on the /for-lab route below, not via a router-wide
+// .use() here -- this router is mounted first, so a path-less .use() would run on every
+// /api/lab-referrals/* request (including ones that fall through to labReferralsRouter),
+// double-counting them against the shared per-IP budget.
 export const labFacingReferralsRouter = Router();
-labFacingReferralsRouter.use(apiLimiter);
-labFacingReferralsRouter.get('/for-lab', requireAuth, requireRole('lab'), listReferralsForLabHandler);
+labFacingReferralsRouter.get('/for-lab', apiLimiter, requireAuth, requireRole('lab'), listReferralsForLabHandler);
 
 // Public token lookup -- no auth, no role check. Registered as a SEPARATE
 // router (rather than a route on labReferralsRouter above, which is gated by
