@@ -16,7 +16,7 @@ export default function AdminDashboardPage() {
 
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-8">
-      <div className="flex items-center justify-between flex-wrap">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/bar-chart.png" size={160} alt="" />

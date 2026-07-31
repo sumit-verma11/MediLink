@@ -48,7 +48,7 @@ export default function Home() {
         <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
           {ROLES.map(({ label, description, icon: Icon }) => (
             <Link key={label} href="/login">
-              <Card className="h-full transition-shadow hover:shadow-md">
+              <Card className="h-full">
                 <CardHeader>
                   <Icon className="size-6 text-primary" />
                   <CardTitle>{label}</CardTitle>

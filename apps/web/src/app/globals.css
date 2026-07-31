@@ -170,6 +170,7 @@
 
 .glass-panel {
   backdrop-filter: blur(12px);
-  background-color: color-mix(in oklch, var(--card) 70%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: color-mix(in oklch, var(--primary) 5%, var(--card) 70%);
   border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
 }
