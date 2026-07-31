@@ -29,7 +29,7 @@ export default function VerifyPrescriptionPage({ params }: { params: Promise<{ i
         <p className="text-amber-700 text-sm">Note: this prescription has since been amended by the doctor.</p>
       ) : null}
       <p className="text-xs text-gray-500">
-        This page confirms the prescription's authenticity only. Diagnosis and medication details are not shown here for patient privacy.
+        This page confirms the prescription&apos;s authenticity only. Diagnosis and medication details are not shown here for patient privacy.
       </p>
     </main>
   );
