@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HeartbeatBackground } from "@/components/ui/heartbeat-background";
+import { FloatingIcon3D } from "@/components/ui/floating-icon-3d";
 
 const ROLES = [
   { label: "Patient", description: "Describe your symptoms, get matched with a doctor, and book an appointment.", icon: User },
@@ -31,6 +32,9 @@ export default function Home() {
         <section className="relative overflow-hidden px-6 py-24 text-center">
           <HeartbeatBackground />
           <div className="relative mx-auto max-w-2xl space-y-4">
+            <div className="mx-auto flex justify-center">
+              <FloatingIcon3D src="/icons-3d/heart.png" size={140} alt="" />
+            </div>
             <h1 className="text-4xl font-bold tracking-tight text-foreground">MedLink</h1>
             <p className="text-lg text-muted-foreground">
               AI symptom triage, doctor matching, appointment booking, prescriptions, and
