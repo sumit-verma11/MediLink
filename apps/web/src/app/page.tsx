@@ -37,7 +37,7 @@ export default function Home() {
               lab referrals &mdash; one connected healthcare flow.
             </p>
             <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
-            <Button size="lg" render={<Link href="/login">Get started</Link>} />
+            <Button size="lg" nativeButton={false} render={<Link href="/login">Get started</Link>} />
           </div>
         </section>
 

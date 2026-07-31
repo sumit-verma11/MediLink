@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useRegisterMutation } from '@/store/authApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,12 @@ export default function RegisterPage() {
             {isLoading ? 'Registering…' : 'Register'}
           </Button>
         </form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Already have an account?{' '}
+          <Link href="/login" className="underline">
+            Log in
+          </Link>
+        </p>
       </CardContent>
     </Card>
   );
