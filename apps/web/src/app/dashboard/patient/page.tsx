@@ -40,9 +40,14 @@ export default function PatientDashboard() {
           </div>
           <h1 className="text-2xl font-bold">My appointments</h1>
         </div>
-        <Link href="/notifications" className="text-sm underline">
-          Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
-        </Link>
+        <div className="flex items-center gap-3">
+          <Button size="sm" nativeButton={false} render={<Link href="/triage" />}>
+            Start symptom triage
+          </Button>
+          <Link href="/notifications" className="text-sm underline">
+            Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
+          </Link>
+        </div>
       </div>
       {data?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No appointments yet." /> : null}
       {data?.items.map((appt) => (
