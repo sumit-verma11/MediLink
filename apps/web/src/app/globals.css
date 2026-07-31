@@ -128,3 +128,22 @@
     @apply font-sans;
   }
 }
+
+.heartbeat-path {
+  stroke-dasharray: 480;
+  stroke-dashoffset: 480;
+  animation: heartbeat-draw 1.6s ease-out forwards;
+}
+
+@keyframes heartbeat-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heartbeat-path {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}
