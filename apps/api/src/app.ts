@@ -56,8 +56,17 @@ export function createApp(): Express {
   app.use('/api/appointments', appointmentsRouter);
   app.use('/api/triage', triageRouter);
   app.use('/api/prescriptions', prescriptionsRouter);
-  app.use('/api/lab-referrals', labReferralsRouter);
+  // Order matters: Express runs a mounted router's path-less `.use()` middleware
+  // for ANY request under that mount point, even if the router itself defines no
+  // matching route. `labReferralsRouter` gates its ENTIRE mount with
+  // requireRole('doctor') via `.use()`, so if it were mounted first, a lab caller
+  // hitting GET /api/lab-referrals/for-lab would be rejected there and never reach
+  // `labFacingReferralsRouter` below it. Mounting the lab-facing router first avoids
+  // that: it has no path-less `.use()` (its role check is on the /for-lab route
+  // itself), so requests for paths it doesn't define (/, /me) fall through cleanly
+  // to `labReferralsRouter`.
   app.use('/api/lab-referrals', labFacingReferralsRouter);
+  app.use('/api/lab-referrals', labReferralsRouter);
   app.use('/api/r', publicReferralRouter);
   app.use('/api/lab-bookings', labBookingsRouter);
   app.use('/api/ratings', ratingsRouter);

@@ -281,6 +281,56 @@ describe('GET /api/lab-referrals/me', () => {
   });
 });
 
+async function registerLabWithProfile(app: Express): Promise<{ labCookies: string[]; labProfile: InstanceType<typeof LabProfile> }> {
+  const labEmail = `lab-forlab-${Date.now()}-${Math.random()}@medlink.demo`;
+  const labCookies = await registerAndLogin(app, 'lab', labEmail);
+  const labUser = await User.findOne({ email: labEmail });
+  const labProfile = await LabProfile.create({
+    userId: labUser!._id, labName: 'HealthFirst Diagnostics', address: 'A', city: 'Noida',
+    geo: { lat: 1, lng: 1 }, timings: '07:00-21:00', homeCollection: true, verificationStatus: 'approved',
+    tests: [{ code: 'CBC', name: 'Complete Blood Count', price: 250, turnaroundHours: 6 }],
+  });
+  return { labCookies, labProfile };
+}
+
+// Regression test for Finding C1: labFacingReferralsRouter and labReferralsRouter are
+// mounted at the SAME base path ('/api/lab-referrals'). If mount order regresses (i.e.
+// labReferralsRouter, whose requireRole('doctor') is a router-wide `.use()`, gets mounted
+// FIRST again), a lab caller hitting GET /for-lab would be rejected there with 403 before
+// ever reaching labFacingReferralsRouter -- exactly the bug this test set catches, because
+// it goes through the real HTTP router stack in app.ts rather than calling the service
+// function directly.
+describe('GET /api/lab-referrals/for-lab', () => {
+  it('lets a lab list referrals sent to it', async () => {
+    const app = createApp();
+    const { labCookies, labProfile } = await registerLabWithProfile(app);
+    const { doctorCookies, prescription } = await seedPrescriptionAndLabHttp(app);
+
+    // Point the referral at OUR lab (not the throwaway one from seedPrescriptionAndLabHttp),
+    // so we can assert the lab-facing endpoint returns exactly this referral.
+    await request(app).post('/api/lab-referrals').set('Cookie', doctorCookies).send({
+      prescriptionId: prescription._id.toString(),
+      labId: labProfile._id.toString(),
+      testCodes: ['CBC'],
+    });
+
+    const res = await request(app).get('/api/lab-referrals/for-lab').set('Cookie', labCookies);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].labId).toBe(labProfile._id.toString());
+  });
+
+  it('rejects a doctor calling GET /for-lab with 403', async () => {
+    const app = createApp();
+    const { doctorCookies } = await seedPrescriptionAndLabHttp(app);
+
+    const res = await request(app).get('/api/lab-referrals/for-lab').set('Cookie', doctorCookies);
+
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('GET /api/r/:token', () => {
   it('is publicly reachable with no auth cookie', async () => {
     const app = createApp();

@@ -18,8 +18,12 @@ labReferralsRouter.get('/me', listReferralsForDoctorHandler);
 
 // A separate router (not a route on labReferralsRouter above) because that router is
 // gated router-wide to requireRole('doctor') via .use() -- a lab-only route cannot live
-// on it without changing that gate. Mirrors how publicReferralRouter already coexists at
-// the same /api/lab-referrals base path for the same structural reason.
+// on it without changing that gate. IMPORTANT: this router must be mounted at
+// '/api/lab-referrals' BEFORE labReferralsRouter in app.ts (not after) -- Express runs a
+// mounted router's path-less `.use()` middleware for ANY request under that mount point,
+// so if labReferralsRouter (whose requireRole('doctor') is a router-wide `.use()`) were
+// mounted first, a lab caller hitting GET /for-lab would be rejected there before ever
+// reaching this router. See the mount-order comment in app.ts.
 export const labFacingReferralsRouter = Router();
 labFacingReferralsRouter.use(apiLimiter);
 labFacingReferralsRouter.get('/for-lab', requireAuth, requireRole('lab'), listReferralsForLabHandler);
