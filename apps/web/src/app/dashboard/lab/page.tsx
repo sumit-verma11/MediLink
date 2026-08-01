@@ -50,7 +50,7 @@ export default function LabDashboardPage() {
   if (isLoading) return <main className="max-w-3xl mx-auto mt-12">Loading...</main>;
 
   return (
-    <main className="max-w-3xl mx-auto mt-12 space-y-4">
+    <main className="max-w-5xl mx-auto mt-12 space-y-6 px-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
@@ -63,55 +63,59 @@ export default function LabDashboardPage() {
         </Link>
       </div>
       {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
-      <section className="space-y-2">
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold">Incoming referrals</h2>
         {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
-        {referralsData?.items.map((r) => (
-          <Card key={r._id}>
-            <CardContent className="space-y-2">
-              <p className="text-lg">Tests: {r.suggestedTestCodes.join(', ')}</p>
-              <StatusBadge status={r.status} />
-            </CardContent>
-          </Card>
-        ))}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {referralsData?.items.map((r) => (
+            <Card key={r._id}>
+              <CardContent className="space-y-2">
+                <p className="text-lg">Tests: {r.suggestedTestCodes.join(', ')}</p>
+                <StatusBadge status={r.status} />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </section>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." /> : null}
-        {data?.items.map((booking) => (
-          <Card key={booking._id}>
-            <CardContent className="space-y-2">
-              <p className="text-lg">
-                {new Date(booking.scheduledAt).toLocaleString()} — {booking.testCodes.join(', ')} — ₹{booking.totalPrice}
-              </p>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={booking.status} />
-                {booking.homeCollection ? (
-                  <span className="text-sm text-muted-foreground">(home collection)</span>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {data?.items.map((booking) => (
+            <Card key={booking._id}>
+              <CardContent className="space-y-2">
+                <p className="text-lg">
+                  {new Date(booking.scheduledAt).toLocaleString()} — {booking.testCodes.join(', ')} — ₹{booking.totalPrice}
+                </p>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={booking.status} />
+                  {booking.homeCollection ? (
+                    <span className="text-sm text-muted-foreground">(home collection)</span>
+                  ) : null}
+                </div>
+                {booking.status === 'booked' ? (
+                  <Button size="sm" onClick={() => markCollected(booking._id)}>
+                    Mark sample collected
+                  </Button>
                 ) : null}
-              </div>
-              {booking.status === 'booked' ? (
-                <Button size="sm" onClick={() => markCollected(booking._id)}>
-                  Mark sample collected
-                </Button>
-              ) : null}
-              {booking.status === 'sample_collected' ? (
-                <label className="text-sm underline cursor-pointer">
-                  {uploadingId === booking._id ? 'Uploading...' : 'Upload report (PDF)'}
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void onUploadReport(booking._id, file);
-                    }}
-                  />
-                </label>
-              ) : null}
-              {booking.status === 'report_ready' ? <p className="text-sm text-green-700">Report uploaded ✓</p> : null}
-            </CardContent>
-          </Card>
-        ))}
+                {booking.status === 'sample_collected' ? (
+                  <label className="text-sm underline cursor-pointer">
+                    {uploadingId === booking._id ? 'Uploading...' : 'Upload report (PDF)'}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void onUploadReport(booking._id, file);
+                      }}
+                    />
+                  </label>
+                ) : null}
+                {booking.status === 'report_ready' ? <p className="text-sm text-green-700">Report uploaded ✓</p> : null}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </main>
   );

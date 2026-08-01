@@ -30,7 +30,7 @@ export default function ReferToLabPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <main className="max-w-xl mx-auto mt-12 space-y-4">
+    <main className="max-w-2xl mx-auto mt-12 px-6 space-y-4">
       <h1 className="text-2xl font-bold">Refer to a Lab</h1>
       <p className="text-sm text-muted-foreground">Recommended tests: {recommendedTestNames.join(', ') || 'none'}</p>
 

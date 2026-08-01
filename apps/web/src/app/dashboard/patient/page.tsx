@@ -32,7 +32,7 @@ export default function PatientDashboard() {
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading…</main>;
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+    <main className="max-w-5xl mx-auto mt-12 space-y-6 px-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
@@ -50,46 +50,48 @@ export default function PatientDashboard() {
         </div>
       </div>
       {data?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No appointments yet." /> : null}
-      {data?.items.map((appt) => (
-        <Card key={appt._id}>
-          <CardContent className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-lg">{new Date(appt.slotStart).toLocaleString()}</p>
-              <StatusBadge status={appt.status} />
-            </div>
-            <div className="flex items-center gap-2">
-              {appt.status === 'confirmed' || appt.status === 'requested' ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={async () => {
-                    // A rejected cancel (e.g. inside the 2-hour cutoff) must not become an
-                    // unhandled rejection; refetch either way so the list reflects reality.
-                    try {
-                      await cancelAppointment(appt._id).unwrap();
-                    } catch {
-                      /* error state is already tracked by the mutation hook */
-                    }
-                    refetch();
-                  }}
-                >
-                  Cancel
-                </Button>
-              ) : null}
-              {appt.status === 'completed' && !appt.rated ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link href={`/appointments/${appt._id}/rate`} />}
-                >
-                  Rate this appointment
-                </Button>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {data?.items.map((appt) => (
+          <Card key={appt._id}>
+            <CardContent className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-lg">{new Date(appt.slotStart).toLocaleString()}</p>
+                <StatusBadge status={appt.status} />
+              </div>
+              <div className="flex items-center gap-2">
+                {appt.status === 'confirmed' || appt.status === 'requested' ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      // A rejected cancel (e.g. inside the 2-hour cutoff) must not become an
+                      // unhandled rejection; refetch either way so the list reflects reality.
+                      try {
+                        await cancelAppointment(appt._id).unwrap();
+                      } catch {
+                        /* error state is already tracked by the mutation hook */
+                      }
+                      refetch();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                ) : null}
+                {appt.status === 'completed' && !appt.rated ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/appointments/${appt._id}/rate`} />}
+                  >
+                    Rate this appointment
+                  </Button>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </main>
   );
 }

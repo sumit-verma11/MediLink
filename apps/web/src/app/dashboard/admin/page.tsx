@@ -15,7 +15,7 @@ export default function AdminDashboardPage() {
   const { data: analytics, isLoading: loadingAnalytics } = useGetAnalyticsQuery();
 
   return (
-    <main className="max-w-3xl mx-auto mt-12 space-y-8">
+    <main className="max-w-5xl mx-auto mt-12 space-y-8 px-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
@@ -26,7 +26,7 @@ export default function AdminDashboardPage() {
         <Link href="/notifications" className="text-sm underline">Notifications</Link>
       </div>
 
-      <section className="space-y-2">
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold">Pending verifications</h2>
         <div className="flex gap-2">
           <Button variant={role === 'doctor' ? 'default' : 'outline'} size="sm" onClick={() => setRole('doctor')}>
@@ -38,56 +38,62 @@ export default function AdminDashboardPage() {
         </div>
         {loadingVerifications ? <p>Loading…</p> : null}
         {verifications?.items.length === 0 ? <EmptyState icon="/icons-3d/shield.png" message={`No pending ${role}s.`} /> : null}
-        {verifications?.items.map((p) => (
-          <Card key={p._id}>
-            <CardContent className="flex items-center justify-between gap-4">
-              <span>{p._id}</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    await decide({ role, id: p._id, decision: 'approved' }).unwrap();
-                    refetch();
-                  }}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={async () => {
-                    await decide({ role, id: p._id, decision: 'rejected', reason: 'Does not meet verification requirements' }).unwrap();
-                    refetch();
-                  }}
-                >
-                  Reject
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {verifications?.items.map((p) => (
+            <Card key={p._id}>
+              <CardContent className="flex items-center justify-between gap-4">
+                <span>{p._id}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await decide({ role, id: p._id, decision: 'approved' }).unwrap();
+                      refetch();
+                    }}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      await decide({ role, id: p._id, decision: 'rejected', reason: 'Does not meet verification requirements' }).unwrap();
+                      refetch();
+                    }}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </section>
 
       <Card>
         <CardHeader>
           <CardTitle>Analytics</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-4">
           {loadingAnalytics ? <p>Loading…</p> : null}
           {analytics ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               <p>Patients: {analytics.totalRegistrations.patients} · Doctors: {analytics.totalRegistrations.doctors} · Labs: {analytics.totalRegistrations.labs}</p>
-              <div>
-                <p className="font-semibold">Appointments per day (last 14 days)</p>
-                {analytics.appointmentsPerDay.map((d) => (
-                  <p key={d.date} className="text-sm text-muted-foreground">{d.date}: {d.count}</p>
-                ))}
-              </div>
-              <div>
-                <p className="font-semibold">Top specialties</p>
-                {analytics.topSpecialties.map((s) => (
-                  <p key={s.specialty} className="text-sm text-muted-foreground">{s.specialty}: {s.count}</p>
-                ))}
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div>
+                  <p className="font-semibold">Appointments per day (last 14 days)</p>
+                  <div className="grid grid-cols-2 gap-x-4">
+                    {analytics.appointmentsPerDay.map((d) => (
+                      <p key={d.date} className="text-sm text-muted-foreground">{d.date}: {d.count}</p>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="font-semibold">Top specialties</p>
+                  {analytics.topSpecialties.map((s) => (
+                    <p key={s.specialty} className="text-sm text-muted-foreground">{s.specialty}: {s.count}</p>
+                  ))}
+                </div>
               </div>
               <p>
                 Triage → booking conversion: {analytics.triageToBookingConversion.conversionRate}%

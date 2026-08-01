@@ -29,7 +29,7 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading slots…</main>;
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+    <main className="max-w-3xl mx-auto mt-12 px-6 space-y-4">
       <h1 className="text-2xl font-bold">Book an appointment</h1>
       <div className="grid grid-cols-3 gap-2">
         {data?.slots.map((slot) => (

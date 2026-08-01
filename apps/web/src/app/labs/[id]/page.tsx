@@ -42,7 +42,7 @@ export default async function LabPublicPage({ params }: { params: Promise<{ id: 
   if (!lab) notFound();
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+    <main className="max-w-3xl mx-auto mt-12 px-6 space-y-4">
       <div className="flex items-center gap-3">
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />

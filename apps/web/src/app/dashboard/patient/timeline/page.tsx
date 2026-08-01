@@ -46,7 +46,7 @@ export default function PatientTimelinePage() {
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+    <main className="max-w-3xl mx-auto mt-12 px-6 space-y-4">
       <div className="flex items-center gap-3">
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/calendar.png" size={160} alt="" />

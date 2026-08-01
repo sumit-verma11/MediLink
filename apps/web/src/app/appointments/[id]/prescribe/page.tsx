@@ -62,7 +62,7 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+    <main className="max-w-3xl mx-auto mt-12 px-6 space-y-4">
       <h1 className="text-2xl font-bold">Write Prescription</h1>
 
       <Card>
