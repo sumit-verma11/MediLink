@@ -147,3 +147,30 @@
     animation: none;
   }
 }
+
+@keyframes icon-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.icon-3d-float {
+  animation: icon-float 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-3d-float {
+    animation: none;
+  }
+}
+
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: color-mix(in oklch, var(--primary) 5%, var(--card) 70%);
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+}
