@@ -1,6 +1,10 @@
 'use client';
 
 import { useListMyReferralsQuery } from '@/store/labReferralsApi';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function DoctorReferralsPage() {
   const { data, isLoading } = useListMyReferralsQuery();
@@ -9,16 +13,23 @@ export default function DoctorReferralsPage() {
 
   return (
     <main className="max-w-2xl mx-auto mt-12 space-y-4">
-      <h1 className="text-2xl font-bold">Lab Referrals Sent</h1>
-      <ul className="space-y-2">
+      <div className="flex items-center gap-3">
+        <div className="shrink-0">
+          <FloatingIcon3D src="/icons-3d/microscope.png" size={160} alt="" />
+        </div>
+        <h1 className="text-2xl font-bold">Lab Referrals Sent</h1>
+      </div>
+      {data?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No referrals sent yet." /> : null}
+      <div className="space-y-2">
         {data?.items.map((referral) => (
-          <li key={referral._id} className="border p-3 rounded">
-            <p>Tests: {referral.suggestedTestCodes.join(', ')}</p>
-            <p className="text-sm text-gray-600">Status: {referral.status}</p>
-          </li>
+          <Card key={referral._id}>
+            <CardContent className="space-y-2">
+              <p className="text-lg">Tests: {referral.suggestedTestCodes.join(', ')}</p>
+              <StatusBadge status={referral.status} />
+            </CardContent>
+          </Card>
         ))}
-      </ul>
-      {data?.items.length === 0 ? <p className="text-sm text-gray-600">No referrals sent yet.</p> : null}
+      </div>
     </main>
   );
 }

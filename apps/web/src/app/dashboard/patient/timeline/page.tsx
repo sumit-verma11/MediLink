@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useListMyAppointmentsQuery } from '@/store/appointmentsApi';
 import { useListMyPrescriptionsQuery } from '@/store/prescriptionsApi';
 import { useListMyLabBookingsAsPatientQuery } from '@/store/labBookingsApi';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 type TimelineEntry =
   | { kind: 'appointment'; at: string; label: string; id: string }
@@ -43,30 +47,39 @@ export default function PatientTimelinePage() {
 
   return (
     <main className="max-w-2xl mx-auto mt-12 space-y-4">
-      <h1 className="text-2xl font-bold">Health Timeline</h1>
-      <ul className="space-y-2">
+      <div className="flex items-center gap-3">
+        <div className="shrink-0">
+          <FloatingIcon3D src="/icons-3d/calendar.png" size={160} alt="" />
+        </div>
+        <h1 className="text-2xl font-bold">Health Timeline</h1>
+      </div>
+      {entries.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No history yet." /> : null}
+      <div className="space-y-2">
         {entries.map((entry) => (
-          <li key={`${entry.kind}-${entry.id}`} className="border p-3 rounded flex justify-between items-center">
-            <span>{new Date(entry.at).toLocaleDateString()} — {entry.label}</span>
-            {entry.kind === 'prescription' ? (
-              <Link href={`/prescriptions/${entry.id}`} className="text-sm underline">
-                View
-              </Link>
-            ) : null}
-            {entry.kind === 'labBooking' && entry.status === 'report_ready' ? (
-              <a
-                className="text-sm underline"
-                href={`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${entry.id}/report`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Download report
-              </a>
-            ) : null}
-          </li>
+          <Card key={`${entry.kind}-${entry.id}`}>
+            <CardContent className="flex items-center justify-between gap-4">
+              <span>{new Date(entry.at).toLocaleDateString()} — {entry.label}</span>
+              {entry.kind === 'prescription' ? (
+                <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/prescriptions/${entry.id}`} />}>
+                  View
+                </Button>
+              ) : null}
+              {entry.kind === 'labBooking' && entry.status === 'report_ready' ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={
+                    <a href={`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${entry.id}/report`} target="_blank" rel="noreferrer" />
+                  }
+                >
+                  Download report
+                </Button>
+              ) : null}
+            </CardContent>
+          </Card>
         ))}
-      </ul>
-      {entries.length === 0 ? <p className="text-sm text-gray-600">No history yet.</p> : null}
+      </div>
     </main>
   );
 }
