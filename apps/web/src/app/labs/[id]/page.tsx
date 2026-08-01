@@ -1,4 +1,8 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface LabTest {
   code: string;
@@ -38,29 +42,43 @@ export default async function LabPublicPage({ params }: { params: Promise<{ id: 
   if (!lab) notFound();
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-2">
-      <h1 className="text-2xl font-bold">{lab.labName}</h1>
-      <p className="text-gray-600">{lab.address}, {lab.city}</p>
-      <p>Timings: {lab.timings}</p>
-      <p>Home collection: {lab.homeCollection ? 'Available' : 'Not available'}</p>
-      <table className="w-full mt-4 border-collapse">
-        <thead>
-          <tr className="text-left border-b">
-            <th className="py-1">Test</th>
-            <th className="py-1">Price</th>
-            <th className="py-1">TAT</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lab.tests.map((t) => (
-            <tr key={t.code} className="border-b">
-              <td className="py-1">{t.name}</td>
-              <td className="py-1">₹{t.price}</td>
-              <td className="py-1">{t.turnaroundHours}h</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="shrink-0">
+          <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">{lab.labName}</h1>
+          <p className="text-muted-foreground">{lab.address}, {lab.city}</p>
+        </div>
+      </div>
+      <Card>
+        <CardContent className="space-y-2">
+          <p>Timings: {lab.timings}</p>
+          <p>Home collection: {lab.homeCollection ? 'Available' : 'Not available'}</p>
+          <table className="mt-2 w-full border-collapse">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="py-1">Test</th>
+                <th className="py-1">Price</th>
+                <th className="py-1">TAT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lab.tests.map((t) => (
+                <tr key={t.code} className="border-b">
+                  <td className="py-1">{t.name}</td>
+                  <td className="py-1">₹{t.price}</td>
+                  <td className="py-1">{t.turnaroundHours}h</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+      <Button nativeButton={false} render={<Link href={`/labs/${lab._id}/book`} />}>
+        Book a test
+      </Button>
     </main>
   );
 }

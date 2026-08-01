@@ -3,6 +3,10 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateRatingMutation } from '@/store/ratingsApi';
+import { Button } from '@/components/ui/button';
+
+const fieldClassName =
+  'mt-1 w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export default function RateAppointmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -23,7 +27,7 @@ export default function RateAppointmentPage({ params }: { params: Promise<{ id: 
       <form onSubmit={onSubmit} className="space-y-3">
         <label className="block">
           Score (1-5)
-          <select className="border rounded w-full p-2 mt-1" value={score} onChange={(e) => setScore(Number(e.target.value))}>
+          <select className={fieldClassName} value={score} onChange={(e) => setScore(Number(e.target.value))}>
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
@@ -31,12 +35,12 @@ export default function RateAppointmentPage({ params }: { params: Promise<{ id: 
         </label>
         <label className="block">
           Comment (optional)
-          <textarea className="border rounded w-full p-2 mt-1" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
+          <textarea className={fieldClassName} value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
         </label>
-        {error ? <p className="text-sm text-red-600">Could not submit rating — it may already be rated.</p> : null}
-        <button type="submit" disabled={isLoading} className="border px-3 py-1 rounded">
+        {error ? <p className="text-sm text-destructive">Could not submit rating — it may already be rated.</p> : null}
+        <Button type="submit" disabled={isLoading}>
           {isLoading ? 'Submitting…' : 'Submit rating'}
-        </button>
+        </Button>
       </form>
     </main>
   );

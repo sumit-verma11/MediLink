@@ -3,6 +3,8 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateBookingMutation } from '@/store/labBookingsApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function WalkInBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: labId } = use(params);
@@ -27,14 +29,14 @@ export default function WalkInBookingPage({ params }: { params: Promise<{ id: st
     <main className="max-w-xl mx-auto mt-12 space-y-4">
       <h1 className="text-2xl font-bold">Book a Test</h1>
 
-      <div>
+      <div className="space-y-1">
         <label className="block text-sm font-medium">Test codes (comma-separated, e.g. CBC,LFT)</label>
-        <input className="border p-2 w-full" value={testCodesText} onChange={(e) => setTestCodesText(e.target.value)} />
+        <Input value={testCodesText} onChange={(e) => setTestCodesText(e.target.value)} />
       </div>
 
-      <div>
+      <div className="space-y-1">
         <label className="block text-sm font-medium">Preferred date/time</label>
-        <input type="datetime-local" className="border p-2" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+        <Input type="datetime-local" className="w-auto" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
@@ -42,10 +44,10 @@ export default function WalkInBookingPage({ params }: { params: Promise<{ id: st
         Home collection (if offered by this lab)
       </label>
 
-      <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onBook}>
+      <Button disabled={isLoading} onClick={onBook}>
         {isLoading ? 'Booking...' : 'Book Now'}
-      </button>
-      {error ? <p className="text-sm text-red-600">Something went wrong — please check the test codes and try again.</p> : null}
+      </Button>
+      {error ? <p className="text-sm text-destructive">Something went wrong — please check the test codes and try again.</p> : null}
     </main>
   );
 }

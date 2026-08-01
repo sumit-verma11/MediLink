@@ -3,6 +3,7 @@
 import { use, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGetDoctorSlotsQuery, useCreateAppointmentMutation } from '@/store/appointmentsApi';
+import { Button } from '@/components/ui/button';
 
 export default function BookAppointmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: doctorId } = use(params);
@@ -32,19 +33,20 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
       <h1 className="text-2xl font-bold">Book an appointment</h1>
       <div className="grid grid-cols-3 gap-2">
         {data?.slots.map((slot) => (
-          <button
+          <Button
             key={slot.start}
-            className={`border p-2 rounded ${selected?.start === slot.start ? 'bg-black text-white' : ''}`}
+            size="sm"
+            variant={selected?.start === slot.start ? 'default' : 'outline'}
             onClick={() => setSelected(slot)}
           >
             {new Date(slot.start).toLocaleString()}
-          </button>
+          </Button>
         ))}
       </div>
-      <button className="bg-black text-white px-4 py-2 rounded" disabled={!selected || isBooking} onClick={onBook}>
+      <Button disabled={!selected || isBooking} onClick={onBook}>
         {isBooking ? 'Booking…' : 'Confirm booking'}
-      </button>
-      {error ? <p className="text-red-600">That slot is no longer available — pick another.</p> : null}
+      </Button>
+      {error ? <p className="text-destructive">That slot is no longer available — pick another.</p> : null}
     </main>
   );
 }

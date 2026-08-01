@@ -3,6 +3,8 @@
 import { use, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCreateReferralMutation } from '@/store/labReferralsApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function ReferToLabPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: prescriptionId } = use(params);
@@ -30,29 +32,28 @@ export default function ReferToLabPage({ params }: { params: Promise<{ id: strin
   return (
     <main className="max-w-xl mx-auto mt-12 space-y-4">
       <h1 className="text-2xl font-bold">Refer to a Lab</h1>
-      <p className="text-sm text-gray-600">Recommended tests: {recommendedTestNames.join(', ') || 'none'}</p>
+      <p className="text-sm text-muted-foreground">Recommended tests: {recommendedTestNames.join(', ') || 'none'}</p>
 
       <div>
         <label className="block text-sm font-medium">Lab ID</label>
-        <input className="border p-2 w-full" value={labId} onChange={(e) => setLabId(e.target.value)} placeholder="Paste the lab's profile id" />
+        <Input value={labId} onChange={(e) => setLabId(e.target.value)} placeholder="Paste the lab's profile id" />
       </div>
 
       <div>
         <label className="block text-sm font-medium">Test codes to refer (comma-separated, e.g. CBC,LFT)</label>
-        <input
-          className="border p-2 w-full"
+        <Input
           onChange={(e) => setSelectedCodes(e.target.value.split(',').map((c) => c.trim()).filter(Boolean))}
         />
       </div>
 
-      <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onSubmit}>
+      <Button disabled={isLoading} onClick={onSubmit}>
         {isLoading ? 'Sending...' : 'Send Referral'}
-      </button>
-      {error ? <p className="text-sm text-red-600">Something went wrong — check the lab id and test codes.</p> : null}
+      </Button>
+      {error ? <p className="text-sm text-destructive">Something went wrong — check the lab id and test codes.</p> : null}
 
-      <button className="text-sm underline block" onClick={() => router.push('/dashboard/doctor')}>
+      <Button variant="ghost" onClick={() => router.push('/dashboard/doctor')}>
         Skip (no lab referral)
-      </button>
+      </Button>
     </main>
   );
 }

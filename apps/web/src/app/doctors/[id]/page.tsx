@@ -1,4 +1,8 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface DoctorProfile {
   _id: string;
@@ -36,14 +40,28 @@ export default async function DoctorPublicPage({ params }: { params: Promise<{ i
   if (!doctor) notFound();
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-2">
-      <h1 className="text-2xl font-bold">{doctor.clinicName}</h1>
-      <p className="text-gray-600">{doctor.specialties.join(', ')} · {doctor.city}</p>
-      <p>{doctor.bio}</p>
-      <p>Qualifications: {doctor.qualifications.join(', ')}</p>
-      <p>Languages: {doctor.languages.join(', ')}</p>
-      <p>Consultation fee: ₹{doctor.consultationFee}</p>
-      <p>Rating: {doctor.avgRating.toFixed(1)} ({doctor.ratingCount} reviews)</p>
+    <main className="max-w-2xl mx-auto mt-12 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="shrink-0">
+          <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">{doctor.clinicName}</h1>
+          <p className="text-muted-foreground">{doctor.specialties.join(', ')} · {doctor.city}</p>
+        </div>
+      </div>
+      <Card>
+        <CardContent className="space-y-2">
+          <p>{doctor.bio}</p>
+          <p>Qualifications: {doctor.qualifications.join(', ')}</p>
+          <p>Languages: {doctor.languages.join(', ')}</p>
+          <p>Consultation fee: ₹{doctor.consultationFee}</p>
+          <p>Rating: {doctor.avgRating.toFixed(1)} ({doctor.ratingCount} reviews)</p>
+        </CardContent>
+      </Card>
+      <Button nativeButton={false} render={<Link href={`/doctors/${doctor._id}/book`} />}>
+        Book appointment
+      </Button>
     </main>
   );
 }

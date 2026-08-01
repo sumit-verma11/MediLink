@@ -4,6 +4,12 @@ import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GENERIC_MEDICINES } from '@medlink/shared';
 import { useCreatePrescriptionMutation, type Medicine } from '@/store/prescriptionsApi';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+const textareaClassName =
+  'mt-1 w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export default function PrescribePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: appointmentId } = use(params);
@@ -59,62 +65,64 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
     <main className="max-w-2xl mx-auto mt-12 space-y-4">
       <h1 className="text-2xl font-bold">Write Prescription</h1>
 
-      <div>
-        <label className="block text-sm font-medium">Diagnosis</label>
-        <textarea className="border p-2 w-full" value={diagnosisNote} onChange={(e) => setDiagnosisNote(e.target.value)} />
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Medicines</label>
-        {medicines.map((med, i) => (
-          <div key={i} className="grid grid-cols-4 gap-2">
-            <input
-              className="border p-2"
-              list="medicine-options"
-              placeholder="Name"
-              value={med.name}
-              onChange={(e) => updateMedicine(i, 'name', e.target.value)}
-            />
-            <input className="border p-2" placeholder="Dosage" value={med.dosage} onChange={(e) => updateMedicine(i, 'dosage', e.target.value)} />
-            <input className="border p-2" placeholder="Frequency" value={med.frequency} onChange={(e) => updateMedicine(i, 'frequency', e.target.value)} />
-            <input
-              className="border p-2"
-              type="number"
-              placeholder="Days"
-              value={med.durationDays}
-              onChange={(e) => updateMedicine(i, 'durationDays', e.target.value)}
-            />
+      <Card>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Diagnosis</label>
+            <textarea className={textareaClassName} value={diagnosisNote} onChange={(e) => setDiagnosisNote(e.target.value)} />
           </div>
-        ))}
-        <datalist id="medicine-options">
-          {GENERIC_MEDICINES.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-        <button type="button" className="text-sm underline" onClick={addMedicineRow}>
-          + Add medicine
-        </button>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium">Advice</label>
-        <textarea className="border p-2 w-full" value={advice} onChange={(e) => setAdvice(e.target.value)} />
-      </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Medicines</label>
+            {medicines.map((med, i) => (
+              <div key={i} className="grid grid-cols-4 gap-2">
+                <Input
+                  list="medicine-options"
+                  placeholder="Name"
+                  value={med.name}
+                  onChange={(e) => updateMedicine(i, 'name', e.target.value)}
+                />
+                <Input placeholder="Dosage" value={med.dosage} onChange={(e) => updateMedicine(i, 'dosage', e.target.value)} />
+                <Input placeholder="Frequency" value={med.frequency} onChange={(e) => updateMedicine(i, 'frequency', e.target.value)} />
+                <Input
+                  type="number"
+                  placeholder="Days"
+                  value={med.durationDays}
+                  onChange={(e) => updateMedicine(i, 'durationDays', e.target.value)}
+                />
+              </div>
+            ))}
+            <datalist id="medicine-options">
+              {GENERIC_MEDICINES.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+            <Button type="button" size="sm" variant="outline" onClick={addMedicineRow}>
+              + Add medicine
+            </Button>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Follow-up date (optional)</label>
-        <input type="date" className="border p-2" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
-      </div>
+          <div>
+            <label className="block text-sm font-medium">Advice</label>
+            <textarea className={textareaClassName} value={advice} onChange={(e) => setAdvice(e.target.value)} />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Recommended tests (comma-separated, optional)</label>
-        <input className="border p-2 w-full" value={recommendedTestsText} onChange={(e) => setRecommendedTestsText(e.target.value)} />
-      </div>
+          <div>
+            <label className="block text-sm font-medium">Follow-up date (optional)</label>
+            <Input type="date" className="w-auto" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
+          </div>
 
-      <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onSubmit}>
+          <div>
+            <label className="block text-sm font-medium">Recommended tests (comma-separated, optional)</label>
+            <Input value={recommendedTestsText} onChange={(e) => setRecommendedTestsText(e.target.value)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button disabled={isLoading} onClick={onSubmit}>
         {isLoading ? 'Saving...' : 'Save Prescription'}
-      </button>
-      {error ? <p className="text-sm text-red-600">Something went wrong — please try again.</p> : null}
+      </Button>
+      {error ? <p className="text-sm text-destructive">Something went wrong — please try again.</p> : null}
     </main>
   );
 }
