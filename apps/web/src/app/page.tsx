@@ -25,50 +25,72 @@ const STEPS = [
   { label: "Prescribe & Refer", description: "Your doctor prescribes medicines and refers lab tests if needed.", icon: ClipboardPlus },
 ];
 
+const STATS = [
+  { value: "12", label: "Doctors" },
+  { value: "4", label: "Path labs" },
+  { value: "AI", label: "Symptom triage" },
+  { value: "24/7", label: "Booking" },
+];
+
 export default function Home() {
   return (
     <>
       <main className="flex flex-1 flex-col">
-        <section className="relative overflow-hidden px-6 py-24 text-center">
+        <section className="relative overflow-hidden px-6 pt-14 pb-24 text-center">
           <HeartbeatBackground />
-          <div className="relative mx-auto max-w-2xl space-y-4">
+          <div className="relative mx-auto max-w-3xl space-y-5">
             <div className="mx-auto flex justify-center">
               <FloatingIcon3D src="/icons-3d/heart.png" size={140} alt="" />
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">MedLink</h1>
-            <p className="text-lg text-muted-foreground">
+            <h1 className="text-5xl font-bold tracking-tight text-foreground md:text-6xl">MedLink</h1>
+            <p className="text-xl text-muted-foreground">
               AI symptom triage, doctor matching, appointment booking, prescriptions, and
               lab referrals &mdash; one connected healthcare flow.
             </p>
             <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
             <Button size="lg" nativeButton={false} render={<Link href="/login">Get started</Link>} />
+
+            <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
+              {STATS.map((s) => (
+                <div key={s.label}>
+                  <p className="text-2xl font-bold text-primary">{s.value}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
-          {ROLES.map(({ label, description, icon: Icon }) => (
-            <Link key={label} href="/login">
-              <Card className="h-full">
-                <CardHeader>
-                  <Icon className="size-6 text-primary" />
-                  <CardTitle>{label}</CardTitle>
-                  <CardDescription>{description}</CardDescription>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
+        <section className="mx-auto w-full max-w-5xl px-6 py-10">
+          <h2 className="mb-6 text-center text-2xl font-bold">One platform, four roles</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {ROLES.map(({ label, description, icon: Icon }) => (
+              <Link key={label} href="/login">
+                <Card className="h-full">
+                  <CardHeader>
+                    <Icon className="size-7 text-primary" />
+                    <CardTitle className="text-lg">{label}</CardTitle>
+                    <CardDescription className="text-base">{description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+            ))}
+          </div>
         </section>
 
-        <section className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-3">
-          {STEPS.map(({ label, description, icon: Icon }, i) => (
-            <div key={label} className="space-y-2 text-center">
-              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10">
-                <Icon className="size-6 text-primary" />
+        <section className="mx-auto w-full max-w-4xl px-6 py-10">
+          <h2 className="mb-8 text-center text-2xl font-bold">How it works</h2>
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+            {STEPS.map(({ label, description, icon: Icon }, i) => (
+              <div key={label} className="space-y-2 text-center">
+                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
+                  <Icon className="size-7 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold">{i + 1}. {label}</h3>
+                <p className="text-base text-muted-foreground">{description}</p>
               </div>
-              <h3 className="font-semibold">{i + 1}. {label}</h3>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       </main>
 
