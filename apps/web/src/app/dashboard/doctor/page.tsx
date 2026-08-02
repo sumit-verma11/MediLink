@@ -80,7 +80,17 @@ export default function DoctorDashboard() {
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
-                    onClick={async () => { await confirmAppointment(appt._id).unwrap(); refetch(); refetchConfirmed(); }}
+                    onClick={async () => {
+                      // A losing race (e.g. the patient just cancelled) rejects here; refetch
+                      // either way so the list reflects reality instead of a stale card.
+                      try {
+                        await confirmAppointment(appt._id).unwrap();
+                      } catch {
+                        /* ignored, see comment above */
+                      }
+                      refetch();
+                      refetchConfirmed();
+                    }}
                   >
                     Confirm
                   </Button>
@@ -90,7 +100,11 @@ export default function DoctorDashboard() {
                     onClick={async () => {
                       const reason = window.prompt('Reason for rejecting this appointment:');
                       if (reason === null) return;
-                      await rejectAppointment({ id: appt._id, reason: reason.trim() || 'Not available' }).unwrap();
+                      try {
+                        await rejectAppointment({ id: appt._id, reason: reason.trim() || 'Not available' }).unwrap();
+                      } catch {
+                        /* ignored, see comment above */
+                      }
                       refetch();
                     }}
                   >

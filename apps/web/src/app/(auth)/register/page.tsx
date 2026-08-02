@@ -19,8 +19,12 @@ export default function RegisterPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await register(form).unwrap();
-    router.push('/login');
+    try {
+      await register(form).unwrap();
+      router.push('/login');
+    } catch {
+      // `error` from useRegisterMutation already drives the message below.
+    }
   }
 
   return (

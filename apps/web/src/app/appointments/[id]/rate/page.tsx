@@ -17,8 +17,12 @@ export default function RateAppointmentPage({ params }: { params: Promise<{ id: 
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await createRating({ appointmentId: id, score, text: text || undefined }).unwrap();
-    router.push('/dashboard/patient');
+    try {
+      await createRating({ appointmentId: id, score, text: text || undefined }).unwrap();
+      router.push('/dashboard/patient');
+    } catch {
+      // `error` from useCreateRatingMutation already drives the message below.
+    }
   }
 
   return (

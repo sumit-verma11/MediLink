@@ -60,7 +60,11 @@ export default function AdminDashboardPage() {
                   <Button
                     size="sm"
                     onClick={async () => {
-                      await decide({ role, id: p._id, decision: 'approved' }).unwrap();
+                      try {
+                        await decide({ role, id: p._id, decision: 'approved' }).unwrap();
+                      } catch {
+                        /* a losing race just leaves the card as-is on refetch */
+                      }
                       refetch();
                     }}
                   >
@@ -70,7 +74,11 @@ export default function AdminDashboardPage() {
                     variant="destructive"
                     size="sm"
                     onClick={async () => {
-                      await decide({ role, id: p._id, decision: 'rejected', reason: 'Does not meet verification requirements' }).unwrap();
+                      try {
+                        await decide({ role, id: p._id, decision: 'rejected', reason: 'Does not meet verification requirements' }).unwrap();
+                      } catch {
+                        /* a losing race just leaves the card as-is on refetch */
+                      }
                       refetch();
                     }}
                   >

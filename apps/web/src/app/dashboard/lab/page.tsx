@@ -20,7 +20,11 @@ export default function LabDashboardPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   async function markCollected(id: string) {
-    await updateStatus({ id, status: 'sample_collected' }).unwrap();
+    try {
+      await updateStatus({ id, status: 'sample_collected' }).unwrap();
+    } catch {
+      /* a losing race (e.g. status changed elsewhere) just leaves the card as-is on refetch */
+    }
     refetch();
   }
 

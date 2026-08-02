@@ -22,8 +22,12 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const { user } = await login(form).unwrap();
-    router.push(DASHBOARD_PATH_BY_ROLE[user.role] ?? '/');
+    try {
+      const { user } = await login(form).unwrap();
+      router.push(DASHBOARD_PATH_BY_ROLE[user.role] ?? '/');
+    } catch {
+      // `error` from useLoginMutation already drives the message below.
+    }
   }
 
   return (

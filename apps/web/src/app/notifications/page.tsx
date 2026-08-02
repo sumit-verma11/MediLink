@@ -32,7 +32,11 @@ export default function NotificationsPage() {
                     size="sm"
                     variant="ghost"
                     onClick={async () => {
-                      await markRead(n._id).unwrap();
+                      try {
+                        await markRead(n._id).unwrap();
+                      } catch {
+                        /* a losing race just leaves the notification as-is on refetch */
+                      }
                       refetch();
                     }}
                   >
