@@ -11,6 +11,12 @@ export interface LabReferral {
   status: 'sent' | 'opened' | 'booked' | 'sample_collected' | 'report_ready' | 'closed';
   reportUrl?: string;
   timeline: { status: string; at: string }[];
+  // Present on listMyReferrals (doctor's own list).
+  labName?: string;
+  labCity?: string;
+  // Present on listReferralsForLab (lab's incoming list).
+  patientName?: string;
+  doctorName?: string;
 }
 export interface LabTest {
   code: string;

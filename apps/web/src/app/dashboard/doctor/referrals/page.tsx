@@ -24,7 +24,8 @@ export default function DoctorReferralsPage() {
         {data?.items.map((referral) => (
           <Card key={referral._id}>
             <CardContent className="space-y-2">
-              <p className="text-lg">Tests: {referral.suggestedTestCodes.join(', ')}</p>
+              <p className="text-lg font-medium">{referral.labName ?? 'Lab'}{referral.labCity ? ` — ${referral.labCity}` : ''}</p>
+              <p className="text-sm text-muted-foreground">Tests: {referral.suggestedTestCodes.join(', ')}</p>
               <StatusBadge status={referral.status} />
             </CardContent>
           </Card>

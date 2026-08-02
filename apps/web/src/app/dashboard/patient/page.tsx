@@ -57,6 +57,9 @@ export default function PatientDashboard() {
               <div>
                 <p className="text-lg">{new Date(appt.slotStart).toLocaleString()}</p>
                 <StatusBadge status={appt.status} />
+                {appt.status === 'rejected' && appt.rejectionReason ? (
+                  <p className="text-sm text-muted-foreground">Reason: {appt.rejectionReason}</p>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 {appt.status === 'confirmed' || appt.status === 'requested' ? (

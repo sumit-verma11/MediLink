@@ -2,11 +2,21 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useListVerificationsQuery, useDecideVerificationMutation, useGetAnalyticsQuery } from '@/store/adminApi';
+import { useListVerificationsQuery, useDecideVerificationMutation, useGetAnalyticsQuery, type PendingProfile } from '@/store/adminApi';
 import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+function verificationLabel(p: PendingProfile): string {
+  return (typeof p.clinicName === 'string' && p.clinicName) || (typeof p.labName === 'string' && p.labName) || p._id;
+}
+
+function verificationDetail(p: PendingProfile): string {
+  const specialties = Array.isArray(p.specialties) ? p.specialties.join(', ') : null;
+  const city = typeof p.city === 'string' ? p.city : null;
+  return [specialties, city].filter(Boolean).join(' · ');
+}
 
 export default function AdminDashboardPage() {
   const [role, setRole] = useState<'doctor' | 'lab'>('doctor');
@@ -42,7 +52,10 @@ export default function AdminDashboardPage() {
           {verifications?.items.map((p) => (
             <Card key={p._id}>
               <CardContent className="flex items-center justify-between gap-4">
-                <span>{p._id}</span>
+                <div>
+                  <p className="font-medium">{verificationLabel(p)}</p>
+                  <p className="text-sm text-muted-foreground">{verificationDetail(p)}</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"

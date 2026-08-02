@@ -3,6 +3,7 @@ import { LabReferral, ILabReferral } from '../../models/LabReferral';
 import { Prescription } from '../../models/Prescription';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { LabProfile, ILabTest } from '../../models/LabProfile';
+import { User } from '../../models/User';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { createNotification } from '../../lib/notifications';
@@ -120,7 +121,7 @@ export async function listReferralsForDoctor(
   doctorUserId: string,
   page: number,
   limit: number
-): Promise<{ items: ILabReferral[]; total: number; page: number; limit: number }> {
+): Promise<{ items: (ILabReferral & { labName?: string; labCity?: string })[]; total: number; page: number; limit: number }> {
   const doctorProfile = await DoctorProfile.findOne({ userId: doctorUserId });
   if (!doctorProfile) throw new AppError(404, 'Doctor profile not found', 'PROFILE_NOT_FOUND');
 
@@ -129,17 +130,26 @@ export async function listReferralsForDoctor(
     LabReferral.find({ doctorId: doctorProfile._id })
       .sort({ _id: -1 })
       .skip((page - 1) * cappedLimit)
-      .limit(cappedLimit),
+      .limit(cappedLimit)
+      .lean(),
     LabReferral.countDocuments({ doctorId: doctorProfile._id }),
   ]);
-  return { items, total, page, limit: cappedLimit };
+
+  const labs = await LabProfile.find({ _id: { $in: items.map((i) => i.labId) } }, 'labName city');
+  const labById = new Map(labs.map((l) => [l._id.toString(), l]));
+  const enrichedItems = items.map((item) => {
+    const lab = labById.get(item.labId.toString());
+    return { ...item, labName: lab?.labName, labCity: lab?.city };
+  });
+
+  return { items: enrichedItems, total, page, limit: cappedLimit };
 }
 
 export async function listReferralsForLab(
   labUserId: string,
   page: number,
   limit: number
-): Promise<{ items: ILabReferral[]; total: number; page: number; limit: number }> {
+): Promise<{ items: (ILabReferral & { patientName?: string; doctorName?: string })[]; total: number; page: number; limit: number }> {
   const lab = await LabProfile.findOne({ userId: labUserId });
   if (!lab) throw new AppError(404, 'Lab profile not found', 'PROFILE_NOT_FOUND');
 
@@ -148,8 +158,27 @@ export async function listReferralsForLab(
     LabReferral.find({ labId: lab._id })
       .sort({ _id: -1 })
       .skip((page - 1) * cappedLimit)
-      .limit(cappedLimit),
+      .limit(cappedLimit)
+      .lean(),
     LabReferral.countDocuments({ labId: lab._id }),
   ]);
-  return { items, total, page, limit: cappedLimit };
+
+  const [patients, doctorProfiles] = await Promise.all([
+    User.find({ _id: { $in: items.map((i) => i.patientId) } }, 'name'),
+    DoctorProfile.find({ _id: { $in: items.map((i) => i.doctorId) } }, 'userId'),
+  ]);
+  const patientById = new Map(patients.map((p) => [p._id.toString(), p]));
+  const doctorUsers = await User.find({ _id: { $in: doctorProfiles.map((d) => d.userId) } }, 'name');
+  const doctorUserById = new Map(doctorUsers.map((u) => [u._id.toString(), u]));
+  const doctorNameByProfileId = new Map(
+    doctorProfiles.map((d) => [d._id.toString(), doctorUserById.get(d.userId.toString())?.name])
+  );
+
+  const enrichedItems = items.map((item) => {
+    const patientName = patientById.get(item.patientId.toString())?.name;
+    const doctorName = doctorNameByProfileId.get(item.doctorId.toString());
+    return { ...item, patientName, doctorName };
+  });
+
+  return { items: enrichedItems, total, page, limit: cappedLimit };
 }

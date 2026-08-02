@@ -87,7 +87,12 @@ export default function DoctorDashboard() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={async () => { await rejectAppointment({ id: appt._id, reason: 'Not available' }).unwrap(); refetch(); }}
+                    onClick={async () => {
+                      const reason = window.prompt('Reason for rejecting this appointment:');
+                      if (reason === null) return;
+                      await rejectAppointment({ id: appt._id, reason: reason.trim() || 'Not available' }).unwrap();
+                      refetch();
+                    }}
                   >
                     Reject
                   </Button>
