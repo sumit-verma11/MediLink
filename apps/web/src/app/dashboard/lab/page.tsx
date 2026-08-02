@@ -57,7 +57,7 @@ export default function LabDashboardPage() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
           </div>
-          <h1 className="text-2xl font-bold">Lab Dashboard</h1>
+          <h1 className="text-4xl font-bold">Lab Dashboard</h1>
         </div>
         <Link href="/notifications" className="text-sm underline">
           Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
@@ -65,7 +65,7 @@ export default function LabDashboardPage() {
       </div>
       {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Incoming referrals</h2>
+        <h2 className="text-2xl font-semibold">Incoming referrals</h2>
         {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {referralsData?.items.map((r) => (

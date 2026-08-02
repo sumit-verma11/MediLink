@@ -15,10 +15,10 @@ export default function SearchPage() {
 
   return (
     <main className="w-full mt-12 space-y-8 px-8">
-      <h1 className="text-2xl font-bold">Search</h1>
+      <h1 className="text-4xl font-bold">Search</h1>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Doctors</h2>
+        <h2 className="text-2xl font-semibold">Doctors</h2>
         <div className="flex gap-2">
           <Input placeholder="Name" value={doctorFilters.name} onChange={(e) => setDoctorFilters({ ...doctorFilters, name: e.target.value })} />
           <Input placeholder="Specialty" value={doctorFilters.specialty} onChange={(e) => setDoctorFilters({ ...doctorFilters, specialty: e.target.value })} />
@@ -39,7 +39,7 @@ export default function SearchPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Labs</h2>
+        <h2 className="text-2xl font-semibold">Labs</h2>
         <div className="flex gap-2">
           <Input placeholder="Test name" value={labFilters.testName} onChange={(e) => setLabFilters({ ...labFilters, testName: e.target.value })} />
           <Input placeholder="City" value={labFilters.city} onChange={(e) => setLabFilters({ ...labFilters, city: e.target.value })} />

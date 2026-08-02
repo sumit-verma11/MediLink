@@ -31,13 +31,13 @@ export default function AdminDashboardPage() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/bar-chart.png" size={160} alt="" />
           </div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-4xl font-bold">Admin Dashboard</h1>
         </div>
         <Link href="/notifications" className="text-sm underline">Notifications</Link>
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Pending verifications</h2>
+        <h2 className="text-2xl font-semibold">Pending verifications</h2>
         <div className="flex gap-2">
           <Button variant={role === 'doctor' ? 'default' : 'outline'} size="sm" onClick={() => setRole('doctor')}>
             Doctors

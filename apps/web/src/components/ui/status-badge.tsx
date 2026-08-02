@@ -24,7 +24,7 @@ function formatStatusLabel(status: string): string {
 export function StatusBadge({ status }: { status: string }) {
   const style = STATUS_STYLES[status] ?? 'bg-muted text-muted-foreground';
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', style)}>
+    <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-sm font-medium', style)}>
       {formatStatusLabel(status)}
     </span>
   );

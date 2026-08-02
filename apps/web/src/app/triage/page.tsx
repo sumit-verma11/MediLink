@@ -81,7 +81,7 @@ export default function TriagePage() {
           <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Describe your symptoms</h1>
+          <h1 className="text-4xl font-bold">Describe your symptoms</h1>
           <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
         </div>
       </div>

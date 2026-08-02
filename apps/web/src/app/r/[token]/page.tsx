@@ -37,7 +37,7 @@ export default function ReferralLandingPage({ params }: { params: Promise<{ toke
 
   return (
     <main className="max-w-2xl mx-auto mt-12 px-6 space-y-4">
-      <h1 className="text-2xl font-bold">{data.lab.labName}</h1>
+      <h1 className="text-4xl font-bold">{data.lab.labName}</h1>
       <p className="text-sm text-muted-foreground">{data.lab.city}</p>
 
       <Card>

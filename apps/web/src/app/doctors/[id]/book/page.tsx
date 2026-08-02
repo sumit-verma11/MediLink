@@ -30,7 +30,7 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
 
   return (
     <main className="max-w-3xl mx-auto mt-12 px-6 space-y-4">
-      <h1 className="text-2xl font-bold">Book an appointment</h1>
+      <h1 className="text-4xl font-bold">Book an appointment</h1>
       <div className="grid grid-cols-3 gap-2">
         {data?.slots.map((slot) => (
           <Button

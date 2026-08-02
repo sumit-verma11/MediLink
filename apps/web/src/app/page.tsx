@@ -53,7 +53,7 @@ export default function Home() {
             <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
               {STATS.map((s) => (
                 <div key={s.label}>
-                  <p className="text-2xl font-bold text-primary">{s.value}</p>
+                  <p className="text-4xl font-bold text-primary">{s.value}</p>
                   <p className="text-xs text-muted-foreground">{s.label}</p>
                 </div>
               ))}
@@ -62,7 +62,7 @@ export default function Home() {
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 py-10">
-          <h2 className="mb-6 text-center text-2xl font-bold">One platform, four roles</h2>
+          <h2 className="mb-6 text-center text-4xl font-bold">One platform, four roles</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {ROLES.map(({ label, description, icon: Icon }) => (
               <Link key={label} href="/login">
@@ -79,14 +79,14 @@ export default function Home() {
         </section>
 
         <section className="mx-auto w-full max-w-4xl px-6 py-10">
-          <h2 className="mb-8 text-center text-2xl font-bold">How it works</h2>
+          <h2 className="mb-8 text-center text-4xl font-bold">How it works</h2>
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
             {STEPS.map(({ label, description, icon: Icon }, i) => (
               <div key={label} className="space-y-2 text-center">
                 <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
                   <Icon className="size-7 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold">{i + 1}. {label}</h3>
+                <h3 className="text-xl font-semibold">{i + 1}. {label}</h3>
                 <p className="text-base text-muted-foreground">{description}</p>
               </div>
             ))}
