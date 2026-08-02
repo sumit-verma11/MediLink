@@ -32,7 +32,7 @@ export default function PatientDashboard() {
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading…</main>;
 
   return (
-    <main className="max-w-5xl mx-auto mt-12 space-y-6 px-6">
+    <main className="w-full mt-12 space-y-6 px-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
@@ -50,7 +50,7 @@ export default function PatientDashboard() {
         </div>
       </div>
       {data?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No appointments yet." /> : null}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {data?.items.map((appt) => (
           <Card key={appt._id}>
             <CardContent className="flex items-center justify-between gap-4">

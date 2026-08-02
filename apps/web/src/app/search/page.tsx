@@ -14,7 +14,7 @@ export default function SearchPage() {
   const { data: labResults } = useSearchLabsQuery(labFilters);
 
   return (
-    <main className="max-w-5xl mx-auto mt-12 space-y-8 px-6">
+    <main className="w-full mt-12 space-y-8 px-8">
       <h1 className="text-2xl font-bold">Search</h1>
 
       <section className="space-y-3">
@@ -25,7 +25,7 @@ export default function SearchPage() {
           <Input placeholder="City" value={doctorFilters.city} onChange={(e) => setDoctorFilters({ ...doctorFilters, city: e.target.value })} />
         </div>
         {doctorResults?.items.length === 0 ? <EmptyState icon="/icons-3d/stethoscope.png" message="No doctors match." /> : null}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {doctorResults?.items.map((d) => (
             <Link key={d._id} href={`/doctors/${d._id}`}>
               <Card className="h-full">
@@ -45,7 +45,7 @@ export default function SearchPage() {
           <Input placeholder="City" value={labFilters.city} onChange={(e) => setLabFilters({ ...labFilters, city: e.target.value })} />
         </div>
         {labResults?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No labs match." /> : null}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {labResults?.items.map((l) => (
             <Link key={l._id} href={`/labs/${l._id}`}>
               <Card className="h-full">

@@ -48,7 +48,7 @@ export default function PatientTimelinePage() {
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   return (
-    <main className="max-w-3xl mx-auto mt-12 px-6 space-y-4">
+    <main className="w-full mt-12 px-8 space-y-4">
       <div className="flex items-center gap-3">
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/calendar.png" size={160} alt="" />
@@ -56,10 +56,10 @@ export default function PatientTimelinePage() {
         <h1 className="text-2xl font-bold">Health Timeline</h1>
       </div>
       {entries.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No history yet." /> : null}
-      <div className="space-y-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {entries.map((entry) => (
           <Card key={`${entry.kind}-${entry.id}`}>
-            <CardContent className="flex items-center justify-between gap-4">
+            <CardContent className="space-y-2">
               <span>{new Date(entry.at).toLocaleDateString()} — {entry.label}</span>
               {entry.kind === 'prescription' ? (
                 <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/prescriptions/${entry.id}`} />}>

@@ -12,7 +12,7 @@ export default function DoctorReferralsPage() {
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading...</main>;
 
   return (
-    <main className="max-w-5xl mx-auto mt-12 space-y-4 px-6">
+    <main className="w-full mt-12 space-y-4 px-8">
       <div className="flex items-center gap-3">
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/microscope.png" size={160} alt="" />
@@ -20,7 +20,7 @@ export default function DoctorReferralsPage() {
         <h1 className="text-2xl font-bold">Lab Referrals Sent</h1>
       </div>
       {data?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No referrals sent yet." /> : null}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {data?.items.map((referral) => (
           <Card key={referral._id}>
             <CardContent className="space-y-2">

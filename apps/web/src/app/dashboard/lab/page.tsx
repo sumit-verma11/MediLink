@@ -51,7 +51,7 @@ export default function LabDashboardPage() {
   if (isLoading) return <main className="max-w-3xl mx-auto mt-12">Loading...</main>;
 
   return (
-    <main className="max-w-5xl mx-auto mt-12 space-y-6 px-6">
+    <main className="w-full mt-12 space-y-6 px-8">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="shrink-0">
@@ -67,7 +67,7 @@ export default function LabDashboardPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Incoming referrals</h2>
         {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {referralsData?.items.map((r) => (
             <Card key={r._id}>
               <CardContent className="space-y-2">
@@ -83,7 +83,7 @@ export default function LabDashboardPage() {
       </section>
       <div className="space-y-3">
         {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." /> : null}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((booking) => (
             <Card key={booking._id}>
               <CardContent className="space-y-2">

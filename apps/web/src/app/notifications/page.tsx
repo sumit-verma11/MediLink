@@ -12,18 +12,16 @@ export default function NotificationsPage() {
   if (isLoading) return <main className="max-w-2xl mx-auto mt-12">Loading…</main>;
 
   return (
-    <main className="max-w-4xl mx-auto mt-12 space-y-4 px-6">
+    <main className="w-full mt-12 space-y-4 px-8">
       <h1 className="text-2xl font-bold">Notifications</h1>
       {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No notifications yet." /> : null}
-      <div className="space-y-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {data?.items.map((n) => (
           <Card key={n._id} className={n.readAt ? '' : 'bg-primary/5'}>
-            <CardContent className="flex items-center justify-between gap-4">
-              <div>
-                <p className="font-semibold">{n.title}</p>
-                <p className="text-sm text-muted-foreground">{n.body}</p>
-              </div>
-              <div className="flex shrink-0 gap-3">
+            <CardContent className="space-y-2">
+              <p className="font-semibold">{n.title}</p>
+              <p className="text-sm text-muted-foreground">{n.body}</p>
+              <div className="flex gap-3">
                 {n.link ? (
                   <Button size="sm" variant="outline" nativeButton={false} render={<a href={n.link} />}>
                     Open
