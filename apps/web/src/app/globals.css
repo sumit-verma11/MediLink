@@ -123,6 +123,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(ellipse 900px 600px at 100% 0%, color-mix(in oklch, var(--accent) 10%, transparent), transparent),
+      radial-gradient(ellipse 700px 500px at 0% 100%, color-mix(in oklch, var(--primary) 6%, transparent), transparent);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
