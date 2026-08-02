@@ -58,12 +58,17 @@ async function seedDoctorWithAvailability(app: Express, slotMinutes = 60) {
   const doctorProfile = await DoctorProfile.findOne({}).sort({ _id: -1 });
   // A patient may only book an approved doctor; a freshly PUT profile is 'pending'.
   await DoctorProfile.updateOne({ _id: doctorProfile!._id }, { verificationStatus: 'approved' });
-  // Two rules (today + tomorrow's day-of-week) so a suite run late in the day still has
-  // future slots available once slot generation skips times that have already passed.
+  // Two rules (today + tomorrow's day-of-week, in IST -- slotService generates against
+  // IST calendar days, so a raw UTC weekday here would make this flaky whenever the
+  // suite runs between 18:30 and 23:59 UTC, when IST has already rolled to the next day)
+  // so a suite run late in the day still has future slots once slots that have already
+  // passed are skipped.
+  const IST_OFFSET_MINUTES = 5 * 60 + 30;
   for (const dayOffset of [0, 1]) {
+    const istNow = new Date(Date.now() + dayOffset * 24 * 60 * 60 * 1000 + IST_OFFSET_MINUTES * 60 * 1000);
     await AvailabilityRule.create({
       doctorId: doctorProfile!._id,
-      dayOfWeek: new Date(Date.now() + dayOffset * 24 * 60 * 60 * 1000).getUTCDay(),
+      dayOfWeek: istNow.getUTCDay(),
       startTime: '00:00', endTime: '23:00', slotMinutes,
       validFrom: RULE_VALID_FROM, validTo: RULE_VALID_TO,
     });
@@ -144,9 +149,11 @@ describe('POST /api/appointments', () => {
     const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
     const slot = slotsRes.body.slots[0];
 
-    const day = new Date(slot.start);
+    // Blocked dates are matched by IST calendar day (see slotService.ts's startOfISTDay),
+    // so any instant within the slot's IST day blocks it -- the slot's own start works,
+    // rather than reconstructing a UTC-midnight date that may land on a different IST day.
     await request(app).post('/api/doctors/me/blocked-dates').set('Cookie', docCookies).send({
-      date: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate())).toISOString(),
+      date: slot.start,
       reason: 'On leave',
     });
 

@@ -34,8 +34,12 @@ function nextWednesdayUTC(): Date {
 const FIXED_WEDNESDAY = nextWednesdayUTC();
 const VALID_FROM = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 const VALID_TO = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+// AvailabilityRule times are IST wall-clock (see slotService.ts's IST_OFFSET_MINUTES) --
+// this helper takes IST hours/minutes and returns the equivalent UTC instant, matching
+// what generateSlotsForDoctor actually produces for a rule with that startTime.
+const IST_OFFSET_MINUTES = 5 * 60 + 30;
 function wednesdayAt(hours: number, minutes: number): Date {
-  return new Date(FIXED_WEDNESDAY.getTime() + (hours * 60 + minutes) * 60 * 1000);
+  return new Date(FIXED_WEDNESDAY.getTime() + (hours * 60 + minutes - IST_OFFSET_MINUTES) * 60 * 1000);
 }
 
 describe('generateSlotsForDoctor', () => {
@@ -51,9 +55,10 @@ describe('generateSlotsForDoctor', () => {
     expect(slots.length).toBeGreaterThan(0);
     for (const slot of slots) {
       expect(slot.start.getUTCDay()).toBe(3);
+      // Rule is 18:00-19:00 IST, which is 12:30-13:30 UTC (IST = UTC+5:30).
       const hours = slot.start.getUTCHours();
-      expect(hours).toBeGreaterThanOrEqual(18);
-      expect(hours).toBeLessThan(19);
+      expect(hours).toBeGreaterThanOrEqual(12);
+      expect(hours).toBeLessThan(14);
     }
     // 18:00-19:00 at 15-min intervals = 4 slots per matching day
     const daysMatched = slots.length / 4;
@@ -107,10 +112,15 @@ describe('generateSlotsForDoctor', () => {
 
   it('never returns a slot that has already started', async () => {
     const doctorId = new mongoose.Types.ObjectId().toString();
-    // A rule spanning the whole of today, so the window unavoidably contains times
-    // that are already in the past by the time the generator runs.
+    // A rule spanning the whole of today (IST), so the window unavoidably contains times
+    // that are already in the past by the time the generator runs. dayOfWeek must be
+    // computed the same IST-shifted way generateSlotsForDoctor does -- using the raw
+    // UTC weekday here would make this test flaky whenever it runs between 18:30 and
+    // 23:59 UTC, when IST has already rolled into the next calendar day.
+    const now = new Date();
+    const todayIST = new Date(now.getTime() + IST_OFFSET_MINUTES * 60 * 1000).getUTCDay();
     await AvailabilityRule.create({
-      doctorId, dayOfWeek: new Date().getUTCDay(), startTime: '00:00', endTime: '23:00', slotMinutes: 60,
+      doctorId, dayOfWeek: todayIST, startTime: '00:00', endTime: '23:00', slotMinutes: 60,
       validFrom: VALID_FROM, validTo: VALID_TO,
     });
 
