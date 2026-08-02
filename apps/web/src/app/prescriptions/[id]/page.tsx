@@ -5,6 +5,8 @@ import { useListMyPrescriptionsQuery } from '@/store/prescriptionsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+
 export default function PrescriptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   // There is no single-prescription GET endpoint (only /me, a list) --
@@ -55,7 +57,7 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
         <Button
           nativeButton={false}
           render={
-            <a href={`${process.env.NEXT_PUBLIC_API_URL}/prescriptions/${prescription._id}/pdf`} target="_blank" rel="noreferrer" />
+            <a href={`${API_BASE}/prescriptions/${prescription._id}/pdf`} target="_blank" rel="noreferrer" />
           }
         >
           Download PDF

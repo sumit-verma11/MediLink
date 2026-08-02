@@ -30,7 +30,8 @@ export default function LabDashboardPage() {
     const formData = new FormData();
     formData.append('report', file);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${id}/report`, {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+      const response = await fetch(`${apiBase}/lab-bookings/${id}/report`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -70,7 +71,10 @@ export default function LabDashboardPage() {
           {referralsData?.items.map((r) => (
             <Card key={r._id}>
               <CardContent className="space-y-2">
-                <p className="text-lg">Tests: {r.suggestedTestCodes.join(', ')}</p>
+                <p className="text-lg font-medium">{r.patientName ?? 'Patient'}</p>
+                <p className="text-sm text-muted-foreground">
+                  Tests: {r.suggestedTestCodes.join(', ')}{r.doctorName ? ` · Referred by ${r.doctorName}` : ''}
+                </p>
                 <StatusBadge status={r.status} />
               </CardContent>
             </Card>

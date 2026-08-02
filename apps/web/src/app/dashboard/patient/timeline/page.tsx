@@ -14,6 +14,8 @@ type TimelineEntry =
   | { kind: 'prescription'; at: string; label: string; id: string }
   | { kind: 'labBooking'; at: string; label: string; id: string; status: string };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+
 export default function PatientTimelinePage() {
   const { data: appointmentsData, isLoading: appointmentsLoading } = useListMyAppointmentsQuery({ status: undefined });
   const { data: prescriptionsData, isLoading: prescriptionsLoading } = useListMyPrescriptionsQuery({ page: 1, limit: 50 });
@@ -70,7 +72,7 @@ export default function PatientTimelinePage() {
                   variant="outline"
                   nativeButton={false}
                   render={
-                    <a href={`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${entry.id}/report`} target="_blank" rel="noreferrer" />
+                    <a href={`${API_BASE}/lab-bookings/${entry.id}/report`} target="_blank" rel="noreferrer" />
                   }
                 >
                   Download report
