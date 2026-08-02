@@ -35,20 +35,40 @@ const STATS = [
 export default function Home() {
   return (
     <>
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
+        <span className="text-xl font-extrabold tracking-tight">MedLink</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            nativeButton={false}
+            render={<Link href="/login" />}
+          >
+            Log in
+          </Button>
+          <Button size="sm" nativeButton={false} render={<Link href="/register" />}>
+            Sign up
+          </Button>
+        </div>
+      </header>
+
       <main className="flex flex-1 flex-col">
-        <section className="relative overflow-hidden px-6 pt-14 pb-24 text-center">
+        <section className="relative overflow-hidden px-6 pt-6 pb-24 text-center">
           <HeartbeatBackground />
-          <div className="relative mx-auto max-w-3xl space-y-5">
-            <div className="mx-auto flex justify-center">
-              <FloatingIcon3D src="/icons-3d/heart.png" size={140} alt="" />
-            </div>
-            <h1 className="text-5xl font-extrabold tracking-tight text-foreground md:text-6xl">MedLink</h1>
+          <div className="relative mx-auto max-w-3xl space-y-6">
+            <span className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium shadow-sm">
+              <FloatingIcon3D src="/icons-3d/heart.png" size={20} alt="" />
+              AI-powered healthcare, end to end
+            </span>
+            <h1 className="text-6xl font-extrabold tracking-tighter text-foreground sm:text-7xl">
+              Care, connected.
+            </h1>
             <p className="text-xl text-muted-foreground">
               AI symptom triage, doctor matching, appointment booking, prescriptions, and
               lab referrals &mdash; one connected healthcare flow.
             </p>
             <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
-            <Button size="lg" nativeButton={false} render={<Link href="/login">Get started</Link>} />
+            <Button size="lg" nativeButton={false} render={<Link href="/login">Get started &mdash; it&apos;s free</Link>} />
 
             <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
               {STATS.map((s) => (
