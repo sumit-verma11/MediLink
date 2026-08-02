@@ -46,7 +46,7 @@ export default async function DoctorPublicPage({ params }: { params: Promise<{ i
           <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
         </div>
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">{doctor.clinicName}</h1>
+          <h1 className="font-heading text-4xl font-semibold">{doctor.clinicName}</h1>
           <p className="text-muted-foreground">{doctor.specialties.join(', ')} · {doctor.city}</p>
         </div>
       </div>

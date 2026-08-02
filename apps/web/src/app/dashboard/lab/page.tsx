@@ -61,7 +61,7 @@ export default function LabDashboardPage() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Lab Dashboard</h1>
+          <h1 className="font-heading text-4xl font-semibold">Lab Dashboard</h1>
         </div>
         <Link href="/notifications" className="text-sm underline">
           Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}

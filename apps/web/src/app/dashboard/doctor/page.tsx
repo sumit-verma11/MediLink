@@ -51,7 +51,7 @@ export default function DoctorDashboard() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Doctor Dashboard</h1>
+          <h1 className="font-heading text-4xl font-semibold">Doctor Dashboard</h1>
         </div>
         <div className="flex gap-3">
           <Link href="/notifications" className="text-sm underline">
@@ -64,7 +64,7 @@ export default function DoctorDashboard() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold">Pending requests</h2>
+        <h2 className="font-heading text-2xl font-semibold">Pending requests</h2>
         {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No pending requests." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((appt) => (
@@ -118,7 +118,7 @@ export default function DoctorDashboard() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-2xl font-bold">Confirmed appointments</h2>
+        <h2 className="font-heading text-2xl font-semibold">Confirmed appointments</h2>
         {isConfirmedLoading ? <p>Loading…</p> : null}
         {confirmedData?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No confirmed appointments." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
