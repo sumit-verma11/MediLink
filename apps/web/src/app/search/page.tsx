@@ -15,7 +15,7 @@ export default function SearchPage() {
 
   return (
     <main className="w-full mt-12 space-y-8 px-8">
-      <h1 className="text-4xl font-bold">Search</h1>
+      <h1 className="text-4xl font-extrabold tracking-tight">Search</h1>
 
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Doctors</h2>

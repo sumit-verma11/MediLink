@@ -51,7 +51,7 @@ export default function DoctorDashboard() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
           </div>
-          <h1 className="text-4xl font-bold">Doctor Dashboard</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight">Doctor Dashboard</h1>
         </div>
         <div className="flex gap-3">
           <Link href="/notifications" className="text-sm underline">

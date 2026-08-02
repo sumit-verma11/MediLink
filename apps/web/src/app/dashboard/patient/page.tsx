@@ -38,7 +38,7 @@ export default function PatientDashboard() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/pill.png" size={160} alt="" />
           </div>
-          <h1 className="text-4xl font-bold">My appointments</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight">My appointments</h1>
         </div>
         <div className="flex items-center gap-3">
           <Button size="sm" nativeButton={false} render={<Link href="/triage" />}>

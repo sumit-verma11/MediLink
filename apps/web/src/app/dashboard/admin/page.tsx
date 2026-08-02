@@ -31,7 +31,7 @@ export default function AdminDashboardPage() {
           <div className="shrink-0">
             <FloatingIcon3D src="/icons-3d/bar-chart.png" size={160} alt="" />
           </div>
-          <h1 className="text-4xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight">Admin Dashboard</h1>
         </div>
         <Link href="/notifications" className="text-sm underline">Notifications</Link>
       </div>

@@ -27,7 +27,7 @@ export default function WalkInBookingPage({ params }: { params: Promise<{ id: st
 
   return (
     <main className="max-w-2xl mx-auto mt-12 px-6 space-y-4">
-      <h1 className="text-4xl font-bold">Book a Test</h1>
+      <h1 className="text-4xl font-extrabold tracking-tight">Book a Test</h1>
 
       <div className="space-y-1">
         <label className="block text-sm font-medium">Test codes (comma-separated, e.g. CBC,LFT)</label>

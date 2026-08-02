@@ -48,7 +48,7 @@ export default async function LabPublicPage({ params }: { params: Promise<{ id: 
           <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
         </div>
         <div>
-          <h1 className="text-4xl font-bold">{lab.labName}</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight">{lab.labName}</h1>
           <p className="text-muted-foreground">{lab.address}, {lab.city}</p>
         </div>
       </div>

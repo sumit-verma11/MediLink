@@ -53,7 +53,7 @@ export default function PatientTimelinePage() {
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/calendar.png" size={160} alt="" />
         </div>
-        <h1 className="text-4xl font-bold">Health Timeline</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight">Health Timeline</h1>
       </div>
       {entries.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No history yet." /> : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

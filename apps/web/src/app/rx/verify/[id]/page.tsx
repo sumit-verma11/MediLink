@@ -23,7 +23,7 @@ export default function VerifyPrescriptionPage({ params }: { params: Promise<{ i
     <main className="max-w-md mx-auto mt-12">
       <Card>
         <CardContent className="space-y-3">
-          <h1 className="text-4xl font-bold text-green-700">✓ Valid Prescription</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight text-green-700">✓ Valid Prescription</h1>
           <p><strong>Issued by:</strong> {verification.doctorName}</p>
           <p><strong>Registration No:</strong> {verification.regNo}</p>
           <p><strong>Clinic:</strong> {verification.clinicName}</p>

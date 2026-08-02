@@ -42,7 +42,7 @@ export default function Home() {
             <div className="mx-auto flex justify-center">
               <FloatingIcon3D src="/icons-3d/heart.png" size={140} alt="" />
             </div>
-            <h1 className="text-5xl font-bold tracking-tight text-foreground md:text-6xl">MedLink</h1>
+            <h1 className="text-5xl font-extrabold tracking-tight text-foreground md:text-6xl">MedLink</h1>
             <p className="text-xl text-muted-foreground">
               AI symptom triage, doctor matching, appointment booking, prescriptions, and
               lab referrals &mdash; one connected healthcare flow.
@@ -53,7 +53,7 @@ export default function Home() {
             <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
               {STATS.map((s) => (
                 <div key={s.label}>
-                  <p className="text-4xl font-bold text-primary">{s.value}</p>
+                  <p className="text-4xl font-extrabold tracking-tight text-primary">{s.value}</p>
                   <p className="text-xs text-muted-foreground">{s.label}</p>
                 </div>
               ))}
@@ -62,7 +62,7 @@ export default function Home() {
         </section>
 
         <section className="mx-auto w-full max-w-5xl px-6 py-10">
-          <h2 className="mb-6 text-center text-4xl font-bold">One platform, four roles</h2>
+          <h2 className="mb-6 text-center text-4xl font-extrabold tracking-tight">One platform, four roles</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {ROLES.map(({ label, description, icon: Icon }) => (
               <Link key={label} href="/login">
@@ -79,7 +79,7 @@ export default function Home() {
         </section>
 
         <section className="mx-auto w-full max-w-4xl px-6 py-10">
-          <h2 className="mb-8 text-center text-4xl font-bold">How it works</h2>
+          <h2 className="mb-8 text-center text-4xl font-extrabold tracking-tight">How it works</h2>
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
             {STEPS.map(({ label, description, icon: Icon }, i) => (
               <div key={label} className="space-y-2 text-center">
