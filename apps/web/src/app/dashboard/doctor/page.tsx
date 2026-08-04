@@ -9,9 +9,10 @@ import {
 } from '@/store/appointmentsApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 import { getSocket } from '@/lib/socket';
-import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { StatStrip } from '@/components/ui/stat-strip';
 import { EmptyState } from '@/components/ui/empty-state';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusBadge, statusAccentClass } from '@/components/ui/status-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -46,29 +47,30 @@ export default function DoctorDashboard() {
 
   return (
     <main className="w-full mt-12 space-y-8 px-8">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="shrink-0">
-            <FloatingIcon3D src="/icons-3d/stethoscope.png" size={160} alt="" />
-          </div>
-          <h1 className="font-heading text-4xl font-semibold">Doctor Dashboard</h1>
-        </div>
-        <div className="flex gap-3">
-          <Link href="/notifications" className="text-sm underline">
-            Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
-          </Link>
-          <Link href="/dashboard/doctor/referrals" className="text-sm underline">
-            Lab referrals sent
-          </Link>
-        </div>
-      </div>
+      <DashboardHeader icon="/icons-3d/stethoscope.png" title="Doctor Dashboard">
+        <Link href="/notifications" className="text-sm underline">
+          Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
+        </Link>
+        <Link href="/dashboard/doctor/referrals" className="text-sm underline">
+          Lab referrals sent
+        </Link>
+      </DashboardHeader>
+
+      {(data?.items.length ?? 0) + (confirmedData?.items.length ?? 0) > 0 ? (
+        <StatStrip
+          stats={[
+            { value: data?.items.length ?? 0, label: 'Pending requests' },
+            { value: confirmedData?.items.length ?? 0, label: 'Confirmed' },
+          ]}
+        />
+      ) : null}
 
       <div className="space-y-3">
         <h2 className="font-heading text-2xl font-semibold">Pending requests</h2>
         {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No pending requests." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((appt) => (
-            <Card key={appt._id}>
+            <Card key={appt._id} className={statusAccentClass(appt.status)}>
               <CardContent className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-lg">{new Date(appt.slotStart).toLocaleString()}</p>
@@ -123,7 +125,7 @@ export default function DoctorDashboard() {
         {confirmedData?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No confirmed appointments." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {confirmedData?.items.map((appt) => (
-            <Card key={appt._id}>
+            <Card key={appt._id} className={statusAccentClass(appt.status)}>
               <CardContent className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-lg">{new Date(appt.slotStart).toLocaleString()}</p>

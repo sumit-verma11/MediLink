@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useListMyLabBookingsQuery, useUpdateBookingStatusMutation } from '@/store/labBookingsApi';
 import { useListReferralsForLabQuery } from '@/store/labReferralsApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
-import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { StatStrip } from '@/components/ui/stat-strip';
 import { EmptyState } from '@/components/ui/empty-state';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusBadge, statusAccentClass } from '@/components/ui/status-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -56,24 +57,32 @@ export default function LabDashboardPage() {
 
   return (
     <main className="w-full mt-12 space-y-6 px-8">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="shrink-0">
-            <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
-          </div>
-          <h1 className="font-heading text-4xl font-semibold">Lab Dashboard</h1>
-        </div>
+      <DashboardHeader icon="/icons-3d/test-tube.png" title="Lab Dashboard">
         <Link href="/notifications" className="text-sm underline">
           Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
         </Link>
-      </div>
+      </DashboardHeader>
+
+      {(referralsData?.items.length ?? 0) + (data?.items.length ?? 0) > 0 ? (
+        <StatStrip
+          stats={[
+            { value: referralsData?.items.length ?? 0, label: 'Incoming referrals' },
+            { value: data?.items.length ?? 0, label: 'Bookings' },
+            {
+              value: data?.items.filter((b) => b.status === 'report_ready').length ?? 0,
+              label: 'Reports ready',
+            },
+          ]}
+        />
+      ) : null}
+
       {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
       <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Incoming referrals</h2>
+        <h2 className="font-heading text-2xl font-semibold">Incoming referrals</h2>
         {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {referralsData?.items.map((r) => (
-            <Card key={r._id}>
+            <Card key={r._id} className={statusAccentClass(r.status)}>
               <CardContent className="space-y-2">
                 <p className="text-lg font-medium">{r.patientName ?? 'Patient'}</p>
                 <p className="text-sm text-muted-foreground">
@@ -86,10 +95,11 @@ export default function LabDashboardPage() {
         </div>
       </section>
       <div className="space-y-3">
+        <h2 className="font-heading text-2xl font-semibold">Bookings</h2>
         {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((booking) => (
-            <Card key={booking._id}>
+            <Card key={booking._id} className={statusAccentClass(booking.status)}>
               <CardContent className="space-y-2">
                 <p className="text-lg">
                   {new Date(booking.scheduledAt).toLocaleString()} — {booking.testCodes.join(', ')} — ₹{booking.totalPrice}

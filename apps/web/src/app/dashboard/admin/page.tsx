@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useListVerificationsQuery, useDecideVerificationMutation, useGetAnalyticsQuery, type PendingProfile } from '@/store/adminApi';
-import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { StatStrip } from '@/components/ui/stat-strip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,18 +27,23 @@ export default function AdminDashboardPage() {
 
   return (
     <main className="w-full mt-12 space-y-8 px-8">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="shrink-0">
-            <FloatingIcon3D src="/icons-3d/bar-chart.png" size={160} alt="" />
-          </div>
-          <h1 className="font-heading text-4xl font-semibold">Admin Dashboard</h1>
-        </div>
+      <DashboardHeader icon="/icons-3d/bar-chart.png" title="Admin Dashboard">
         <Link href="/notifications" className="text-sm underline">Notifications</Link>
-      </div>
+      </DashboardHeader>
+
+      {analytics ? (
+        <StatStrip
+          stats={[
+            { value: analytics.totalRegistrations.patients, label: 'Patients' },
+            { value: analytics.totalRegistrations.doctors, label: 'Doctors' },
+            { value: analytics.totalRegistrations.labs, label: 'Labs' },
+            { value: `${analytics.triageToBookingConversion.conversionRate}%`, label: 'Triage → booking' },
+          ]}
+        />
+      ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Pending verifications</h2>
+        <h2 className="font-heading text-2xl font-semibold">Pending verifications</h2>
         <div className="flex gap-2">
           <Button variant={role === 'doctor' ? 'default' : 'outline'} size="sm" onClick={() => setRole('doctor')}>
             Doctors
@@ -99,7 +105,6 @@ export default function AdminDashboardPage() {
           {loadingAnalytics ? <p>Loading…</p> : null}
           {analytics ? (
             <div className="space-y-4">
-              <p>Patients: {analytics.totalRegistrations.patients} · Doctors: {analytics.totalRegistrations.doctors} · Labs: {analytics.totalRegistrations.labs}</p>
               <div className="grid gap-6 sm:grid-cols-2">
                 <div>
                   <p className="font-semibold">Appointments per day (last 14 days)</p>
