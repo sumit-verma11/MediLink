@@ -35,7 +35,7 @@ const ROLES = [
     label: "Admin",
     description: "Verify doctors and labs, and monitor platform activity.",
     icon: ShieldPlus,
-    accent: "bg-violet-100 text-violet-700",
+    accent: "bg-amber-100 text-amber-700",
   },
 ];
 
