@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
           </Button>
         </div>
         {loadingVerifications ? <p>Loading…</p> : null}
-        {verifications?.items.length === 0 ? <EmptyState icon="/icons-3d/shield.png" message={`No pending ${role}s.`} /> : null}
+        {verifications?.items.length === 0 ? <EmptyState icon="/icons-3d/shield.png" message={`No pending ${role}s.`} hint="New registrations awaiting verification will appear here." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {verifications?.items.map((p) => (
             <Card key={p._id}>

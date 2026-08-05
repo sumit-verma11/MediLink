@@ -79,7 +79,7 @@ export default function LabDashboardPage() {
       {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
       <section className="space-y-3">
         <h2 className="text-2xl font-bold">Incoming referrals</h2>
-        {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
+        {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." hint="Referrals doctors send to this lab will show up here." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {referralsData?.items.map((r) => (
             <Card key={r._id} className={statusAccentClass(r.status)}>
@@ -97,7 +97,7 @@ export default function LabDashboardPage() {
       </section>
       <div className="space-y-3">
         <h2 className="text-2xl font-bold">Bookings</h2>
-        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." /> : null}
+        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." hint="Walk-in and referred bookings will appear here." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((booking) => (
             <Card key={booking._id} className={statusAccentClass(booking.status)}>

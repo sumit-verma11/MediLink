@@ -14,7 +14,7 @@ export default function NotificationsPage() {
   return (
     <main className="w-full mt-12 space-y-4 px-8">
       <h1 className="font-heading text-4xl font-semibold">Notifications</h1>
-      {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No notifications yet." /> : null}
+      {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No notifications yet." hint="Booking updates, prescriptions, and lab reports will notify you here." /> : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {data?.items.map((n) => (
           <Card key={n._id} className={n.readAt ? '' : 'bg-primary/5'}>

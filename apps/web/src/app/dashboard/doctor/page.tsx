@@ -67,7 +67,7 @@ export default function DoctorDashboard() {
 
       <div className="space-y-3">
         <h2 className="text-2xl font-bold">Pending requests</h2>
-        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No pending requests." /> : null}
+        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No pending requests." hint="New booking requests from patients will appear here." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((appt) => (
             <Card key={appt._id} className={statusAccentClass(appt.status)}>
@@ -122,7 +122,7 @@ export default function DoctorDashboard() {
       <div className="space-y-3">
         <h2 className="text-2xl font-bold">Confirmed appointments</h2>
         {isConfirmedLoading ? <p>Loading…</p> : null}
-        {confirmedData?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No confirmed appointments." /> : null}
+        {confirmedData?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No confirmed appointments." hint="Confirm a pending request above to see it here." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {confirmedData?.items.map((appt) => (
             <Card key={appt._id} className={statusAccentClass(appt.status)}>

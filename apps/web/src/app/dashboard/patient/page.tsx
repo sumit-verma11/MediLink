@@ -58,7 +58,7 @@ export default function PatientDashboard() {
         />
       ) : null}
 
-      {data?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No appointments yet." /> : null}
+      {data?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No appointments yet." hint="Start a symptom triage or search for a doctor to book your first visit." /> : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {data?.items.map((appt) => (
           <Card key={appt._id} className={statusAccentClass(appt.status)}>

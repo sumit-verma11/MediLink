@@ -55,7 +55,7 @@ export default function PatientTimelinePage() {
         </div>
         <h1 className="font-heading text-4xl font-semibold">Health Timeline</h1>
       </div>
-      {entries.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No history yet." /> : null}
+      {entries.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No history yet." hint="Appointments, prescriptions, and lab reports will build your timeline here." /> : null}
 
       {/* Every step in this list is a link in the same chain of custody the
           landing page's signature motif represents -- a real connected
