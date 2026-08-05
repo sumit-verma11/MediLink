@@ -8,41 +8,54 @@ import {
   ClipboardPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChainBackground } from "@/components/ui/chain-background";
 import { FloatingIcon3D } from "@/components/ui/floating-icon-3d";
+
+// The chain doesn't stop at the hero divider: it's the actual layout. A case
+// moves through these 3 steps (a real connected rail below), then the chain
+// branches to the 4 roles who touch it (a connected row, not a card grid).
+const STEPS = [
+  {
+    label: "Triage",
+    description: "Describe your symptoms to get matched with the right specialty.",
+    icon: Stethoscope,
+    color: "bg-primary",
+  },
+  {
+    label: "Book",
+    description: "Pick a doctor and a slot that works for you.",
+    icon: CalendarCheck,
+    color: "bg-accent",
+  },
+  {
+    label: "Prescribe & Refer",
+    description: "Your doctor prescribes medicines and refers lab tests if needed.",
+    icon: ClipboardPlus,
+    color: "bg-verified",
+  },
+];
 
 const ROLES = [
   {
     label: "Patient",
-    description: "Describe your symptoms, get matched with a doctor, and book an appointment.",
+    description: "Describe symptoms, book, and track your care.",
     icon: User,
-    accent: "bg-blue-100 text-blue-700",
   },
   {
     label: "Doctor",
-    description: "Manage your schedule, confirm bookings, and write prescriptions.",
+    description: "Confirm bookings, prescribe, refer.",
     icon: Stethoscope,
-    accent: "bg-primary/10 text-primary",
   },
   {
     label: "Lab",
-    description: "Receive referrals, manage bookings, and upload reports.",
+    description: "Receive referrals, upload reports.",
     icon: FlaskConical,
-    accent: "bg-emerald-100 text-emerald-700",
   },
   {
     label: "Admin",
-    description: "Verify doctors and labs, and monitor platform activity.",
+    description: "Verify providers, watch the system.",
     icon: ShieldPlus,
-    accent: "bg-amber-100 text-amber-700",
   },
-];
-
-const STEPS = [
-  { label: "Triage", description: "Describe your symptoms to get matched with the right specialty.", icon: Stethoscope },
-  { label: "Book", description: "Pick a doctor and a slot that works for you.", icon: CalendarCheck },
-  { label: "Prescribe & Refer", description: "Your doctor prescribes medicines and refers lab tests if needed.", icon: ClipboardPlus },
 ];
 
 const STATS = [
@@ -101,37 +114,46 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-5xl px-6 py-10">
-          <h2 className="mb-6 text-center font-heading text-4xl font-semibold">One platform, four roles</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {ROLES.map(({ label, description, icon: Icon, accent }) => (
-              <Link key={label} href="/login">
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className={`flex size-11 items-center justify-center rounded-full ${accent}`}>
-                      <Icon className="size-6" />
-                    </div>
-                    <CardTitle className="font-heading text-lg font-semibold">{label}</CardTitle>
-                    <CardDescription className="text-base">{description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className="mx-auto w-full max-w-4xl px-6 py-10">
-          <h2 className="mb-8 text-center font-heading text-4xl font-semibold">How it works</h2>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-            {STEPS.map(({ label, description, icon: Icon }, i) => (
-              <div key={label} className="space-y-2 text-center">
-                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
-                  <Icon className="size-7 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold">{i + 1}. {label}</h3>
+        {/* One connected rail carries the whole page's second half: the 3
+            real steps a case moves through, then it branches into the 4
+            roles who touch it. Not a hero followed by two disconnected
+            feature grids -- a single through-line, matching what the
+            product actually is. */}
+        <section className="mx-auto w-full max-w-2xl px-6 py-16">
+          <h2 className="mb-12 text-center font-heading text-3xl font-semibold">How a case moves</h2>
+          <div className="relative space-y-10 pl-14">
+            <div className="absolute top-3 bottom-3 left-[23px] w-0.5 bg-border" aria-hidden="true" />
+            {STEPS.map(({ label, description, icon: Icon, color }, i) => (
+              <div key={label} className="relative">
+                <span
+                  className={`absolute top-0 -left-14 flex size-11 items-center justify-center rounded-full text-white ${color}`}
+                >
+                  <Icon className="size-5" />
+                </span>
+                <p className="font-heading text-xs tracking-wide text-muted-foreground uppercase">Step {i + 1}</p>
+                <h3 className="text-xl font-semibold">{label}</h3>
                 <p className="text-base text-muted-foreground">{description}</p>
               </div>
             ))}
+          </div>
+
+          {/* The rail's last link branches to everyone who touches the case. */}
+          <div className="relative mt-4 pl-14">
+            <div className="absolute top-0 left-[23px] h-8 w-0.5 bg-border" aria-hidden="true" />
+          </div>
+          <div className="relative mt-8">
+            <div className="absolute top-6 right-8 left-8 h-0.5 bg-border sm:right-12 sm:left-12" aria-hidden="true" />
+            <div className="relative grid grid-cols-2 gap-6 sm:grid-cols-4">
+              {ROLES.map(({ label, description, icon: Icon }) => (
+                <Link key={label} href="/login" className="group text-center">
+                  <span className="mx-auto flex size-12 items-center justify-center rounded-full border-2 border-primary bg-card text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <Icon className="size-5" />
+                  </span>
+                  <p className="mt-3 font-heading text-sm font-semibold">{label}</p>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       </main>
