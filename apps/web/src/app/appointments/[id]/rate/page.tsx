@@ -27,7 +27,7 @@ export default function RateAppointmentPage({ params }: { params: Promise<{ id: 
 
   return (
     <main className="max-w-xl mx-auto mt-12 px-6 space-y-4">
-      <h1 className="text-4xl font-bold">Rate your appointment</h1>
+      <h1 className="font-heading text-4xl font-semibold">Rate your appointment</h1>
       <form onSubmit={onSubmit} className="space-y-3">
         <label className="block">
           Score (1-5)

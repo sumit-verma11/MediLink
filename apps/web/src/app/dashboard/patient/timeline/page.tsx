@@ -53,34 +53,55 @@ export default function PatientTimelinePage() {
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/calendar.png" size={160} alt="" />
         </div>
-        <h1 className="text-4xl font-bold">Health Timeline</h1>
+        <h1 className="font-heading text-4xl font-semibold">Health Timeline</h1>
       </div>
       {entries.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No history yet." /> : null}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {entries.map((entry) => (
-          <Card key={`${entry.kind}-${entry.id}`}>
-            <CardContent className="space-y-2">
-              <span>{new Date(entry.at).toLocaleDateString()} — {entry.label}</span>
-              {entry.kind === 'prescription' ? (
-                <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/prescriptions/${entry.id}`} />}>
-                  View
-                </Button>
-              ) : null}
-              {entry.kind === 'labBooking' && entry.status === 'report_ready' ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  nativeButton={false}
-                  render={
-                    <a href={`${API_BASE}/lab-bookings/${entry.id}/report`} target="_blank" rel="noreferrer" />
-                  }
-                >
-                  Download report
-                </Button>
-              ) : null}
-            </CardContent>
-          </Card>
-        ))}
+
+      {/* Every step in this list is a link in the same chain of custody the
+          landing page's signature motif represents -- a real connected
+          timeline, not a card grid, because order and continuity are the
+          actual content here. */}
+      <div className="relative max-w-2xl space-y-6 pl-10">
+        <div className="absolute top-2 bottom-2 left-[15px] w-0.5 bg-border" aria-hidden="true" />
+        {entries.map((entry) => {
+          const nodeColor =
+            entry.kind === 'appointment' ? 'bg-primary' : entry.kind === 'prescription' ? 'bg-accent' : 'bg-verified';
+          return (
+            <div key={`${entry.kind}-${entry.id}`} className="relative">
+              <span
+                className={`absolute top-1/2 -left-[31px] size-3 -translate-y-1/2 rounded-full ring-4 ring-background ${nodeColor}`}
+                aria-hidden="true"
+              />
+              <Card>
+                <CardContent className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {new Date(entry.at).toLocaleDateString()}
+                    </p>
+                    <p>{entry.label}</p>
+                  </div>
+                  {entry.kind === 'prescription' ? (
+                    <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/prescriptions/${entry.id}`} />}>
+                      View
+                    </Button>
+                  ) : null}
+                  {entry.kind === 'labBooking' && entry.status === 'report_ready' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      nativeButton={false}
+                      render={
+                        <a href={`${API_BASE}/lab-bookings/${entry.id}/report`} target="_blank" rel="noreferrer" />
+                      }
+                    >
+                      Download report
+                    </Button>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
       </div>
     </main>
   );

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { HeartbeatBackground } from "@/components/ui/heartbeat-background";
+import { ChainBackground } from "@/components/ui/chain-background";
 import { FloatingIcon3D } from "@/components/ui/floating-icon-3d";
 
 const ROLES = [
@@ -74,7 +74,7 @@ export default function Home() {
 
       <main className="flex flex-1 flex-col">
         <section className="relative overflow-hidden px-6 pt-6 pb-24 text-center">
-          <HeartbeatBackground />
+          <ChainBackground />
           <div className="relative mx-auto max-w-3xl space-y-6">
             <span className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium shadow-sm">
               <FloatingIcon3D src="/icons-3d/heart.png" size={20} alt="" />
@@ -93,7 +93,7 @@ export default function Home() {
             <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
               {STATS.map((s) => (
                 <div key={s.label}>
-                  <p className="text-4xl font-bold text-primary">{s.value}</p>
+                  <p className="font-heading text-4xl font-semibold text-primary">{s.value}</p>
                   <p className="text-xs text-muted-foreground">{s.label}</p>
                 </div>
               ))}

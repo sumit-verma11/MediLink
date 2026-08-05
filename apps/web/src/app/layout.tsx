@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Lora } from "next/font/google";
+import { Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
 import { StoreProvider } from "@/store/StoreProvider";
 import "./globals.css";
 
@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const lora = Lora({
-  variable: "--font-lora",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  weight: ["500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -31,7 +32,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <StoreProvider>{children}</StoreProvider>

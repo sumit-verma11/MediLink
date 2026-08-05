@@ -8,12 +8,12 @@ const STATUS_STYLES: Record<string, string> = {
   booked: 'bg-primary/10 text-primary',
   sample_collected: 'bg-primary/10 text-primary',
   approved: 'bg-primary/10 text-primary',
-  completed: 'bg-green-100 text-green-800',
-  report_ready: 'bg-green-100 text-green-800',
-  closed: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
-  cancelled: 'bg-red-100 text-red-800',
-  no_show: 'bg-red-100 text-red-800',
+  completed: 'bg-verified/10 text-verified',
+  report_ready: 'bg-verified/10 text-verified',
+  closed: 'bg-verified/10 text-verified',
+  rejected: 'bg-destructive/10 text-destructive',
+  cancelled: 'bg-destructive/10 text-destructive',
+  no_show: 'bg-destructive/10 text-destructive',
 };
 
 const STATUS_ACCENT_BORDERS: Record<string, string> = {
@@ -24,12 +24,12 @@ const STATUS_ACCENT_BORDERS: Record<string, string> = {
   booked: 'border-l-primary',
   sample_collected: 'border-l-primary',
   approved: 'border-l-primary',
-  completed: 'border-l-green-500',
-  report_ready: 'border-l-green-500',
-  closed: 'border-l-green-500',
-  rejected: 'border-l-red-400',
-  cancelled: 'border-l-red-400',
-  no_show: 'border-l-red-400',
+  completed: 'border-l-verified',
+  report_ready: 'border-l-verified',
+  closed: 'border-l-verified',
+  rejected: 'border-l-destructive',
+  cancelled: 'border-l-destructive',
+  no_show: 'border-l-destructive',
 };
 
 // A left-border accent color matching StatusBadge's bucket, for cards that

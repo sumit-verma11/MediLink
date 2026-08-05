@@ -86,7 +86,8 @@ export default function LabDashboardPage() {
               <CardContent className="space-y-2">
                 <p className="text-lg font-medium">{r.patientName ?? 'Patient'}</p>
                 <p className="text-sm text-muted-foreground">
-                  Tests: {r.suggestedTestCodes.join(', ')}{r.doctorName ? ` · Referred by ${r.doctorName}` : ''}
+                  Tests: <span className="font-mono">{r.suggestedTestCodes.join(', ')}</span>
+                  {r.doctorName ? ` · Referred by ${r.doctorName}` : ''}
                 </p>
                 <StatusBadge status={r.status} />
               </CardContent>
@@ -102,7 +103,8 @@ export default function LabDashboardPage() {
             <Card key={booking._id} className={statusAccentClass(booking.status)}>
               <CardContent className="space-y-2">
                 <p className="text-lg">
-                  {new Date(booking.scheduledAt).toLocaleString()} — {booking.testCodes.join(', ')} — ₹{booking.totalPrice}
+                  <span className="font-mono text-sm text-muted-foreground">{new Date(booking.scheduledAt).toLocaleString()}</span>
+                  {' — '}<span className="font-mono">{booking.testCodes.join(', ')}</span> — ₹{booking.totalPrice}
                 </p>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={booking.status} />

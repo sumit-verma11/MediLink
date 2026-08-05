@@ -17,7 +17,7 @@ export default function DoctorReferralsPage() {
         <div className="shrink-0">
           <FloatingIcon3D src="/icons-3d/microscope.png" size={160} alt="" />
         </div>
-        <h1 className="text-4xl font-bold">Lab Referrals Sent</h1>
+        <h1 className="font-heading text-4xl font-semibold">Lab Referrals Sent</h1>
       </div>
       {data?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No referrals sent yet." /> : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
