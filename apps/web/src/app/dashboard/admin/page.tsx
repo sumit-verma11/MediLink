@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="font-heading text-2xl font-semibold">Pending verifications</h2>
+        <h2 className="text-2xl font-bold">Pending verifications</h2>
         <div className="flex gap-2">
           <Button variant={role === 'doctor' ? 'default' : 'outline'} size="sm" onClick={() => setRole('doctor')}>
             Doctors

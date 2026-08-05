@@ -21,7 +21,7 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
 
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-4 px-6">
-      <h1 className="font-heading text-4xl font-semibold">Prescription</h1>
+      <h1 className="text-4xl font-bold">Prescription</h1>
       {prescription.supersededBy ? (
         <p className="text-sm text-amber-700">This prescription has been amended — a newer version exists.</p>
       ) : null}

@@ -93,7 +93,7 @@ export default function Home() {
             <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
               {STATS.map((s) => (
                 <div key={s.label}>
-                  <p className="font-heading text-4xl font-semibold text-primary">{s.value}</p>
+                  <p className="text-4xl font-bold text-primary">{s.value}</p>
                   <p className="text-xs text-muted-foreground">{s.label}</p>
                 </div>
               ))}
@@ -111,7 +111,7 @@ export default function Home() {
                     <div className={`flex size-11 items-center justify-center rounded-full ${accent}`}>
                       <Icon className="size-6" />
                     </div>
-                    <CardTitle className="text-lg">{label}</CardTitle>
+                    <CardTitle className="font-heading text-lg font-semibold">{label}</CardTitle>
                     <CardDescription className="text-base">{description}</CardDescription>
                   </CardHeader>
                 </Card>

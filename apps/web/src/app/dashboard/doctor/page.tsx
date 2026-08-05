@@ -66,7 +66,7 @@ export default function DoctorDashboard() {
       ) : null}
 
       <div className="space-y-3">
-        <h2 className="font-heading text-2xl font-semibold">Pending requests</h2>
+        <h2 className="text-2xl font-bold">Pending requests</h2>
         {data?.items.length === 0 ? <EmptyState icon="/icons-3d/bell.png" message="No pending requests." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data?.items.map((appt) => (
@@ -120,7 +120,7 @@ export default function DoctorDashboard() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="font-heading text-2xl font-semibold">Confirmed appointments</h2>
+        <h2 className="text-2xl font-bold">Confirmed appointments</h2>
         {isConfirmedLoading ? <p>Loading…</p> : null}
         {confirmedData?.items.length === 0 ? <EmptyState icon="/icons-3d/calendar.png" message="No confirmed appointments." /> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
