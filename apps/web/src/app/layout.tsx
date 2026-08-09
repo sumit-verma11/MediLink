@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Geist_Mono } from "next/font/google";
 import { StoreProvider } from "@/store/StoreProvider";
+import { BlobBackground } from "@/components/ui/blob-background";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -30,6 +31,7 @@ export default function RootLayout({
       className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <BlobBackground variant="ambient" />
         <StoreProvider>{children}</StoreProvider>
       </body>
     </html>
