@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { useListMyLabBookingsQuery, useUpdateBookingStatusMutation } from '@/store/labBookingsApi';
 import { useListReferralsForLabQuery } from '@/store/labReferralsApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function LabDashboardPage() {
   const { data, isLoading, refetch } = useListMyLabBookingsQuery();
@@ -46,52 +51,68 @@ export default function LabDashboardPage() {
 
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Lab Dashboard</h1>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="shrink-0">
+            <FloatingIcon3D src="/icons-3d/test-tube.png" size={160} alt="" />
+          </div>
+          <h1 className="text-2xl font-bold">Lab Dashboard</h1>
+        </div>
         <Link href="/notifications" className="text-sm underline">
           Notifications{notifData && notifData.unreadCount > 0 ? ` (${notifData.unreadCount} unread)` : ''}
         </Link>
       </div>
-      {uploadError ? <p className="text-sm text-red-600">{uploadError}</p> : null}
+      {uploadError ? <p className="text-sm text-destructive">{uploadError}</p> : null}
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Incoming referrals</h2>
+        {referralsData?.items.length === 0 ? <EmptyState icon="/icons-3d/microscope.png" message="No incoming referrals yet." /> : null}
         {referralsData?.items.map((r) => (
-          <div key={r._id} className="border p-3 rounded">
-            <p>Tests: {r.suggestedTestCodes.join(', ')}</p>
-            <p className="text-sm text-gray-600">Status: {r.status}</p>
-          </div>
+          <Card key={r._id}>
+            <CardContent className="space-y-2">
+              <p className="text-lg">Tests: {r.suggestedTestCodes.join(', ')}</p>
+              <StatusBadge status={r.status} />
+            </CardContent>
+          </Card>
         ))}
-        {referralsData?.items.length === 0 ? <p className="text-sm text-gray-600">No incoming referrals yet.</p> : null}
       </section>
-      <ul className="space-y-2">
+      <div className="space-y-2">
+        {data?.items.length === 0 ? <EmptyState icon="/icons-3d/test-tube.png" message="No bookings yet." /> : null}
         {data?.items.map((booking) => (
-          <li key={booking._id} className="border p-3 rounded space-y-2">
-            <p>{new Date(booking.scheduledAt).toLocaleString()} — {booking.testCodes.join(', ')} — ₹{booking.totalPrice}</p>
-            <p className="text-sm text-gray-600">Status: {booking.status}{booking.homeCollection ? ' (home collection)' : ''}</p>
-            {booking.status === 'booked' ? (
-              <button className="text-sm underline" onClick={() => markCollected(booking._id)}>
-                Mark sample collected
-              </button>
-            ) : null}
-            {booking.status === 'sample_collected' ? (
-              <label className="text-sm underline cursor-pointer">
-                {uploadingId === booking._id ? 'Uploading...' : 'Upload report (PDF)'}
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void onUploadReport(booking._id, file);
-                  }}
-                />
-              </label>
-            ) : null}
-            {booking.status === 'report_ready' ? <p className="text-sm text-green-700">Report uploaded ✓</p> : null}
-          </li>
+          <Card key={booking._id}>
+            <CardContent className="space-y-2">
+              <p className="text-lg">
+                {new Date(booking.scheduledAt).toLocaleString()} — {booking.testCodes.join(', ')} — ₹{booking.totalPrice}
+              </p>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={booking.status} />
+                {booking.homeCollection ? (
+                  <span className="text-sm text-muted-foreground">(home collection)</span>
+                ) : null}
+              </div>
+              {booking.status === 'booked' ? (
+                <Button size="sm" onClick={() => markCollected(booking._id)}>
+                  Mark sample collected
+                </Button>
+              ) : null}
+              {booking.status === 'sample_collected' ? (
+                <label className="text-sm underline cursor-pointer">
+                  {uploadingId === booking._id ? 'Uploading...' : 'Upload report (PDF)'}
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void onUploadReport(booking._id, file);
+                    }}
+                  />
+                </label>
+              ) : null}
+              {booking.status === 'report_ready' ? <p className="text-sm text-green-700">Report uploaded ✓</p> : null}
+            </CardContent>
+          </Card>
         ))}
-      </ul>
-      {data?.items.length === 0 ? <p className="text-sm text-gray-600">No bookings yet.</p> : null}
+      </div>
     </main>
   );
 }

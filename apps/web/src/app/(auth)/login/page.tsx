@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLoginMutation } from '@/store/authApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
-const ROLE_REDIRECT: Record<string, string> = {
+const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
   patient: '/dashboard/patient',
   doctor: '/dashboard/doctor',
   lab: '/dashboard/lab',
@@ -22,32 +23,41 @@ export default function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const { user } = await login(form).unwrap();
-    router.push(ROLE_REDIRECT[user.role] ?? '/');
+    router.push(DASHBOARD_PATH_BY_ROLE[user.role] ?? '/');
   }
 
   return (
     <Card className="w-full max-w-sm p-6">
       <CardHeader className="px-0">
-        <CardTitle className="text-xl">Login</CardTitle>
+        <CardTitle className="text-xl">Log in</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Input
             placeholder="Email"
+            aria-label="Email"
+            type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
           <Input
-            type="password"
             placeholder="Password"
+            aria-label="Password"
+            type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
-          <Button disabled={isLoading} className="w-full">
-            Login
-          </Button>
           {error ? <p className="text-sm text-destructive">Login failed</p> : null}
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? 'Logging in…' : 'Log in'}
+          </Button>
         </form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="underline">
+            Register
+          </Link>
+        </p>
       </CardContent>
     </Card>
   );

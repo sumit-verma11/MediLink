@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useListVerificationsQuery, useDecideVerificationMutation, useGetAnalyticsQuery } from '@/store/adminApi';
+import { FloatingIcon3D } from '@/components/ui/floating-icon-3d';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function AdminDashboardPage() {
   const [role, setRole] = useState<'doctor' | 'lab'>('doctor');
@@ -12,71 +16,87 @@ export default function AdminDashboardPage() {
 
   return (
     <main className="max-w-3xl mx-auto mt-12 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="shrink-0">
+            <FloatingIcon3D src="/icons-3d/bar-chart.png" size={160} alt="" />
+          </div>
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        </div>
         <Link href="/notifications" className="text-sm underline">Notifications</Link>
       </div>
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Pending verifications</h2>
         <div className="flex gap-2">
-          <button className={`border px-3 py-1 rounded ${role === 'doctor' ? 'bg-gray-100' : ''}`} onClick={() => setRole('doctor')}>Doctors</button>
-          <button className={`border px-3 py-1 rounded ${role === 'lab' ? 'bg-gray-100' : ''}`} onClick={() => setRole('lab')}>Labs</button>
+          <Button variant={role === 'doctor' ? 'default' : 'outline'} size="sm" onClick={() => setRole('doctor')}>
+            Doctors
+          </Button>
+          <Button variant={role === 'lab' ? 'default' : 'outline'} size="sm" onClick={() => setRole('lab')}>
+            Labs
+          </Button>
         </div>
         {loadingVerifications ? <p>Loading…</p> : null}
+        {verifications?.items.length === 0 ? <EmptyState icon="/icons-3d/shield.png" message={`No pending ${role}s.`} /> : null}
         {verifications?.items.map((p) => (
-          <div key={p._id} className="border p-3 rounded flex justify-between items-center">
-            <span>{p._id}</span>
-            <div className="flex gap-2">
-              <button
-                className="border px-3 py-1 rounded"
-                onClick={async () => {
-                  await decide({ role, id: p._id, decision: 'approved' }).unwrap();
-                  refetch();
-                }}
-              >
-                Approve
-              </button>
-              <button
-                className="border px-3 py-1 rounded"
-                onClick={async () => {
-                  await decide({ role, id: p._id, decision: 'rejected', reason: 'Does not meet verification requirements' }).unwrap();
-                  refetch();
-                }}
-              >
-                Reject
-              </button>
-            </div>
-          </div>
+          <Card key={p._id}>
+            <CardContent className="flex items-center justify-between gap-4">
+              <span>{p._id}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    await decide({ role, id: p._id, decision: 'approved' }).unwrap();
+                    refetch();
+                  }}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={async () => {
+                    await decide({ role, id: p._id, decision: 'rejected', reason: 'Does not meet verification requirements' }).unwrap();
+                    refetch();
+                  }}
+                >
+                  Reject
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ))}
-        {verifications?.items.length === 0 ? <p className="text-sm text-gray-600">No pending {role}s.</p> : null}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-xl font-semibold">Analytics</h2>
-        {loadingAnalytics ? <p>Loading…</p> : null}
-        {analytics ? (
-          <div className="space-y-2">
-            <p>Patients: {analytics.totalRegistrations.patients} · Doctors: {analytics.totalRegistrations.doctors} · Labs: {analytics.totalRegistrations.labs}</p>
-            <div>
-              <p className="font-semibold">Appointments per day (last 14 days)</p>
-              {analytics.appointmentsPerDay.map((d) => (
-                <p key={d.date} className="text-sm text-gray-600">{d.date}: {d.count}</p>
-              ))}
+      <Card>
+        <CardHeader>
+          <CardTitle>Analytics</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loadingAnalytics ? <p>Loading…</p> : null}
+          {analytics ? (
+            <div className="space-y-2">
+              <p>Patients: {analytics.totalRegistrations.patients} · Doctors: {analytics.totalRegistrations.doctors} · Labs: {analytics.totalRegistrations.labs}</p>
+              <div>
+                <p className="font-semibold">Appointments per day (last 14 days)</p>
+                {analytics.appointmentsPerDay.map((d) => (
+                  <p key={d.date} className="text-sm text-muted-foreground">{d.date}: {d.count}</p>
+                ))}
+              </div>
+              <div>
+                <p className="font-semibold">Top specialties</p>
+                {analytics.topSpecialties.map((s) => (
+                  <p key={s.specialty} className="text-sm text-muted-foreground">{s.specialty}: {s.count}</p>
+                ))}
+              </div>
+              <p>
+                Triage → booking conversion: {analytics.triageToBookingConversion.conversionRate}%
+                {' '}({analytics.triageToBookingConversion.sessionsWithBooking}/{analytics.triageToBookingConversion.totalSessions})
+              </p>
             </div>
-            <div>
-              <p className="font-semibold">Top specialties</p>
-              {analytics.topSpecialties.map((s) => (
-                <p key={s.specialty} className="text-sm text-gray-600">{s.specialty}: {s.count}</p>
-              ))}
-            </div>
-            <p>
-              Triage → booking conversion: {analytics.triageToBookingConversion.conversionRate}%
-              {' '}({analytics.triageToBookingConversion.sessionsWithBooking}/{analytics.triageToBookingConversion.totalSessions})
-            </p>
-          </div>
-        ) : null}
-      </section>
+          ) : null}
+        </CardContent>
+      </Card>
     </main>
   );
 }
