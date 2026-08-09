@@ -27,12 +27,12 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
+    <Card className="w-full max-w-sm p-6">
+      <CardHeader className="px-0">
         <CardTitle className="text-xl">Log in</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+      <CardContent className="px-0">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Input
             placeholder="Email"
             aria-label="Email"

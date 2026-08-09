@@ -1,104 +1,124 @@
 import Link from "next/link";
 import {
-  Stethoscope,
-  FlaskConical,
-  ShieldPlus,
   User,
+  UserRound,
+  FlaskConical,
+  ShieldCheck,
+  Stethoscope,
   CalendarCheck,
   ClipboardPlus,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { HeartbeatBackground } from "@/components/ui/heartbeat-background";
-import { FloatingIcon3D } from "@/components/ui/floating-icon-3d";
+import { BlobBackground } from "@/components/ui/blob-background";
+import { cn } from "@/lib/utils";
 
-const ROLES = [
-  { label: "Patient", description: "Describe your symptoms, get matched with a doctor, and book an appointment.", icon: User },
-  { label: "Doctor", description: "Manage your schedule, confirm bookings, and write prescriptions.", icon: Stethoscope },
-  { label: "Lab", description: "Receive referrals, manage bookings, and upload reports.", icon: FlaskConical },
-  { label: "Admin", description: "Verify doctors and labs, and monitor platform activity.", icon: ShieldPlus },
+const roleEntries = [
+  {
+    label: "Patient",
+    description: "Get AI-guided triage, book appointments, and track your health timeline.",
+    icon: User,
+  },
+  {
+    label: "Doctor",
+    description: "Manage availability, review referrals, and issue prescriptions.",
+    icon: UserRound,
+  },
+  {
+    label: "Lab",
+    description: "Track referrals from booking through to report upload.",
+    icon: FlaskConical,
+  },
+  {
+    label: "Admin",
+    description: "Verify doctor and lab credentials, monitor platform activity.",
+    icon: ShieldCheck,
+  },
 ];
 
-const STEPS = [
-  { label: "Triage", description: "Describe your symptoms to get matched with the right specialty.", icon: Stethoscope },
-  { label: "Book", description: "Pick a doctor and a slot that works for you.", icon: CalendarCheck },
-  { label: "Prescribe & Refer", description: "Your doctor prescribes medicines and refers lab tests if needed.", icon: ClipboardPlus },
-];
-
-const STATS = [
-  { value: "12", label: "Doctors" },
-  { value: "4", label: "Path labs" },
-  { value: "AI", label: "Symptom triage" },
-  { value: "24/7", label: "Booking" },
+const steps = [
+  {
+    label: "Triage",
+    description: "Describe your symptoms — AI maps them to the right specialty.",
+    icon: Stethoscope,
+  },
+  {
+    label: "Book",
+    description: "Pick a matched doctor and an open slot, confirmed instantly.",
+    icon: CalendarCheck,
+  },
+  {
+    label: "Prescribe & Refer",
+    description: "Get a verifiable prescription, with lab referrals when needed.",
+    icon: ClipboardPlus,
+  },
 ];
 
 export default function Home() {
   return (
-    <>
-      <main className="flex flex-1 flex-col">
-        <section className="relative overflow-hidden px-6 pt-14 pb-24 text-center">
-          <HeartbeatBackground />
-          <div className="relative mx-auto max-w-3xl space-y-5">
-            <div className="mx-auto flex justify-center">
-              <FloatingIcon3D src="/icons-3d/heart.png" size={140} alt="" />
-            </div>
-            <h1 className="text-5xl font-bold tracking-tight text-foreground md:text-6xl">MedLink</h1>
-            <p className="text-xl text-muted-foreground">
-              AI symptom triage, doctor matching, appointment booking, prescriptions, and
-              lab referrals &mdash; one connected healthcare flow.
-            </p>
-            <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
-            <Button size="lg" nativeButton={false} render={<Link href="/login">Get started</Link>} />
-
-            <div className="mx-auto grid max-w-lg grid-cols-2 gap-4 pt-6 sm:grid-cols-4">
-              {STATS.map((s) => (
-                <div key={s.label}>
-                  <p className="text-2xl font-bold text-primary">{s.value}</p>
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                </div>
-              ))}
-            </div>
+    <div className="flex flex-1 flex-col">
+      <section className="grid flex-1 items-center gap-10 px-6 py-20 md:grid-cols-2 md:px-16">
+        <div className="flex flex-col items-start gap-6 text-left">
+          <h1 className="max-w-md text-4xl font-bold leading-tight tracking-tight text-foreground md:text-5xl">
+            Describe your symptoms. We&apos;ll find who can help.
+          </h1>
+          <p className="max-w-md text-lg leading-7 text-muted-foreground">
+            AI symptom triage, doctor matching, appointment booking, prescriptions,
+            and lab referrals — one calm flow, start to finish.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            This is guidance, not medical advice.
+          </p>
+          <div className="flex gap-3">
+            <Link
+              href="/register"
+              className={cn(buttonVariants({ variant: "accent", size: "lg" }))}
+            >
+              Get started
+            </Link>
+            <Link
+              href="/login"
+              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            >
+              Sign in
+            </Link>
           </div>
-        </section>
+        </div>
+        <div className="relative hidden h-80 overflow-hidden rounded-3xl bg-muted md:block">
+          <BlobBackground variant="hero" />
+        </div>
+      </section>
 
-        <section className="mx-auto w-full max-w-5xl px-6 py-10">
-          <h2 className="mb-6 text-center text-2xl font-bold">One platform, four roles</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {ROLES.map(({ label, description, icon: Icon }) => (
-              <Link key={label} href="/login">
-                <Card className="h-full">
-                  <CardHeader>
-                    <Icon className="size-7 text-primary" />
-                    <CardTitle className="text-lg">{label}</CardTitle>
-                    <CardDescription className="text-base">{description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
+      <section className="grid gap-4 px-6 py-16 md:grid-cols-4 md:px-16">
+        {roleEntries.map(({ label, description, icon: Icon }) => (
+          <Link key={label} href="/login" className="block">
+            <Card className="h-full p-6 transition-colors hover:bg-secondary/40">
+              <CardHeader className="gap-3 px-0">
+                <Icon className="size-6 text-primary" />
+                <CardTitle>{label}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </section>
+
+      <section className="grid gap-8 px-6 py-16 md:grid-cols-3 md:px-16">
+        {steps.map(({ label, description, icon: Icon }) => (
+          <div key={label} className="flex flex-col items-start gap-3">
+            <Icon className="size-8 text-primary" />
+            <h3 className="text-lg font-semibold text-foreground">{label}</h3>
+            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
-        </section>
+        ))}
+      </section>
 
-        <section className="mx-auto w-full max-w-4xl px-6 py-10">
-          <h2 className="mb-8 text-center text-2xl font-bold">How it works</h2>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-            {STEPS.map(({ label, description, icon: Icon }, i) => (
-              <div key={label} className="space-y-2 text-center">
-                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
-                  <Icon className="size-7 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">{i + 1}. {label}</h3>
-                <p className="text-base text-muted-foreground">{description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t px-6 py-8 text-center text-sm text-muted-foreground">
-        <Link href="/search" className="underline">
-          Search doctors &amp; labs
+      <footer className="border-t border-border px-6 py-8 text-center text-sm text-muted-foreground md:px-16">
+        MedLink ·{" "}
+        <Link href="/search" className="underline hover:text-foreground">
+          Find doctors & labs
         </Link>
       </footer>
-    </>
+    </div>
   );
 }

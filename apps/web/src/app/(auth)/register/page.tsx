@@ -24,12 +24,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
+    <Card className="w-full max-w-sm p-6">
+      <CardHeader className="px-0">
         <CardTitle className="text-xl">Register</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+      <CardContent className="px-0">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Input placeholder="Name" aria-label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input placeholder="Email" aria-label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input placeholder="Phone" aria-label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
