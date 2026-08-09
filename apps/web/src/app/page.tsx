@@ -8,9 +8,10 @@ import {
   CalendarCheck,
   ClipboardPlus,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BlobBackground } from "@/components/ui/blob-background";
+import { cn } from "@/lib/utils";
 
 const roleEntries = [
   {
@@ -69,25 +70,21 @@ export default function Home() {
             This is guidance, not medical advice.
           </p>
           <div className="flex gap-3">
-            <Button
-              variant="accent"
-              size="lg"
-              nativeButton={false}
-              render={<Link href="/register" />}
+            <Link
+              href="/register"
+              className={cn(buttonVariants({ variant: "accent", size: "lg" }))}
             >
               Get started
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              nativeButton={false}
-              render={<Link href="/login" />}
+            </Link>
+            <Link
+              href="/login"
+              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
             >
               Sign in
-            </Button>
+            </Link>
           </div>
         </div>
-        <div className="relative hidden h-80 overflow-hidden rounded-3xl bg-secondary md:block">
+        <div className="relative hidden h-80 overflow-hidden rounded-3xl bg-muted md:block">
           <BlobBackground variant="hero" />
         </div>
       </section>
@@ -117,7 +114,10 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-border px-6 py-8 text-center text-sm text-muted-foreground md:px-16">
-        MedLink
+        MedLink ·{" "}
+        <Link href="/search" className="underline hover:text-foreground">
+          Find doctors & labs
+        </Link>
       </footer>
     </div>
   );

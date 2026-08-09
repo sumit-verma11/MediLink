@@ -6,7 +6,6 @@ import { useRegisterMutation } from '@/store/authApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
 type RegisterRole = 'patient' | 'doctor' | 'lab' | 'admin';
 
@@ -52,9 +51,7 @@ export default function RegisterPage() {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
           <select
-            className={cn(
-              "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
-            )}
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value as RegisterRole })}
           >
