@@ -69,10 +69,20 @@ export default function Home() {
             This is guidance, not medical advice.
           </p>
           <div className="flex gap-3">
-            <Button variant="accent" size="lg" render={<Link href="/register" />}>
+            <Button
+              variant="accent"
+              size="lg"
+              nativeButton={false}
+              render={<Link href="/register" />}
+            >
               Get started
             </Button>
-            <Button variant="outline" size="lg" render={<Link href="/login" />}>
+            <Button
+              variant="outline"
+              size="lg"
+              nativeButton={false}
+              render={<Link href="/login" />}
+            >
               Sign in
             </Button>
           </div>
