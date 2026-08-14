@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useLoginMutation } from '@/store/authApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
   patient: '/dashboard/patient',
@@ -27,34 +27,45 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm p-6">
-      <CardHeader className="px-0">
-        <CardTitle className="text-xl">Log in</CardTitle>
+    <Card className="w-full max-w-sm p-7">
+      <CardHeader className="gap-1.5 px-0">
+        <CardTitle className="text-2xl font-semibold">Log in</CardTitle>
+        <CardDescription>Welcome back. Pick up right where you left off.</CardDescription>
       </CardHeader>
       <CardContent className="px-0">
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <Input
-            placeholder="Email"
-            aria-label="Email"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <Input
-            placeholder="Password"
-            aria-label="Password"
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
-          {error ? <p className="text-sm text-destructive">Login failed</p> : null}
-          <Button type="submit" disabled={isLoading} className="w-full">
+        <form onSubmit={onSubmit} className="mt-2 flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email" className="text-sm font-medium text-foreground">
+              Email
+            </label>
+            <Input
+              id="email"
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className="text-sm font-medium text-foreground">
+              Password
+            </label>
+            <Input
+              id="password"
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+          {error ? <p className="text-sm text-destructive">Login failed. Check your email and password.</p> : null}
+          <Button type="submit" disabled={isLoading} size="lg" className="mt-2 w-full">
             {isLoading ? 'Logging in…' : 'Log in'}
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="underline">
+          <Link href="/register" className="font-medium text-foreground underline underline-offset-2">
             Register
           </Link>
         </p>

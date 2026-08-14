@@ -19,7 +19,7 @@ export interface LabSearchResult {
 
 export const searchApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    searchDoctors: builder.query<{ items: DoctorSearchResult[]; total: number }, { name?: string; specialty?: string; city?: string }>({
+    searchDoctors: builder.query<{ items: DoctorSearchResult[]; total: number }, { name?: string; specialty?: string; city?: string; limit?: number }>({
       query: (params) => ({ url: '/doctors', params }),
     }),
     searchLabs: builder.query<{ items: LabSearchResult[]; total: number }, { testCode?: string; testName?: string; city?: string }>({

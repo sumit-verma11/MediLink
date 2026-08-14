@@ -3,6 +3,9 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateBookingMutation } from '@/store/labBookingsApi';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function WalkInBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: labId } = use(params);
@@ -24,28 +27,39 @@ export default function WalkInBookingPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <main className="max-w-xl mx-auto mt-12 space-y-4">
-      <h1 className="text-2xl font-bold">Book a Test</h1>
+    <main className="mx-auto max-w-xl px-6 py-16 md:px-16">
+      <Card className="p-7">
+        <CardContent className="space-y-5 px-0">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Book a test</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Walk-in booking, no referral needed.</p>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Test codes (comma-separated, e.g. CBC,LFT)</label>
-        <input className="border p-2 w-full" value={testCodesText} onChange={(e) => setTestCodesText(e.target.value)} />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="testCodes" className="text-sm font-medium text-foreground">
+              Test codes
+            </label>
+            <Input id="testCodes" placeholder="CBC, LFT" value={testCodesText} onChange={(e) => setTestCodesText(e.target.value)} />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Preferred date/time</label>
-        <input type="datetime-local" className="border p-2" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="scheduledAt" className="text-sm font-medium text-foreground">
+              Preferred date &amp; time
+            </label>
+            <Input id="scheduledAt" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+          </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={homeCollection} onChange={(e) => setHomeCollection(e.target.checked)} />
-        Home collection (if offered by this lab)
-      </label>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" checked={homeCollection} onChange={(e) => setHomeCollection(e.target.checked)} className="size-4 rounded border-input" />
+            Home collection (if offered by this lab)
+          </label>
 
-      <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onBook}>
-        {isLoading ? 'Booking...' : 'Book Now'}
-      </button>
-      {error ? <p className="text-sm text-red-600">Something went wrong — please check the test codes and try again.</p> : null}
+          {error ? <p className="text-sm text-destructive">Something went wrong. Please check the test codes and try again.</p> : null}
+          <Button size="lg" className="w-full" disabled={isLoading} onClick={onBook}>
+            {isLoading ? 'Booking…' : 'Book now'}
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }

@@ -26,6 +26,32 @@ async function hashed(): Promise<string> {
   return bcrypt.hash(DEMO_PASSWORD, 10);
 }
 
+// A single templated sentence read as an obvious placeholder once there were
+// 100+ doctors on the page. These pools combine (5 x 6 = 30 phrasings) so the
+// generated bio still varies in wording, not just in the exp/city/specialty
+// values it's filled with.
+const BIO_OPENERS: ((d: { name: string; specialties: string[]; city: string; exp: number }) => string)[] = [
+  (d) => `${d.name} has ${d.exp} years of experience in ${d.specialties[0]!}, practicing in ${d.city}.`,
+  (d) => `With ${d.exp} years in ${d.specialties[0]!}, ${d.name} has built a steady practice in ${d.city} and the wider NCR region.`,
+  (d) => `${d.name} brings ${d.exp} years of clinical experience in ${d.specialties[0]!} to every consultation.`,
+  (d) => `A ${d.specialties[0]!.toLowerCase()} specialist based in ${d.city}, ${d.name} has ${d.exp} years of practice behind them.`,
+  (d) => `${d.name} has spent ${d.exp} years treating patients in and around ${d.city}, with a focus on ${d.specialties[0]!.toLowerCase()}.`,
+];
+const BIO_CLOSERS = [
+  'Known for a patient, detail-oriented approach to every consultation.',
+  'Focuses on clear communication and practical, easy-to-follow care plans.',
+  'Committed to explaining every diagnosis in plain language patients can act on.',
+  'Believes in listening first and treating the whole patient, not just the symptom.',
+  'Takes a calm, unhurried approach, especially with anxious or first-time patients.',
+  'Known among patients for following up personally after a visit.',
+];
+
+function buildDoctorBio(d: { name: string; specialties: string[]; city: string; exp: number }, index: number): string {
+  const opener = BIO_OPENERS[index % BIO_OPENERS.length]!(d);
+  const closer = BIO_CLOSERS[(index * 3 + 1) % BIO_CLOSERS.length]!;
+  return `${opener} ${closer}`;
+}
+
 export async function runSeed(): Promise<void> {
   await User.deleteMany({});
   await PatientProfile.deleteMany({});
@@ -59,7 +85,7 @@ export async function runSeed(): Promise<void> {
     });
   }
 
-  for (const d of DOCTORS) {
+  for (const [i, d] of DOCTORS.entries()) {
     const user = await User.create({
       role: 'doctor', email: d.email, phone: '9800000001', passwordHash, name: d.name,
       avatarUrl: `https://i.pravatar.cc/150?u=${d.email}`, isVerified: true,
@@ -67,7 +93,7 @@ export async function runSeed(): Promise<void> {
     await DoctorProfile.create({
       userId: user._id, specialties: d.specialties, qualifications: ['MBBS'],
       regNo: `DMC/R/${String(Math.floor(10000 + Math.random() * 89999))}`,
-      experienceYears: d.exp, bio: `${d.name} is an experienced ${d.specialties[0]} practitioner.`,
+      experienceYears: d.exp, bio: buildDoctorBio(d, i),
       clinicName: `${d.name.replace('Dr. ', '')} Clinic`, clinicAddress: `${d.city} Main Road`,
       city: d.city, geo: { lat: 28.5, lng: 77.3 }, consultationFee: d.fee,
       languages: ['English', 'Hindi'], verificationStatus: d.status,

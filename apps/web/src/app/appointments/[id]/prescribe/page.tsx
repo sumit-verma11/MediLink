@@ -2,8 +2,12 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import { GENERIC_MEDICINES } from '@medlink/shared';
 import { useCreatePrescriptionMutation, type Medicine } from '@/store/prescriptionsApi';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function PrescribePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: appointmentId } = use(params);
@@ -56,65 +60,79 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-4">
-      <h1 className="text-2xl font-bold">Write Prescription</h1>
-
+    <main className="mx-auto max-w-2xl space-y-8 px-6 py-16 md:px-16">
       <div>
-        <label className="block text-sm font-medium">Diagnosis</label>
-        <textarea className="border p-2 w-full" value={diagnosisNote} onChange={(e) => setDiagnosisNote(e.target.value)} />
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Write prescription</h1>
+        <p className="mt-1 text-muted-foreground">This becomes a permanent, verifiable record.</p>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">Medicines</label>
-        {medicines.map((med, i) => (
-          <div key={i} className="grid grid-cols-4 gap-2">
-            <input
-              className="border p-2"
-              list="medicine-options"
-              placeholder="Name"
-              value={med.name}
-              onChange={(e) => updateMedicine(i, 'name', e.target.value)}
-            />
-            <input className="border p-2" placeholder="Dosage" value={med.dosage} onChange={(e) => updateMedicine(i, 'dosage', e.target.value)} />
-            <input className="border p-2" placeholder="Frequency" value={med.frequency} onChange={(e) => updateMedicine(i, 'frequency', e.target.value)} />
-            <input
-              className="border p-2"
-              type="number"
-              placeholder="Days"
-              value={med.durationDays}
-              onChange={(e) => updateMedicine(i, 'durationDays', e.target.value)}
+      <Card>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="diagnosis" className="text-sm font-medium text-foreground">
+              Diagnosis
+            </label>
+            <textarea
+              id="diagnosis"
+              className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              value={diagnosisNote}
+              onChange={(e) => setDiagnosisNote(e.target.value)}
             />
           </div>
-        ))}
-        <datalist id="medicine-options">
-          {GENERIC_MEDICINES.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-        <button type="button" className="text-sm underline" onClick={addMedicineRow}>
-          + Add medicine
-        </button>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium">Advice</label>
-        <textarea className="border p-2 w-full" value={advice} onChange={(e) => setAdvice(e.target.value)} />
-      </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-foreground">Medicines</span>
+            {medicines.map((med, i) => (
+              <div key={i} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Input list="medicine-options" placeholder="Name" value={med.name} onChange={(e) => updateMedicine(i, 'name', e.target.value)} />
+                <Input placeholder="Dosage" value={med.dosage} onChange={(e) => updateMedicine(i, 'dosage', e.target.value)} />
+                <Input placeholder="Frequency" value={med.frequency} onChange={(e) => updateMedicine(i, 'frequency', e.target.value)} />
+                <Input type="number" placeholder="Days" value={med.durationDays} onChange={(e) => updateMedicine(i, 'durationDays', e.target.value)} />
+              </div>
+            ))}
+            <datalist id="medicine-options">
+              {GENERIC_MEDICINES.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+            <button type="button" className="inline-flex w-fit items-center gap-1 text-sm font-medium text-foreground underline underline-offset-2" onClick={addMedicineRow}>
+              <Plus className="size-3.5" /> Add medicine
+            </button>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Follow-up date (optional)</label>
-        <input type="date" className="border p-2" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="advice" className="text-sm font-medium text-foreground">
+              Advice
+            </label>
+            <textarea
+              id="advice"
+              className="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              value={advice}
+              onChange={(e) => setAdvice(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Recommended tests (comma-separated, optional)</label>
-        <input className="border p-2 w-full" value={recommendedTestsText} onChange={(e) => setRecommendedTestsText(e.target.value)} />
-      </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="followup" className="text-sm font-medium text-foreground">
+                Follow-up date (optional)
+              </label>
+              <Input id="followup" type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="tests" className="text-sm font-medium text-foreground">
+                Recommended tests (optional)
+              </label>
+              <Input id="tests" placeholder="CBC, LFT" value={recommendedTestsText} onChange={(e) => setRecommendedTestsText(e.target.value)} />
+            </div>
+          </div>
 
-      <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onSubmit}>
-        {isLoading ? 'Saving...' : 'Save Prescription'}
-      </button>
-      {error ? <p className="text-sm text-red-600">Something went wrong — please try again.</p> : null}
+          {error ? <p className="text-sm text-destructive">Something went wrong. Please try again.</p> : null}
+          <Button disabled={isLoading} onClick={onSubmit} size="lg" className="w-full">
+            {isLoading ? 'Saving…' : 'Save prescription'}
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }

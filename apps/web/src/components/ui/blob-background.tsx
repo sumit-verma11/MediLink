@@ -21,13 +21,13 @@ function BlobBackground({ variant, className }: BlobBackgroundProps) {
     >
       <div
         className={cn(
-          "absolute -right-10 -top-10 rounded-full bg-[#DCEAE3] blur-3xl",
+          "absolute -right-10 -top-10 rounded-full bg-[#A5F3FC] blur-3xl",
           isAmbient ? "h-96 w-96" : "h-72 w-72"
         )}
       />
       <div
         className={cn(
-          "absolute -bottom-10 -left-10 rounded-full bg-[#F3DCD3] blur-3xl",
+          "absolute -bottom-10 -left-10 rounded-full bg-[#FED7AA] blur-3xl",
           isAmbient ? "h-72 w-72" : "h-56 w-56"
         )}
       />

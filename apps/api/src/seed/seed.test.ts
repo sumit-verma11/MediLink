@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { runSeed } from './seed';
+import { DOCTORS } from './data';
 import { User } from '../models/User';
 import { DoctorProfile } from '../models/DoctorProfile';
 import { LabProfile } from '../models/LabProfile';
@@ -34,12 +35,14 @@ describe('runSeed', () => {
     expect(admin).not.toBeNull();
 
     const doctors = await User.find({ role: 'doctor' });
-    expect(doctors).toHaveLength(12);
+    expect(doctors).toHaveLength(DOCTORS.length);
 
+    const expectedApproved = DOCTORS.filter((d) => d.status === 'approved').length;
+    const expectedPending = DOCTORS.filter((d) => d.status === 'pending').length;
     const approvedDoctors = await DoctorProfile.countDocuments({ verificationStatus: 'approved' });
-    expect(approvedDoctors).toBe(11);
+    expect(approvedDoctors).toBe(expectedApproved);
     const pendingDoctors = await DoctorProfile.countDocuments({ verificationStatus: 'pending' });
-    expect(pendingDoctors).toBe(1);
+    expect(pendingDoctors).toBe(expectedPending);
 
     const labs = await User.find({ role: 'lab' });
     expect(labs).toHaveLength(4);

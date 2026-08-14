@@ -3,6 +3,9 @@
 import { use, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCreateReferralMutation } from '@/store/labReferralsApi';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function ReferToLabPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: prescriptionId } = use(params);
@@ -28,31 +31,47 @@ export default function ReferToLabPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <main className="max-w-xl mx-auto mt-12 space-y-4">
-      <h1 className="text-2xl font-bold">Refer to a Lab</h1>
-      <p className="text-sm text-gray-600">Recommended tests: {recommendedTestNames.join(', ') || 'none'}</p>
+    <main className="mx-auto max-w-xl px-6 py-16 md:px-16">
+      <Card className="p-7">
+        <CardContent className="space-y-5 px-0">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Refer to a lab</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Recommended tests: {recommendedTestNames.join(', ') || 'none'}
+            </p>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Lab ID</label>
-        <input className="border p-2 w-full" value={labId} onChange={(e) => setLabId(e.target.value)} placeholder="Paste the lab's profile id" />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="labId" className="text-sm font-medium text-foreground">
+              Lab ID
+            </label>
+            <Input id="labId" value={labId} onChange={(e) => setLabId(e.target.value)} placeholder="Paste the lab's profile id" />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium">Test codes to refer (comma-separated, e.g. CBC,LFT)</label>
-        <input
-          className="border p-2 w-full"
-          onChange={(e) => setSelectedCodes(e.target.value.split(',').map((c) => c.trim()).filter(Boolean))}
-        />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="testCodes" className="text-sm font-medium text-foreground">
+              Test codes to refer
+            </label>
+            <Input
+              id="testCodes"
+              placeholder="CBC, LFT"
+              onChange={(e) => setSelectedCodes(e.target.value.split(',').map((c) => c.trim()).filter(Boolean))}
+            />
+          </div>
 
-      <button className="bg-black text-white px-4 py-2" disabled={isLoading} onClick={onSubmit}>
-        {isLoading ? 'Sending...' : 'Send Referral'}
-      </button>
-      {error ? <p className="text-sm text-red-600">Something went wrong — check the lab id and test codes.</p> : null}
+          {error ? <p className="text-sm text-destructive">Something went wrong. Check the lab id and test codes.</p> : null}
+          <Button size="lg" className="w-full" disabled={isLoading} onClick={onSubmit}>
+            {isLoading ? 'Sending…' : 'Send referral'}
+          </Button>
 
-      <button className="text-sm underline block" onClick={() => router.push('/dashboard/doctor')}>
-        Skip (no lab referral)
-      </button>
+          <button
+            className="w-full text-center text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            onClick={() => router.push('/dashboard/doctor')}
+          >
+            Skip (no lab referral)
+          </button>
+        </CardContent>
+      </Card>
     </main>
   );
 }

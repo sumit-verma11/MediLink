@@ -7,7 +7,7 @@ export const PATIENTS = [
   { email: 'anita.p@medlink.demo', name: 'Anita Verma', phone: '9810000006', age: 51, gender: 'female' as const, city: 'Ghaziabad' },
 ];
 
-export const DOCTORS = [
+const CURATED_DOCTORS = [
   { email: 'meera.d@medlink.demo', name: 'Dr. Meera Sharma', specialties: ['Dermatology'], city: 'Noida', fee: 600, exp: 9, status: 'approved' as const },
   { email: 'arjun.d@medlink.demo', name: 'Dr. Arjun Khanna', specialties: ['Dermatology'], city: 'Delhi', fee: 900, exp: 14, status: 'approved' as const },
   { email: 'kavita.d@medlink.demo', name: 'Dr. Kavita Rao', specialties: ['General Physician'], city: 'Noida', fee: 400, exp: 7, status: 'approved' as const },
@@ -21,6 +21,84 @@ export const DOCTORS = [
   { email: 'ritu.d@medlink.demo', name: 'Dr. Ritu Bansal', specialties: ['Psychiatry'], city: 'Delhi', fee: 1100, exp: 13, status: 'approved' as const },
   { email: 'karan.d@medlink.demo', name: 'Dr. Karan Mehta', specialties: ['Ophthalmology'], city: 'Noida', fee: 650, exp: 6, status: 'pending' as const },
 ];
+
+// Bulks the roster up so search/listing pages read as a real, populated
+// marketplace instead of a handful of demo cards. Deterministic (no Math.random
+// for names/specialty/city) so re-running the idempotent seed produces the same
+// roster every time; regNo below is the only intentionally random field.
+const EXTRA_FIRST_NAMES = [
+  'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Krishna', 'Ishaan', 'Rohan',
+  'Aryan', 'Yash', 'Dhruv', 'Nikhil', 'Varun', 'Siddharth', 'Abhishek', 'Manoj', 'Rajesh', 'Anand',
+  'Deepak', 'Vikas', 'Ravi', 'Ajay', 'Gaurav', 'Naveen', 'Pankaj', 'Ashok', 'Mahesh', 'Sunil',
+  'Vinod', 'Ramesh', 'Prakash', 'Harish', 'Sandeep', 'Sameer', 'Tarun', 'Puneet', 'Mohit', 'Nitin',
+  'Kunal', 'Vishal', 'Saurabh', 'Anil', 'Aanya', 'Diya', 'Saanvi', 'Ananya', 'Pari', 'Anika',
+  'Navya', 'Riya', 'Ira', 'Myra', 'Sara', 'Aditi', 'Ishita', 'Kavya', 'Rhea', 'Shreya',
+  'Simran', 'Swati', 'Tanya', 'Vidya', 'Zara', 'Sunita', 'Rekha', 'Geeta', 'Kiran', 'Lata',
+  'Madhuri', 'Nandini', 'Pallavi', 'Preeti', 'Radha', 'Seema', 'Shalini', 'Uma', 'Vandana', 'Bhavna',
+  'Charu', 'Divya', 'Esha', 'Falguni', 'Gauri', 'Hema',
+];
+const EXTRA_LAST_NAMES = [
+  'Sharma', 'Verma', 'Gupta', 'Kumar', 'Singh', 'Rao', 'Reddy', 'Iyer', 'Nair', 'Menon',
+  'Pillai', 'Khanna', 'Malhotra', 'Kapoor', 'Chopra', 'Bansal', 'Mehta', 'Shah', 'Patel', 'Joshi',
+  'Desai', 'Trivedi', 'Pandey', 'Mishra', 'Tiwari', 'Dubey', 'Saxena', 'Agarwal', 'Bhatia', 'Chawla',
+  'Arora', 'Bhalla', 'Chauhan', 'Rathore', 'Yadav', 'Choudhary', 'Jain', 'Goel', 'Aggarwal', 'Bajaj',
+  'Sethi', 'Kohli', 'Dutta', 'Sen', 'Bose', 'Mukherjee', 'Chatterjee', 'Banerjee', 'Ghosh', 'Das',
+];
+const SPECIALTY_FEE_RANGE: Record<string, [number, number]> = {
+  Dermatology: [500, 1000],
+  'General Physician': [300, 550],
+  Gastroenterology: [800, 1300],
+  Cardiology: [1000, 1800],
+  Gynecology: [600, 1100],
+  Orthopedics: [700, 1200],
+  Pediatrics: [500, 900],
+  ENT: [400, 800],
+  Psychiatry: [900, 1500],
+  Ophthalmology: [500, 900],
+};
+const EXTRA_SPECIALTIES = Object.keys(SPECIALTY_FEE_RANGE);
+const EXTRA_CITIES = ['Noida', 'Delhi', 'Ghaziabad'];
+
+function generateExtraDoctors(count: number): typeof CURATED_DOCTORS {
+  const doctors: typeof CURATED_DOCTORS = [];
+  for (let i = 0; i < count; i++) {
+    const first = EXTRA_FIRST_NAMES[i % EXTRA_FIRST_NAMES.length]!;
+    const last = EXTRA_LAST_NAMES[(i * 7 + 3) % EXTRA_LAST_NAMES.length]!;
+    const specialty = EXTRA_SPECIALTIES[i % EXTRA_SPECIALTIES.length]!;
+    const city = EXTRA_CITIES[i % EXTRA_CITIES.length]!;
+    const [minFee, maxFee] = SPECIALTY_FEE_RANGE[specialty]!;
+    const fee = minFee + ((i * 37) % (maxFee - minFee + 1));
+    const exp = 3 + (i % 23);
+    doctors.push({
+      email: `${first}.${last}.${i}@medlink.demo`.toLowerCase(),
+      name: `Dr. ${first} ${last}`,
+      specialties: [specialty],
+      city,
+      fee,
+      exp,
+      status: 'approved' as const,
+    });
+  }
+  return doctors;
+}
+
+const GENERATED_DOCTORS = generateExtraDoctors(90);
+
+export const DOCTORS = [...CURATED_DOCTORS, ...GENERATED_DOCTORS];
+
+// Every generated doctor also gets a weekly slot, cycling through a handful of
+// realistic patterns by index, so search results are bookable rather than
+// decorative-only.
+const EXTRA_AVAILABILITY_PATTERNS: { dayOfWeek: number; startTime: string; endTime: string; slotMinutes: number }[][] = [
+  [{ dayOfWeek: 1, startTime: '10:00', endTime: '13:00', slotMinutes: 15 }],
+  [{ dayOfWeek: 2, startTime: '17:00', endTime: '20:00', slotMinutes: 20 }],
+  [{ dayOfWeek: 3, startTime: '09:00', endTime: '12:00', slotMinutes: 10 }],
+  [{ dayOfWeek: 4, startTime: '16:00', endTime: '19:00', slotMinutes: 15 }],
+  [{ dayOfWeek: 5, startTime: '11:00', endTime: '14:00', slotMinutes: 20 }],
+  [{ dayOfWeek: 6, startTime: '10:00', endTime: '13:00', slotMinutes: 15 }],
+];
+const GENERATED_AVAILABILITY_RULES: Record<string, { dayOfWeek: number; startTime: string; endTime: string; slotMinutes: number }[]> =
+  Object.fromEntries(GENERATED_DOCTORS.map((d, i) => [d.email, EXTRA_AVAILABILITY_PATTERNS[i % EXTRA_AVAILABILITY_PATTERNS.length]!]));
 
 export const LABS = [
   {
@@ -82,4 +160,5 @@ export const AVAILABILITY_RULES_BY_DOCTOR_EMAIL: Record<string, { dayOfWeek: num
   'pooja.d@medlink.demo': [{ dayOfWeek: 1, startTime: '10:00', endTime: '13:00', slotMinutes: 15 }],
   'vivek.d@medlink.demo': [{ dayOfWeek: 1, startTime: '11:00', endTime: '13:00', slotMinutes: 15 }],
   'ritu.d@medlink.demo': [{ dayOfWeek: 2, startTime: '15:00', endTime: '18:00', slotMinutes: 30 }],
+  ...GENERATED_AVAILABILITY_RULES,
 };

@@ -1,4 +1,9 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { MapPin, Clock, Home, FlaskConical } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface LabTest {
   code: string;
@@ -17,6 +22,14 @@ interface LabProfile {
   tests: LabTest[];
 }
 
+interface OtherLab {
+  _id: string;
+  labName: string;
+  city: string;
+  homeCollection: boolean;
+  tests: { code: string }[];
+}
+
 // This fetch runs on the Next.js server, not in the browser, so it must reach
 // the API by a hostname the server can resolve. Under Docker Compose that is the
 // internal service name (`http://api:4000/api`), not the host-mapped localhost
@@ -32,35 +45,99 @@ async function getLab(id: string): Promise<LabProfile | null> {
   return data.profile;
 }
 
+async function getOtherLabs(excludeId: string): Promise<OtherLab[]> {
+  const res = await fetch(`${API_BASE}/labs?limit=5`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.items as OtherLab[]).filter((l) => l._id !== excludeId).slice(0, 3);
+}
+
+// Composed from fields the profile already has, rather than a separate
+// "description" field on the model -- one more thing to keep in sync for a
+// sentence that's fully derivable from data that's already here.
+function describeLab(lab: LabProfile): string {
+  const collectionLine = lab.homeCollection
+    ? 'Home sample collection is available if you would rather not travel in.'
+    : 'Samples are collected on-site during lab hours.';
+  return `${lab.labName} is a diagnostics lab in ${lab.city}, running ${lab.tests.length} tests from routine blood work to specialised panels. ${collectionLine} Open ${lab.timings}.`;
+}
+
 export default async function LabPublicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const lab = await getLab(id);
   if (!lab) notFound();
+  const otherLabs = await getOtherLabs(id);
 
   return (
-    <main className="max-w-2xl mx-auto mt-12 space-y-2">
-      <h1 className="text-2xl font-bold">{lab.labName}</h1>
-      <p className="text-gray-600">{lab.address}, {lab.city}</p>
-      <p>Timings: {lab.timings}</p>
-      <p>Home collection: {lab.homeCollection ? 'Available' : 'Not available'}</p>
-      <table className="w-full mt-4 border-collapse">
-        <thead>
-          <tr className="text-left border-b">
-            <th className="py-1">Test</th>
-            <th className="py-1">Price</th>
-            <th className="py-1">TAT</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lab.tests.map((t) => (
-            <tr key={t.code} className="border-b">
-              <td className="py-1">{t.name}</td>
-              <td className="py-1">₹{t.price}</td>
-              <td className="py-1">{t.turnaroundHours}h</td>
-            </tr>
+    <main className="flex flex-1 flex-col">
+      <div className="border-b border-border bg-card px-6 py-16 md:px-16">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{lab.labName}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="size-3.5" /> {lab.address}, {lab.city}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3.5" /> {lab.timings}
+              </span>
+              {lab.homeCollection ? (
+                <span className="inline-flex items-center gap-1">
+                  <Home className="size-3.5" /> Home collection available
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-foreground">{describeLab(lab)}</p>
+          </div>
+          <Link href={`/labs/${lab._id}/book`} className={cn(buttonVariants({ variant: 'accent', size: 'lg' }))}>
+            Book a test
+          </Link>
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-3xl px-6 py-12 md:px-16">
+        <h2 className="text-lg font-semibold text-foreground">Tests offered</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {lab.tests.map((t, i) => (
+            <Card key={t.code} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+              <CardContent className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">Results in {t.turnaroundHours}h</p>
+                </div>
+                <p className="text-sm font-semibold text-foreground">₹{t.price}</p>
+              </CardContent>
+            </Card>
           ))}
-        </tbody>
-      </table>
+        </div>
+
+        {otherLabs.length > 0 ? (
+          <div className="mt-10">
+            <h2 className="text-lg font-semibold text-foreground">Other labs</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {otherLabs.map((l, i) => (
+                <Link key={l._id} href={`/labs/${l._id}`}>
+                  <Card
+                    className="animate-fade-up flex-row items-center gap-3 p-4"
+                    style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+                  >
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary">
+                      <FlaskConical className="size-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{l.labName}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {l.city} &middot; {l.tests.length} tests
+                        {l.homeCollection ? ' · home collection' : ''}
+                      </p>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </main>
   );
 }
