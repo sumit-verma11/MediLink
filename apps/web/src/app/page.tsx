@@ -58,6 +58,38 @@ const steps = [
   },
 ];
 
+const faqs = [
+  {
+    question: "Does the AI diagnose me or prescribe medicine?",
+    answer:
+      "No. The triage engine only maps your described symptoms to a likely specialty and ranks doctors who treat it. Every AI response carries a disclaimer that this is guidance, not medical advice, and only a licensed doctor on the platform can write a prescription.",
+  },
+  {
+    question: "What happens if I describe an emergency symptom?",
+    answer:
+      "Certain symptoms, like chest pain, breathlessness, or sudden vision loss, are checked before anything else. If one matches, you get an immediate emergency banner telling you to seek care or call 112, and the system skips doctor matching entirely rather than risk delaying you.",
+  },
+  {
+    question: "Can a doctor change a prescription after it's issued?",
+    answer:
+      "Not by editing it. Prescriptions are immutable once created. If a doctor needs to amend a diagnosis or dosage, they issue a new version that links back to the original, so the full history stays intact and auditable.",
+  },
+  {
+    question: "Is home sample collection available for lab tests?",
+    answer:
+      "Where the lab offers it, yes. Each partner lab's profile shows whether home collection is available; if it is, you can choose it directly when booking a referred or walk-in test.",
+  },
+  {
+    question: "How is my data handled?",
+    answer:
+      "The platform is designed with DPDP Act principles in mind: encryption at rest, consent flags, and an audit log on every cross-role action (who did what, and when). MedLink does not claim HIPAA compliance, and is built as a portfolio project rather than a certified medical system.",
+  },
+  {
+    question: "Which cities is MedLink available in?",
+    answer: "The current doctor and lab network covers Noida, Delhi, and Ghaziabad, across 10 specialties.",
+  },
+];
+
 const features = [
   {
     icon: Sparkles,
@@ -240,6 +272,34 @@ export default async function Home() {
         </div>
       </section>
 
+      <section className="px-6 py-20 md:px-16">
+        <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
+          <div className="relative order-2 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-3xl bg-primary md:order-1">
+            <ShieldCheck className="absolute size-64 text-primary-foreground/10" strokeWidth={1} />
+            <p className="relative max-w-[16rem] text-center text-xl font-semibold leading-snug text-primary-foreground">
+              Every prescription. Every referral. Logged.
+            </p>
+          </div>
+          <div className="order-1 md:order-2">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+              Why we built this
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              Getting from &ldquo;something feels off&rdquo; to a treatment plan usually means five systems that
+              don&apos;t talk to each other: searching symptoms online, guessing at a specialty, calling clinics
+              to find an open slot, and leaving with a paper prescription that&apos;s gone missing by the time lab
+              results arrive.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              MedLink is one flow instead. AI narrows down who to see, booking confirms a real slot with a real
+              doctor, the prescription that comes out the other end is a permanent and verifiable record, and a
+              lab referral follows the patient automatically when a test is needed. Every step is logged. The AI
+              is never the one making the call.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="bg-primary px-6 py-20 text-primary-foreground md:px-16">
         <div className="mb-10 max-w-xl">
           <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Designed like it matters</h2>
@@ -300,6 +360,21 @@ export default async function Home() {
           </div>
         </section>
       ) : null}
+
+      <section className="px-6 py-20 md:px-16">
+        <div className="mb-10 max-w-xl">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">Common questions</h2>
+          <p className="mt-2 text-muted-foreground">The things people usually ask before their first booking.</p>
+        </div>
+        <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
+          {faqs.map(({ question, answer }, i) => (
+            <div key={question} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 6) * 50}ms` }}>
+              <h3 className="text-sm font-semibold text-foreground">{question}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{answer}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="mx-6 mb-20 rounded-3xl bg-accent px-6 py-16 text-center text-accent-foreground md:mx-16 md:px-16">
         <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Ready when you are.</h2>
