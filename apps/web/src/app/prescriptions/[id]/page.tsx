@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BackLink } from '@/components/ui/back-link';
-import { cn } from '@/lib/utils';
+import { cn, openAuthedFile } from '@/lib/utils';
 
 export default function PrescriptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -46,14 +46,17 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Prescription</h1>
         </div>
         {prescription.pdfUrl ? (
-          <a
+          <button
+            type="button"
             className={cn(buttonVariants({ variant: 'accent' }))}
-            href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/prescriptions/${prescription._id}/pdf`}
-            target="_blank"
-            rel="noreferrer"
+            onClick={() =>
+              openAuthedFile(
+                `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/prescriptions/${prescription._id}/pdf`
+              )
+            }
           >
             <Download className="size-4" /> Download PDF
-          </a>
+          </button>
         ) : null}
       </div>
 

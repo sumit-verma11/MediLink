@@ -23,3 +23,15 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback
 }
+
+// File downloads (report/prescription PDFs) are plain browser navigations, not RTK Query
+// calls, so they never go through api.ts's silent-refresh-on-401 wrapper. The 15-minute
+// access token cookie can easily be stale by the time someone clicks a download link they've
+// been looking at for a while, and a raw <a href> navigation just shows a bare "Not
+// authenticated" JSON error with no chance to recover. Refresh first so the cookie is fresh,
+// then open the file -- mirrors what baseQueryWithReauth already does for every other request.
+export async function openAuthedFile(url: string): Promise<void> {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"
+  await fetch(`${apiBase}/auth/refresh`, { method: "POST", credentials: "include" }).catch(() => {})
+  window.open(url, "_blank", "noopener,noreferrer")
+}

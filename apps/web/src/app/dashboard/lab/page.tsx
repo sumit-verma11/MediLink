@@ -25,14 +25,26 @@ export default function LabDashboardPage() {
   async function onUploadReport(id: string, file: File) {
     setUploadingId(id);
     setUploadError(null);
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
     const formData = new FormData();
     formData.append('report', file);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/lab-bookings/${id}/report`, {
+      let response = await fetch(`${apiBase}/lab-bookings/${id}/report`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
       });
+      // This fetch is outside RTK Query's baseQueryWithReauth wrapper, so a stale
+      // 15-minute access token cookie gets no automatic refresh -- retry once after
+      // refreshing, same as every RTK Query call already does.
+      if (response.status === 401) {
+        await fetch(`${apiBase}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        response = await fetch(`${apiBase}/lab-bookings/${id}/report`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+      }
       if (!response.ok) {
         setUploadError('Upload failed. Please try again.');
         return;

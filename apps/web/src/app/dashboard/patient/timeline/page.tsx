@@ -8,6 +8,7 @@ import { useListMyLabBookingsAsPatientQuery } from '@/store/labBookingsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { openAuthedFile } from '@/lib/utils';
 
 type TimelineEntry =
   | { kind: 'appointment'; at: string; label: string; id: string }
@@ -95,14 +96,17 @@ export default function PatientTimelinePage() {
                   ) : null}
                   {entry.kind === 'labBooking' && entry.status === 'report_ready' ? (
                     <div className="flex shrink-0 items-center gap-4">
-                      <a
+                      <button
+                        type="button"
                         className="text-sm font-medium text-foreground underline underline-offset-2"
-                        href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/lab-bookings/${entry.id}/report`}
-                        target="_blank"
-                        rel="noreferrer"
+                        onClick={() =>
+                          openAuthedFile(
+                            `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/lab-bookings/${entry.id}/report`
+                          )
+                        }
                       >
                         Download report
-                      </a>
+                      </button>
                       {!entry.rated ? (
                         <Link
                           href={`/lab-bookings/${entry.id}/rate`}
