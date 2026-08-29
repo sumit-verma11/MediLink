@@ -11,6 +11,9 @@ export interface LabBooking {
   homeCollection: boolean;
   status: 'booked' | 'sample_collected' | 'report_ready' | 'cancelled';
   reportUrl?: string;
+  // Only ever populated on /lab-bookings/mine (the patient-scoped listing); the lab's own
+  // /lab-bookings/me view never sets it (mirrors Appointment.rated on the doctor side).
+  rated?: boolean;
 }
 
 export const labBookingsApi = baseApi.injectEndpoints({

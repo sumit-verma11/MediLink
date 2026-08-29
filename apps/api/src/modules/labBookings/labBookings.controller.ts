@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createBooking, listBookingsForLab, listBookingsForPatient, updateBookingStatus, getReportPath } from './labBookings.service';
 import { LabBooking } from '../../models/LabBooking';
 import { LabProfile } from '../../models/LabProfile';
+import { Rating } from '../../models/Rating';
 import { AppError } from '../../lib/errors';
 
 // Runs BEFORE multer's upload middleware on POST /:id/report so that ownership is
@@ -54,8 +55,30 @@ export async function listBookingsForPatientHandler(req: Request, res: Response,
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.max(1, Number(req.query.limit) || 20);
-    const result = await listBookingsForPatient(req.user!.id, page, limit);
-    res.status(200).json(result);
+    const { items, total, ...rest } = await listBookingsForPatient(req.user!.id, page, limit);
+
+    // Same pattern as the appointments list's `rated` flag: a patient's dashboard needs
+    // to know which report-ready bookings are already rated (to swap "Rate this lab" for
+    // nothing) without a per-booking round trip.
+    const reportReadyIds = items.filter((item) => item.status === 'report_ready').map((item) => item._id);
+    const ratings = reportReadyIds.length ? await Rating.find({ bookingId: { $in: reportReadyIds } }, 'bookingId') : [];
+    const ratedBookingIds = new Set(ratings.map((r) => r.bookingId!.toString()));
+
+    const itemsWithRated = items.map((item) => ({
+      _id: item._id,
+      referralId: item.referralId,
+      patientId: item.patientId,
+      labId: item.labId,
+      testCodes: item.testCodes,
+      totalPrice: item.totalPrice,
+      scheduledAt: item.scheduledAt,
+      homeCollection: item.homeCollection,
+      status: item.status,
+      reportUrl: item.reportUrl,
+      rated: item.status === 'report_ready' ? ratedBookingIds.has(item._id.toString()) : undefined,
+    }));
+
+    res.status(200).json({ items: itemsWithRated, total, ...rest });
   } catch (err) {
     next(err);
   }

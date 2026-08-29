@@ -6,6 +6,8 @@ import { useCreateBookingMutation } from '@/store/labBookingsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BackLink } from '@/components/ui/back-link';
+import { apiErrorMessage } from '@/lib/utils';
 
 export default function WalkInBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: labId } = use(params);
@@ -28,6 +30,7 @@ export default function WalkInBookingPage({ params }: { params: Promise<{ id: st
 
   return (
     <main className="mx-auto max-w-xl px-6 py-16 md:px-16">
+      <BackLink href={`/labs/${labId}`} label="Back to lab" />
       <Card className="p-7">
         <CardContent className="space-y-5 px-0">
           <div>
@@ -54,7 +57,7 @@ export default function WalkInBookingPage({ params }: { params: Promise<{ id: st
             Home collection (if offered by this lab)
           </label>
 
-          {error ? <p className="text-sm text-destructive">Something went wrong. Please check the test codes and try again.</p> : null}
+          {error ? <p className="text-sm text-destructive">{apiErrorMessage(error, 'Something went wrong. Please check the test codes and try again.')}</p> : null}
           <Button size="lg" className="w-full" disabled={isLoading} onClick={onBook}>
             {isLoading ? 'Booking…' : 'Book now'}
           </Button>

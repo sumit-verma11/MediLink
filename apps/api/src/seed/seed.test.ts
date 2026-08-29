@@ -135,12 +135,12 @@ describe('runSeed — Phase 6 slice (ratings, lab referral notification)', () =>
   it('seeds one rating per completed appointment via the real createRating path, recomputing avgRating/ratingCount per doctor', async () => {
     await runSeed();
 
-    const ratings = await Rating.find({});
+    const doctorRatings = await Rating.find({ doctorId: { $exists: true } });
     // Rating.appointmentId is unique and createRating requires status 'completed' --
     // with exactly 7 completed appointments seeded (Phase 2 slice above), 7 is the
     // maximum achievable, in place of CLAUDE.md §6.4's "8" (written before that
     // constraint was enforced by the real service).
-    expect(ratings).toHaveLength(7);
+    expect(doctorRatings).toHaveLength(7);
 
     const meeraUser = await User.findOne({ email: 'meera.d@medlink.demo' });
     const meeraProfile = await DoctorProfile.findOne({ userId: meeraUser!._id });
@@ -168,6 +168,19 @@ describe('runSeed — Phase 6 slice (ratings, lab referral notification)', () =>
     const arjunProfile = await DoctorProfile.findOne({ userId: arjunUser!._id });
     expect(arjunProfile!.ratingCount).toBe(0);
     expect(arjunProfile!.avgRating).toBe(0);
+  });
+
+  it('seeds one lab rating on the report-ready HealthFirst booking via the real createLabRating path', async () => {
+    await runSeed();
+
+    const labRatings = await Rating.find({ labId: { $exists: true } });
+    expect(labRatings).toHaveLength(1);
+    expect(labRatings[0]).toMatchObject({ score: 5, text: 'Fast turnaround, accurate report' });
+
+    const healthfirstUser = await User.findOne({ email: 'healthfirst.l@medlink.demo' });
+    const healthfirstProfile = await LabProfile.findOne({ userId: healthfirstUser!._id });
+    expect(healthfirstProfile!.ratingCount).toBe(1);
+    expect(healthfirstProfile!.avgRating).toBe(5);
   });
 
   it('notifies both the patient and the lab for the seeded "sent" lab referral', async () => {

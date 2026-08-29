@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useGetDoctorSlotsQuery, useCreateAppointmentMutation } from '@/store/appointmentsApi';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { BackLink } from '@/components/ui/back-link';
+import { cn, apiErrorMessage } from '@/lib/utils';
 
 export default function BookAppointmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: doctorId } = use(params);
@@ -47,6 +48,7 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-6 py-16 md:px-16">
+      <BackLink href={`/doctors/${doctorId}`} label="Back to doctor" />
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Book an appointment</h1>
         <p className="mt-1 text-muted-foreground">Pick an open slot in the next two weeks.</p>
@@ -77,7 +79,7 @@ export default function BookAppointmentPage({ params }: { params: Promise<{ id: 
       <Button size="lg" className="w-full" disabled={!selected || isBooking} onClick={onBook}>
         {isBooking ? 'Booking…' : 'Confirm booking'}
       </Button>
-      {error ? <p className="text-sm text-destructive">That slot is no longer available. Pick another.</p> : null}
+      {error ? <p className="text-sm text-destructive">{apiErrorMessage(error, 'That slot is no longer available. Pick another.')}</p> : null}
     </main>
   );
 }

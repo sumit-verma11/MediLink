@@ -6,6 +6,8 @@ import { useCreateReferralMutation } from '@/store/labReferralsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BackLink } from '@/components/ui/back-link';
+import { apiErrorMessage } from '@/lib/utils';
 
 export default function ReferToLabPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: prescriptionId } = use(params);
@@ -32,6 +34,7 @@ export default function ReferToLabPage({ params }: { params: Promise<{ id: strin
 
   return (
     <main className="mx-auto max-w-xl px-6 py-16 md:px-16">
+      <BackLink href="/dashboard/doctor" label="Back to dashboard" />
       <Card className="p-7">
         <CardContent className="space-y-5 px-0">
           <div>
@@ -59,7 +62,7 @@ export default function ReferToLabPage({ params }: { params: Promise<{ id: strin
             />
           </div>
 
-          {error ? <p className="text-sm text-destructive">Something went wrong. Check the lab id and test codes.</p> : null}
+          {error ? <p className="text-sm text-destructive">{apiErrorMessage(error, 'Something went wrong. Check the lab id and test codes.')}</p> : null}
           <Button size="lg" className="w-full" disabled={isLoading} onClick={onSubmit}>
             {isLoading ? 'Sending…' : 'Send referral'}
           </Button>

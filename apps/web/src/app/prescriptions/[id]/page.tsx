@@ -6,6 +6,7 @@ import { useListMyPrescriptionsQuery } from '@/store/prescriptionsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BackLink } from '@/components/ui/back-link';
 import { cn } from '@/lib/utils';
 
 export default function PrescriptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,10 +26,18 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
       </main>
     );
   }
-  if (!prescription) return <main className="mx-auto max-w-2xl px-6 py-16 md:px-16">Prescription not found.</main>;
+  if (!prescription) {
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-16 md:px-16">
+        <BackLink href="/dashboard/patient/timeline" label="Back to health timeline" />
+        Prescription not found.
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-6 py-16 md:px-16">
+      <BackLink href="/dashboard/patient/timeline" label="Back to health timeline" />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary">

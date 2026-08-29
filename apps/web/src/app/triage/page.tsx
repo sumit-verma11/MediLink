@@ -9,6 +9,7 @@ import { useGetPublicDoctorProfileQuery } from '@/store/doctorsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BackLink } from '@/components/ui/back-link';
 import { cn } from '@/lib/utils';
 
 function RecommendedDoctorCard({ doctorId, triageSessionId }: { doctorId: string; triageSessionId: string }) {
@@ -94,6 +95,7 @@ export default function TriagePage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-6 py-16 md:px-16">
+      <BackLink href="/dashboard/patient" label="Back to my appointments" />
       <div className="flex items-center gap-3">
         <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary">
           <Stethoscope className="size-6 text-primary" />

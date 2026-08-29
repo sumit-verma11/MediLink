@@ -79,7 +79,9 @@ export async function listMyAppointments(req: Request, res: Response, next: Next
     if (req.user!.role === 'patient') {
       const completedIds = items.filter((item) => item.status === 'completed').map((item) => item._id);
       const ratings = completedIds.length ? await Rating.find({ appointmentId: { $in: completedIds } }, 'appointmentId') : [];
-      ratedAppointmentIds = new Set(ratings.map((r) => r.appointmentId.toString()));
+      // Every result here is guaranteed to have appointmentId set -- the query itself
+      // filtered on it -- so the field is only optional in the schema's general shape.
+      ratedAppointmentIds = new Set(ratings.map((r) => r.appointmentId!.toString()));
     }
 
     const itemsWithTriageSummary = await Promise.all(

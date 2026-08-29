@@ -7,11 +7,12 @@ import { useListMyPrescriptionsQuery } from '@/store/prescriptionsApi';
 import { useListMyLabBookingsAsPatientQuery } from '@/store/labBookingsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TimelineEntry =
   | { kind: 'appointment'; at: string; label: string; id: string }
   | { kind: 'prescription'; at: string; label: string; id: string }
-  | { kind: 'labBooking'; at: string; label: string; id: string; status: string };
+  | { kind: 'labBooking'; at: string; label: string; id: string; status: string; rated?: boolean };
 
 const ICON_BY_KIND = {
   appointment: CalendarCheck,
@@ -25,7 +26,19 @@ export default function PatientTimelinePage() {
   const { data: bookingsData, isLoading: bookingsLoading } = useListMyLabBookingsAsPatientQuery({ page: 1, limit: 50 });
 
   if (appointmentsLoading || prescriptionsLoading || bookingsLoading) {
-    return <main className="max-w-2xl">Loading…</main>;
+    return (
+      <main className="max-w-2xl space-y-8">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((n) => (
+            <Skeleton key={n} className="h-16 rounded-xl" />
+          ))}
+        </div>
+      </main>
+    );
   }
 
   const entries: TimelineEntry[] = [
@@ -47,6 +60,7 @@ export default function PatientTimelinePage() {
       label: `Lab test: ${b.testCodes.join(', ')} (${b.status})`,
       id: b._id,
       status: b.status,
+      rated: b.rated,
     })) ?? []),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
@@ -80,14 +94,24 @@ export default function PatientTimelinePage() {
                     </Link>
                   ) : null}
                   {entry.kind === 'labBooking' && entry.status === 'report_ready' ? (
-                    <a
-                      className="text-sm font-medium text-foreground underline underline-offset-2"
-                      href={`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${entry.id}/report`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Download report
-                    </a>
+                    <div className="flex shrink-0 items-center gap-4">
+                      <a
+                        className="text-sm font-medium text-foreground underline underline-offset-2"
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${entry.id}/report`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Download report
+                      </a>
+                      {!entry.rated ? (
+                        <Link
+                          href={`/lab-bookings/${entry.id}/rate`}
+                          className="text-sm font-medium text-foreground underline underline-offset-2"
+                        >
+                          Rate this lab
+                        </Link>
+                      ) : null}
+                    </div>
                   ) : null}
                 </CardContent>
               </Card>

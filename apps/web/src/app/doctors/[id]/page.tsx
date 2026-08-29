@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { MapPin, Star, Languages, GraduationCap, MessageSquareQuote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { BackLink } from '@/components/ui/back-link';
 import { cn } from '@/lib/utils';
 
 interface DoctorProfile {
@@ -77,6 +78,7 @@ export default async function DoctorPublicPage({ params }: { params: Promise<{ i
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 md:px-16">
+      <BackLink href="/search" label="Back to search" />
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="size-20 shrink-0 overflow-hidden rounded-full bg-secondary ring-1 ring-foreground/10">
           {doctor.userId.avatarUrl ? (

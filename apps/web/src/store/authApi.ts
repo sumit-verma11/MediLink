@@ -7,7 +7,7 @@ interface RegisterRequest {
 interface LoginRequest {
   email: string; password: string;
 }
-interface AuthUser {
+export interface AuthUser {
   id: string; email: string; name: string; role: string;
 }
 
@@ -22,7 +22,10 @@ export const authApi = baseApi.injectEndpoints({
     logout: builder.mutation<void, void>({
       query: () => ({ url: '/auth/logout', method: 'POST' }),
     }),
+    me: builder.query<{ user: AuthUser }, void>({
+      query: () => '/auth/me',
+    }),
   }),
 });
 
-export const { useRegisterMutation, useLoginMutation, useLogoutMutation } = authApi;
+export const { useRegisterMutation, useLoginMutation, useLogoutMutation, useMeQuery } = authApi;

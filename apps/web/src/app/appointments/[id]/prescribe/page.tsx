@@ -8,6 +8,7 @@ import { useCreatePrescriptionMutation, type Medicine } from '@/store/prescripti
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BackLink } from '@/components/ui/back-link';
 
 export default function PrescribePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: appointmentId } = use(params);
@@ -61,6 +62,7 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-6 py-16 md:px-16">
+      <BackLink href="/dashboard/doctor" label="Back to dashboard" />
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Write prescription</h1>
         <p className="mt-1 text-muted-foreground">This becomes a permanent, verifiable record.</p>

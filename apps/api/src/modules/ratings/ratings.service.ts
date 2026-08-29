@@ -1,5 +1,7 @@
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile } from '../../models/DoctorProfile';
+import { LabBooking } from '../../models/LabBooking';
+import { LabProfile } from '../../models/LabProfile';
 import { Rating, IRating } from '../../models/Rating';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
@@ -50,6 +52,64 @@ export async function createRating(
   });
 
   return rating;
+}
+
+export async function createLabRating(
+  patientId: string,
+  bookingId: string,
+  score: number,
+  text?: string
+): Promise<IRating> {
+  // A booking becomes ratable once its report is ready -- the lab equivalent of an
+  // appointment reaching 'completed'. Earlier statuses have nothing to rate yet.
+  const booking = await LabBooking.findOne({ _id: bookingId, patientId, status: 'report_ready' });
+  if (!booking) throw new AppError(404, 'Booking with a ready report not found', 'BOOKING_NOT_FOUND');
+
+  let rating: IRating;
+  try {
+    rating = await Rating.create({ labId: booking.labId, patientId, bookingId, score, text });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000) {
+      throw new AppError(409, 'This booking has already been rated', 'ALREADY_RATED');
+    }
+    throw err;
+  }
+
+  const [agg] = await Rating.aggregate<{ _id: unknown; avg: number; count: number }>([
+    { $match: { labId: booking.labId } },
+    { $group: { _id: '$labId', avg: { $avg: '$score' }, count: { $sum: 1 } } },
+  ]);
+  await LabProfile.findByIdAndUpdate(booking.labId, {
+    avgRating: agg ? Math.round(agg.avg * 10) / 10 : 0,
+    ratingCount: agg ? agg.count : 0,
+  });
+
+  await logAudit({
+    actorId: patientId,
+    actorRole: 'patient',
+    action: 'rating.created',
+    entityType: 'Rating',
+    entityId: rating._id.toString(),
+    meta: { labId: booking.labId.toString(), score },
+  });
+
+  return rating;
+}
+
+export async function listRatingsForLab(
+  labId: string,
+  page: number,
+  limit: number
+): Promise<{ items: { score: number; text?: string; createdAt: Date }[]; total: number; page: number; limit: number }> {
+  const cappedLimit = Math.min(50, limit);
+  const [items, total] = await Promise.all([
+    Rating.find({ labId }, 'score text createdAt -_id')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * cappedLimit)
+      .limit(cappedLimit),
+    Rating.countDocuments({ labId }),
+  ]);
+  return { items, total, page, limit: cappedLimit };
 }
 
 export async function listRatingsForDoctor(

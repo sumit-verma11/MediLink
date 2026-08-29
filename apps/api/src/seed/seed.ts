@@ -17,7 +17,7 @@ import { LabReferral } from '../models/LabReferral';
 import { LabBooking } from '../models/LabBooking';
 import { Rating } from '../models/Rating';
 import { createNotification } from '../lib/notifications';
-import { createRating } from '../modules/ratings/ratings.service';
+import { createRating, createLabRating } from '../modules/ratings/ratings.service';
 import { PATIENTS, DOCTORS, LABS, AVAILABILITY_RULES_BY_DOCTOR_EMAIL } from './data';
 
 const DEMO_PASSWORD = 'Demo@123';
@@ -473,6 +473,17 @@ export async function runSeed(): Promise<void> {
   await reportReadyBooking.save();
   reportReadyReferral.reportUrl = reportUrl;
   await reportReadyReferral.save();
+
+  // One lab rating on this report-ready booking, so the "Lab reviews" section on a
+  // lab's public profile has something to show without requiring a live demo user to
+  // rate one first -- mirrors the doctor ratings above in using the real
+  // ratings.service function rather than hand-rolling Rating.create.
+  await createLabRating(
+    reportReadyBooking.patientId.toString(),
+    reportReadyBooking._id.toString(),
+    5,
+    'Fast turnaround, accurate report'
+  );
 
   // Referral 2: Dr. Kavita → Ghaziabad Diagnostic Centre (HBA1C ₹300 + BLOODSUGAR ₹120 = ₹420) → booked.
   const bookedReferral = await LabReferral.create({

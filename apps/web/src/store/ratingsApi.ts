@@ -15,7 +15,14 @@ export const ratingsApi = baseApi.injectEndpoints({
     listDoctorRatings: builder.query<{ items: Rating[]; total: number }, string>({
       query: (doctorId) => `/ratings/doctor/${doctorId}`,
     }),
+    createLabRating: builder.mutation<{ rating: unknown }, { bookingId: string; score: number; text?: string }>({
+      query: (body) => ({ url: '/ratings/lab', method: 'POST', body }),
+    }),
+    listLabRatings: builder.query<{ items: Rating[]; total: number }, string>({
+      query: (labId) => `/ratings/lab/${labId}`,
+    }),
   }),
 });
 
-export const { useCreateRatingMutation, useListDoctorRatingsQuery } = ratingsApi;
+export const { useCreateRatingMutation, useListDoctorRatingsQuery, useCreateLabRatingMutation, useListLabRatingsQuery } =
+  ratingsApi;

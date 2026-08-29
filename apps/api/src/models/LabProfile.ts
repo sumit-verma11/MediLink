@@ -19,6 +19,8 @@ export interface ILabProfile {
   homeCollection: boolean;
   verificationStatus: 'pending' | 'approved' | 'rejected';
   tests: ILabTest[];
+  avgRating: number;
+  ratingCount: number;
 }
 
 const labTestSchema = new Schema<ILabTest>(
@@ -45,6 +47,8 @@ const labProfileSchema = new Schema<ILabProfile>({
   homeCollection: { type: Boolean, default: false },
   verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   tests: { type: [labTestSchema], default: [] },
+  avgRating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 },
 });
 
 export const LabProfile = model<ILabProfile>('LabProfile', labProfileSchema);

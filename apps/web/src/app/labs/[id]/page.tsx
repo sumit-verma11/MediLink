@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { MapPin, Clock, Home, FlaskConical } from 'lucide-react';
+import { MapPin, Clock, Home, FlaskConical, Star, MessageSquareQuote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { BackLink } from '@/components/ui/back-link';
 import { cn } from '@/lib/utils';
 
 interface LabTest {
@@ -20,6 +21,8 @@ interface LabProfile {
   timings: string;
   homeCollection: boolean;
   tests: LabTest[];
+  avgRating: number;
+  ratingCount: number;
 }
 
 interface OtherLab {
@@ -28,6 +31,12 @@ interface OtherLab {
   city: string;
   homeCollection: boolean;
   tests: { code: string }[];
+}
+
+interface LabRating {
+  score: number;
+  text?: string;
+  createdAt: string;
 }
 
 // This fetch runs on the Next.js server, not in the browser, so it must reach
@@ -52,6 +61,13 @@ async function getOtherLabs(excludeId: string): Promise<OtherLab[]> {
   return (data.items as OtherLab[]).filter((l) => l._id !== excludeId).slice(0, 3);
 }
 
+async function getRatings(id: string): Promise<LabRating[]> {
+  const res = await fetch(`${API_BASE}/ratings/lab/${id}?limit=6`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.items;
+}
+
 // Composed from fields the profile already has, rather than a separate
 // "description" field on the model -- one more thing to keep in sync for a
 // sentence that's fully derivable from data that's already here.
@@ -66,11 +82,14 @@ export default async function LabPublicPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const lab = await getLab(id);
   if (!lab) notFound();
-  const otherLabs = await getOtherLabs(id);
+  const [otherLabs, ratings] = await Promise.all([getOtherLabs(id), getRatings(id)]);
 
   return (
     <main className="flex flex-1 flex-col">
       <div className="border-b border-border bg-card px-6 py-16 md:px-16">
+        <div className="mx-auto max-w-3xl">
+          <BackLink href="/search" label="Back to search" />
+        </div>
         <div className="mx-auto flex max-w-3xl flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{lab.labName}</h1>
@@ -84,6 +103,11 @@ export default async function LabPublicPage({ params }: { params: Promise<{ id: 
               {lab.homeCollection ? (
                 <span className="inline-flex items-center gap-1">
                   <Home className="size-3.5" /> Home collection available
+                </span>
+              ) : null}
+              {lab.ratingCount > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <Star className="size-3.5 fill-accent text-accent" /> {lab.avgRating.toFixed(1)} ({lab.ratingCount} reviews)
                 </span>
               ) : null}
             </div>
@@ -110,6 +134,36 @@ export default async function LabPublicPage({ params }: { params: Promise<{ id: 
             </Card>
           ))}
         </div>
+
+        {ratings.length > 0 ? (
+          <div className="mt-10">
+            <h2 className="text-lg font-semibold text-foreground">Patient reviews</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {ratings.map((r, i) => (
+                <Card key={i} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <Star key={n} className={cn('size-3.5', n <= r.score ? 'fill-accent text-accent' : 'text-border')} />
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(r.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    {r.text ? (
+                      <p className="flex items-start gap-1.5 text-sm leading-relaxed text-foreground">
+                        <MessageSquareQuote className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                        {r.text}
+                      </p>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {otherLabs.length > 0 ? (
           <div className="mt-10">

@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell, LogOut } from 'lucide-react';
-import { useLogoutMutation } from '@/store/authApi';
+import { useLogoutMutation, useMeQuery } from '@/store/authApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -22,17 +23,49 @@ const NAV_BY_ROLE: Record<string, { label: string; href: string }[]> = {
   admin: [{ label: 'Verifications', href: '/dashboard/admin' }],
 };
 
+const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
+  patient: '/dashboard/patient',
+  doctor: '/dashboard/doctor',
+  lab: '/dashboard/lab',
+  admin: '/dashboard/admin',
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const role = pathname.split('/')[2] ?? 'patient';
-  const navItems = NAV_BY_ROLE[role] ?? [];
+  const urlRole = pathname.split('/')[2] ?? 'patient';
+  const navItems = NAV_BY_ROLE[urlRole] ?? [];
   const { data: notifData } = useListMyNotificationsQuery();
+  const { data: meData, isLoading: meLoading, isError: meError } = useMeQuery();
   const [logout] = useLogoutMutation();
+
+  // The backend infers role from the auth cookie, not from which dashboard route the
+  // browser happens to be on -- /dashboard/patient and /dashboard/doctor both just call
+  // /appointments/me, which returns doctor-scoped data to a doctor regardless of which
+  // page rendered it. Without this check, a doctor visiting /dashboard/patient (a stale
+  // link, a second logged-in tab, switching accounts) sees their OWN appointments
+  // silently relabeled through the patient dashboard's UI instead of an error -- a
+  // correctness bug, not just a rough edge. Bounce to the dashboard that matches who's
+  // actually logged in.
+  useEffect(() => {
+    if (meError) {
+      router.replace('/login');
+      return;
+    }
+    if (meData && meData.user.role !== urlRole) {
+      router.replace(DASHBOARD_PATH_BY_ROLE[meData.user.role] ?? '/login');
+    }
+  }, [meData, meError, urlRole, router]);
 
   async function onLogout() {
     await logout().catch(() => undefined);
     router.push('/login');
+  }
+
+  const roleConfirmed = meData && meData.user.role === urlRole;
+
+  if (meLoading || !roleConfirmed) {
+    return <div className="min-h-full" aria-hidden />;
   }
 
   return (
@@ -60,7 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             })}
           </nav>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3">
+          <span className="hidden text-sm text-muted-foreground sm:inline">{meData.user.name}</span>
           <Link
             href="/notifications"
             className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'relative')}

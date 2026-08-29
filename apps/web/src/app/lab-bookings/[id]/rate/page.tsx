@@ -2,38 +2,35 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Star } from 'lucide-react';
-import { useCreateRatingMutation } from '@/store/ratingsApi';
-import { useListMyAppointmentsQuery } from '@/store/appointmentsApi';
-import { useGetPublicDoctorProfileQuery } from '@/store/doctorsApi';
+import { FlaskConical, Star } from 'lucide-react';
+import { useCreateLabRatingMutation } from '@/store/ratingsApi';
+import { useListMyLabBookingsAsPatientQuery } from '@/store/labBookingsApi';
+import { useGetPublicLabProfileQuery } from '@/store/labsApi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { BackLink } from '@/components/ui/back-link';
 import { cn, apiErrorMessage } from '@/lib/utils';
 
-export default function RateAppointmentPage({ params }: { params: Promise<{ id: string }> }) {
+export default function RateLabBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [score, setScore] = useState(5);
   const [text, setText] = useState('');
-  const [createRating, { isLoading, error }] = useCreateRatingMutation();
+  const [createLabRating, { isLoading, error }] = useCreateLabRatingMutation();
 
-  // There is no single-appointment GET endpoint -- find it client-side from the
-  // patient's own list (the same YAGNI call the prescription detail page makes: a
-  // handful of appointments per patient doesn't justify a dedicated endpoint).
-  const { data: appointmentsData } = useListMyAppointmentsQuery();
-  const appointment = appointmentsData?.items.find((a) => a._id === id);
-  const { data: doctorData } = useGetPublicDoctorProfileQuery(appointment?.doctorId ?? '', {
-    skip: !appointment?.doctorId,
-  });
-  const doctor = doctorData?.profile;
+  // Same reasoning as the doctor rate page: no single-booking GET endpoint, so find it
+  // client-side from the patient's own booking list.
+  const { data: bookingsData } = useListMyLabBookingsAsPatientQuery();
+  const booking = bookingsData?.items.find((b) => b._id === id);
+  const { data: labData } = useGetPublicLabProfileQuery(booking?.labId ?? '', { skip: !booking?.labId });
+  const lab = labData?.profile;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await createRating({ appointmentId: id, score, text: text || undefined }).unwrap();
-      router.push('/dashboard/patient');
+      await createLabRating({ bookingId: id, score, text: text || undefined }).unwrap();
+      router.push('/dashboard/patient/timeline');
     } catch {
       // error state is already tracked by the mutation hook and rendered below
     }
@@ -41,26 +38,22 @@ export default function RateAppointmentPage({ params }: { params: Promise<{ id: 
 
   return (
     <main className="mx-auto max-w-md px-6 py-16 md:px-16">
-      <BackLink href="/dashboard/patient" label="Back to my appointments" />
+      <BackLink href="/dashboard/patient/timeline" label="Back to health timeline" />
       <Card className="p-7">
         <CardHeader className="gap-1.5 px-0">
-          <CardTitle className="text-2xl font-semibold">Rate your appointment</CardTitle>
-          <CardDescription>How did it go? Your feedback helps other patients.</CardDescription>
+          <CardTitle className="text-2xl font-semibold">Rate this lab</CardTitle>
+          <CardDescription>How was your test experience? Your feedback helps other patients.</CardDescription>
         </CardHeader>
         <CardContent className="px-0">
-          {doctor ? (
+          {lab ? (
             <div className="mb-5 flex items-center gap-3 rounded-lg bg-muted p-3">
-              <div className="size-10 shrink-0 overflow-hidden rounded-full bg-secondary ring-1 ring-foreground/10">
-                {doctor.userId.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={doctor.userId.avatarUrl} alt="" className="size-full object-cover" />
-                ) : null}
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary">
+                <FlaskConical className="size-5 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">{doctor.userId.name}</p>
+                <p className="truncate text-sm font-semibold text-foreground">{lab.labName}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {doctor.specialties.join(', ')}
-                  {appointment ? ` · ${new Date(appointment.slotStart).toLocaleDateString()}` : ''}
+                  {booking ? booking.testCodes.join(', ') : lab.city}
                 </p>
               </div>
             </div>
@@ -94,7 +87,7 @@ export default function RateAppointmentPage({ params }: { params: Promise<{ id: 
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 maxLength={1000}
-                placeholder="Very patient, explained everything clearly."
+                placeholder="Fast turnaround, accurate report."
               />
             </div>
             {error ? (
