@@ -48,7 +48,7 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
         {prescription.pdfUrl ? (
           <a
             className={cn(buttonVariants({ variant: 'accent' }))}
-            href={`${process.env.NEXT_PUBLIC_API_URL}/prescriptions/${prescription._id}/pdf`}
+            href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/prescriptions/${prescription._id}/pdf`}
             target="_blank"
             rel="noreferrer"
           >

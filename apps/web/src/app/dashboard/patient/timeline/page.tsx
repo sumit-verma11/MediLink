@@ -97,7 +97,7 @@ export default function PatientTimelinePage() {
                     <div className="flex shrink-0 items-center gap-4">
                       <a
                         className="text-sm font-medium text-foreground underline underline-offset-2"
-                        href={`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${entry.id}/report`}
+                        href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/lab-bookings/${entry.id}/report`}
                         target="_blank"
                         rel="noreferrer"
                       >

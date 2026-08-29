@@ -28,7 +28,7 @@ export default function LabDashboardPage() {
     const formData = new FormData();
     formData.append('report', file);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lab-bookings/${id}/report`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/lab-bookings/${id}/report`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
