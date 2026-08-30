@@ -4,7 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { AvailabilityRule } from '../../models/AvailabilityRule';
 import { BlockedDate } from '../../models/BlockedDate';
 import { Appointment } from '../../models/Appointment';
-import { generateSlotsForDoctor } from './slotService';
+import { generateSlotsForDoctor, IST_OFFSET_MS, startOfISTDayInUTC } from './slotService';
 
 let mongod: MongoMemoryServer;
 
@@ -24,14 +24,15 @@ afterAll(async () => {
 // A Wednesday so day-of-week arithmetic in the test is deterministic, but computed
 // relative to "now" rather than hardcoded: generateSlotsForDoctor now skips slots that
 // have already passed, so a fixed calendar date would silently stop producing slots once
-// that date is in the past.
-function nextWednesdayUTC(): Date {
-  const today = new Date();
-  const day = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const offset = ((3 - new Date(day).getUTCDay() + 7) % 7) || 7; // strictly the NEXT Wednesday
-  return new Date(day + offset * 24 * 60 * 60 * 1000);
+// that date is in the past. Computed in IST, matching how generateSlotsForDoctor buckets
+// days (every doctor/patient is in Delhi-NCR -- see slotService.ts).
+function nextWednesdayIST(): Date {
+  const todayIST = startOfISTDayInUTC(new Date());
+  const dayOfWeek = new Date(todayIST.getTime() + IST_OFFSET_MS).getUTCDay();
+  const offset = ((3 - dayOfWeek + 7) % 7) || 7; // strictly the NEXT Wednesday
+  return new Date(todayIST.getTime() + offset * 24 * 60 * 60 * 1000);
 }
-const FIXED_WEDNESDAY = nextWednesdayUTC();
+const FIXED_WEDNESDAY = nextWednesdayIST();
 const VALID_FROM = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 const VALID_TO = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 function wednesdayAt(hours: number, minutes: number): Date {
@@ -50,8 +51,11 @@ describe('generateSlotsForDoctor', () => {
 
     expect(slots.length).toBeGreaterThan(0);
     for (const slot of slots) {
-      expect(slot.start.getUTCDay()).toBe(3);
-      const hours = slot.start.getUTCHours();
+      // Slot instants are UTC; shift back to IST wall-clock to check against the
+      // doctor's stated local hours (18:00-19:00), which is the property that matters.
+      const istWallClock = new Date(slot.start.getTime() + IST_OFFSET_MS);
+      expect(istWallClock.getUTCDay()).toBe(3);
+      const hours = istWallClock.getUTCHours();
       expect(hours).toBeGreaterThanOrEqual(18);
       expect(hours).toBeLessThan(19);
     }
