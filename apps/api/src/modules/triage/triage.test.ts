@@ -139,6 +139,9 @@ describe('sendTriageMessage', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     expect(third.suggestedSpecialties).toHaveLength(0);
+    // The frontend needs a stable flag (not string-matching the disclaimer copy) to
+    // know when to offer a "browse doctors manually" escape hatch instead of a dead end.
+    expect(third.aiUnavailable).toBe(true);
     const finalMessage = third.messages[third.messages.length - 1]!;
     expect(finalMessage.role).toBe('assistant');
     // The degradation message must not invite a retry on THIS session -- it's

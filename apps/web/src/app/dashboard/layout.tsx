@@ -23,7 +23,7 @@ const NAV_BY_ROLE: Record<string, { label: string; href: string }[]> = {
   admin: [{ label: 'Verifications', href: '/dashboard/admin' }],
 };
 
-const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
+export const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
   patient: '/dashboard/patient',
   doctor: '/dashboard/doctor',
   lab: '/dashboard/lab',

@@ -9,6 +9,7 @@ export interface TriageSession {
   suggestedSpecialties: SpecialtySuggestion[];
   recommendedDoctorIds: string[];
   isRedFlag: boolean;
+  aiUnavailable: boolean;
   disclaimerShownAt: string;
 }
 

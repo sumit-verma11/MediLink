@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Stethoscope, Send, TriangleAlert, Star, MapPin } from 'lucide-react';
 import { useSendTriageMessageMutation } from '@/store/triageApi';
 import type { TriageSession } from '@/store/triageApi';
 import { useGetPublicDoctorProfileQuery } from '@/store/doctorsApi';
+import { useMeQuery } from '@/store/authApi';
+import { DASHBOARD_PATH_BY_ROLE } from '@/app/dashboard/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,10 +79,30 @@ const EXAMPLE_PROMPTS = [
 ];
 
 export default function TriagePage() {
+  const router = useRouter();
   const [input, setInput] = useState('');
   const [session, setSession] = useState<TriageSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sendMessage, { isLoading }] = useSendTriageMessageMutation();
+  const { data: meData, isLoading: meLoading, isError: meError } = useMeQuery();
+
+  // Triage is patient-only server-side (403 for any other role), but nothing previously
+  // stopped a doctor/lab/admin from landing on this page and getting a bare "Something
+  // went wrong" from the resulting 403 with no explanation. Bounce to whichever
+  // dashboard actually matches who's logged in, mirroring the dashboard layout's guard.
+  useEffect(() => {
+    if (meError) {
+      router.replace('/login');
+      return;
+    }
+    if (meData && meData.user.role !== 'patient') {
+      router.replace(DASHBOARD_PATH_BY_ROLE[meData.user.role] ?? '/login');
+    }
+  }, [meData, meError, router]);
+
+  if (meLoading || !meData || meData.user.role !== 'patient') {
+    return <div className="min-h-full" aria-hidden />;
+  }
 
   async function onSend(text: string = input) {
     if (isLoading || !text.trim()) return;
@@ -168,6 +191,12 @@ export default function TriagePage() {
           ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+          {session?.aiUnavailable ? (
+            <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/search" />}>
+              Browse doctors &amp; labs instead →
+            </Button>
+          ) : null}
 
           {session && session.suggestedSpecialties.length > 0 ? (
             <div className="space-y-4">

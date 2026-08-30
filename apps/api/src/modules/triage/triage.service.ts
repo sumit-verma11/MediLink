@@ -125,12 +125,14 @@ export async function sendTriageMessage(
     session.extractedSymptoms = aiResult.extractedSymptoms;
     session.suggestedSpecialties = aiResult.suggestedSpecialties;
     session.recommendedDoctorIds = await findRecommendedDoctors(aiResult.suggestedSpecialties);
+    session.aiUnavailable = false;
     pushAssistantMessage(
       session,
       `Based on what you've described, you may want to see: ${aiResult.suggestedSpecialties.map((s) => s.name).join(', ')}.`
     );
   } catch (err) {
     if (!(err instanceof AIServiceUnavailableError)) throw err;
+    session.aiUnavailable = true;
     pushAssistantMessage(session, "We're having trouble matching your symptoms automatically right now. Please start a new triage session in a few minutes to try again.");
   }
 
