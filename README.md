@@ -169,6 +169,30 @@ why `docker-compose.yml` also passes it as a build arg. `API_INTERNAL_URL` is
 read at request time and is only needed under Docker Compose; local development
 falls back to the same localhost default for both.
 
+## FHIR-lite Export
+
+`GET /api/fhir/Patient/:patientId/$everything-lite` (optional
+`?encounterId=<appointmentId>` to scope to one visit) serializes a patient's
+MedLink history into a FHIR R4-*shaped* JSON `Bundle`. Callable by the patient
+themselves, a doctor who has treated them, or an admin — labs are rejected at
+the router. Every successful call writes one `AuditLog` row.
+
+This is a *lite* export: it's shaped to be immediately recognizable to anyone
+who knows FHIR, not a conformant FHIR server (no `Practitioner`/
+`Organization`/`Encounter` resources — doctor and lab identity are flattened
+into `display` strings on the resources that reference them instead).
+Interview one-liner: **custom data model for velocity, FHIR R4 export for
+interoperability.**
+
+| MedLink | FHIR R4 |
+|---|---|
+| `User` + `PatientProfile` | `Patient` (`_ageYears` instead of a fabricated `birthDate` — MedLink stores age, not a real DOB) |
+| `Appointment` | `Appointment` (`status` mapped: requested→pending, confirmed→booked, completed→fulfilled, cancelled/rejected→cancelled, no_show→noshow) |
+| `Prescription.medicines[]` | `MedicationRequest[]` (one per medicine; `stopped` if the prescription was superseded, else `active`) |
+| `LabReferral` | `ServiceRequest` (`status`: sent/opened/booked/sample_collected→active, report_ready/closed→completed) |
+| `LabBooking` (with a report) | `DiagnosticReport` (`status: final`, `presentedForm` linking the report file) |
+| `DoctorProfile` / `LabProfile` | inline `display` strings only — not a separate `Practitioner`/`Organization` resource |
+
 ## Further reading
 
 - [`CLAUDE.md`](CLAUDE.md) — project brief, data model, and engineering conventions
