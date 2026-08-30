@@ -11,6 +11,7 @@ import {
 import { SendTriageMessageInput } from './triage';
 import { CreatePrescriptionInput, AmendPrescriptionInput } from './prescription';
 import { CreateLabReferralInput, CreateLabBookingInput, UpdateBookingStatusInput, PatchBookingStatusInput } from './labReferral';
+import { FhirExportQuery } from './fhirExport';
 
 describe('RegisterInput', () => {
   it('rejects a password shorter than 8 chars', () => {
@@ -196,5 +197,20 @@ describe('PatchBookingStatusInput', () => {
     expect(PatchBookingStatusInput.safeParse({ status: 'sample_collected' }).success).toBe(true);
     expect(PatchBookingStatusInput.safeParse({ status: 'report_ready' }).success).toBe(false);
     expect(PatchBookingStatusInput.safeParse({ status: 'booked' }).success).toBe(false);
+  });
+});
+
+describe('FhirExportQuery', () => {
+  it('allows an empty query (whole-patient export)', () => {
+    expect(FhirExportQuery.safeParse({}).success).toBe(true);
+  });
+
+  it('accepts a non-empty encounterId', () => {
+    const result = FhirExportQuery.safeParse({ encounterId: '507f1f77bcf86cd799439011' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an empty-string encounterId', () => {
+    expect(FhirExportQuery.safeParse({ encounterId: '' }).success).toBe(false);
   });
 });
