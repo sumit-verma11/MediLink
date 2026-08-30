@@ -70,7 +70,11 @@ export async function listDoctorsHandler(req: Request, res: Response, next: Next
     const [items, total] = await Promise.all([
       DoctorProfile.find(filter)
         .select('specialties city consultationFee avgRating ratingCount userId')
-        .sort({ avgRating: -1 })
+        // avgRating alone ties for ~90% of doctors (unrated -> 0), and MongoDB does not
+        // guarantee a stable order among ties across separate skip/limit executions --
+        // without a unique tiebreaker, paging forward can silently re-return page 1's
+        // documents. _id is unique, so this makes the sort (and pagination) deterministic.
+        .sort({ avgRating: -1, _id: 1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .populate('userId', 'name avatarUrl'),

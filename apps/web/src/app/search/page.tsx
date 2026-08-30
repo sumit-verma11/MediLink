@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Star, MapPin, Home, FlaskConical } from 'lucide-react';
-import { useSearchDoctorsQuery, useSearchLabsQuery } from '@/store/searchApi';
+import { useSearchLabsQuery, useLazySearchDoctorsQuery, type DoctorSearchResult } from '@/store/searchApi';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -26,8 +26,36 @@ const CITIES = ['Noida', 'Delhi', 'Ghaziabad'];
 export default function SearchPage() {
   const [doctorFilters, setDoctorFilters] = useState({ name: '', specialty: '', city: '' });
   const [labFilters, setLabFilters] = useState({ testName: '', city: '' });
-  const { data: doctorResults } = useSearchDoctorsQuery({ ...doctorFilters, limit: 50 });
+  const [doctorPage, setDoctorPage] = useState(1);
+  const [doctorItems, setDoctorItems] = useState<DoctorSearchResult[]>([]);
+  const [doctorTotal, setDoctorTotal] = useState<number | null>(null);
+  const [triggerSearchDoctors, { isFetching: isFetchingDoctors }] = useLazySearchDoctorsQuery();
   const { data: labResults } = useSearchLabsQuery(labFilters);
+
+  // Filters describe a brand new result set: refetch page 1 and replace what's shown.
+  // This fetches imperatively (rather than deriving state from useSearchDoctorsQuery in
+  // a useEffect) because that pattern double-fires under React Strict Mode in dev and
+  // duplicates appended "Load more" pages -- an earlier version of this shipped with
+  // exactly that bug. A replace on page 1 is idempotent either way; only the appending
+  // load-more path actually needs to dodge the double-invoke, which it does by living in
+  // a click handler instead of an effect.
+  useEffect(() => {
+    setDoctorPage(1);
+    triggerSearchDoctors({ ...doctorFilters, limit: 50, page: 1 })
+      .unwrap()
+      .then((res) => {
+        setDoctorItems(res.items);
+        setDoctorTotal(res.total);
+      })
+      .catch(() => undefined);
+  }, [doctorFilters.name, doctorFilters.specialty, doctorFilters.city, triggerSearchDoctors]);
+
+  async function loadMoreDoctors() {
+    const nextPage = doctorPage + 1;
+    const res = await triggerSearchDoctors({ ...doctorFilters, limit: 50, page: nextPage }).unwrap();
+    setDoctorItems((prev) => [...prev, ...res.items]);
+    setDoctorPage(nextPage);
+  }
 
   return (
     <main className="flex flex-1 flex-col">
@@ -42,9 +70,9 @@ export default function SearchPage() {
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-foreground">Doctors</h2>
-            {doctorResults ? (
+            {doctorTotal !== null ? (
               <p className="text-xs text-muted-foreground">
-                Showing {doctorResults.items.length} of {doctorResults.total}
+                Showing {doctorItems.length} of {doctorTotal}
               </p>
             ) : null}
           </div>
@@ -91,7 +119,7 @@ export default function SearchPage() {
           />
 
           <div className="space-y-2">
-            {doctorResults?.items.map((d, i) => (
+            {doctorItems.map((d, i) => (
               <Link key={d._id} href={`/doctors/${d._id}`} className="block">
                 <Card
                   className="animate-fade-up flex-row items-center gap-4 p-4"
@@ -111,15 +139,29 @@ export default function SearchPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold text-foreground">₹{d.consultationFee}</p>
-                    <p className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-                      <Star className="size-3 fill-accent text-accent" /> {d.avgRating.toFixed(1)} ({d.ratingCount})
-                    </p>
+                    {d.ratingCount > 0 ? (
+                      <p className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                        <Star className="size-3 fill-accent text-accent" /> {d.avgRating.toFixed(1)} ({d.ratingCount})
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No reviews yet</p>
+                    )}
                   </div>
                 </Card>
               </Link>
             ))}
-            {doctorResults?.items.length === 0 ? (
+            {doctorTotal !== null && doctorItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">No doctors match. Try clearing a filter.</p>
+            ) : null}
+            {doctorTotal !== null && doctorItems.length < doctorTotal ? (
+              <button
+                type="button"
+                onClick={loadMoreDoctors}
+                disabled={isFetchingDoctors}
+                className="w-full rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                {isFetchingDoctors ? 'Loading…' : 'Load more doctors'}
+              </button>
             ) : null}
           </div>
         </section>

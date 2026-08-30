@@ -93,9 +93,13 @@ export default async function DoctorPublicPage({ params }: { params: Promise<{ i
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3.5" /> {doctor.city}
             </span>
-            <span className="inline-flex items-center gap-1">
-              <Star className="size-3.5 fill-accent text-accent" /> {doctor.avgRating.toFixed(1)} ({doctor.ratingCount} reviews)
-            </span>
+            {doctor.ratingCount > 0 ? (
+              <span className="inline-flex items-center gap-1">
+                <Star className="size-3.5 fill-accent text-accent" /> {doctor.avgRating.toFixed(1)} ({doctor.ratingCount} reviews)
+              </span>
+            ) : (
+              <span>No reviews yet</span>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">

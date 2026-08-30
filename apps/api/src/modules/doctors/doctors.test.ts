@@ -139,6 +139,33 @@ describe('GET /api/doctors', () => {
     expect(res.body.items[0].userId.name).toBe('Dr. Approved');
   });
 
+  it('paginates deterministically when every doctor ties on avgRating (regression: page 2 re-returning page 1 docs)', async () => {
+    const app = createApp();
+    // All default to avgRating: 0 -- a real-world state, since most seeded doctors have
+    // no ratings yet. Without a unique tiebreaker after avgRating, Mongo does not
+    // guarantee stable ordering for tied documents across separate skip/limit calls, so
+    // paging forward could silently re-return page 1's doctors instead of new ones.
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const profile = await DoctorProfile.create({
+        userId: (await User.create({ role: 'doctor', email: `page-${i}-${Date.now()}@medlink.demo`, phone: `${i}`, passwordHash: 'x', name: `Dr. Page ${i}` }))._id,
+        specialties: ['Psychiatry'], qualifications: ['MBBS'], regNo: `DMC/R/0010${i}`, experienceYears: 5, bio: 'b',
+        clinicName: 'C', clinicAddress: 'A', city: 'Ghaziabad', geo: { lat: 1, lng: 1 }, consultationFee: 500,
+        languages: ['English'], verificationStatus: 'approved',
+      });
+      ids.push(profile._id.toString());
+    }
+
+    const page1 = await request(app).get('/api/doctors').query({ specialty: 'Psychiatry', city: 'Ghaziabad', limit: 2, page: 1 });
+    const page2 = await request(app).get('/api/doctors').query({ specialty: 'Psychiatry', city: 'Ghaziabad', limit: 2, page: 2 });
+
+    const page1Ids = page1.body.items.map((d: { _id: string }) => d._id);
+    const page2Ids = page2.body.items.map((d: { _id: string }) => d._id);
+    expect(page1Ids).toHaveLength(2);
+    expect(page2Ids).toHaveLength(2);
+    expect(new Set([...page1Ids, ...page2Ids])).toEqual(new Set(ids));
+  });
+
   it('treats regex metacharacters in the city filter literally, not as a wildcard', async () => {
     const app = createApp();
     await DoctorProfile.create({
