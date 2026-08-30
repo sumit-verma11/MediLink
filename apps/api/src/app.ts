@@ -20,6 +20,7 @@ import { labReferralsRouter, publicReferralRouter, labFacingReferralsRouter } fr
 import { labBookingsRouter } from './modules/labBookings/labBookings.routes';
 import { ratingsRouter } from './modules/ratings/ratings.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
+import { fhirExportRouter } from './modules/fhirExport/fhirExport.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -71,6 +72,7 @@ export function createApp(): Express {
   app.use('/api/lab-bookings', labBookingsRouter);
   app.use('/api/ratings', ratingsRouter);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/fhir', fhirExportRouter);
 
   app.use(errorHandler);
   return app;
