@@ -14,6 +14,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { HeroPreview } from "@/components/marketing/hero-preview";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const roleEntries = [
@@ -183,6 +184,7 @@ export default async function Home() {
           <Link href="/search" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}>
             Find doctors &amp; labs
           </Link>
+          <ThemeToggle />
           <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
             Sign in
           </Link>

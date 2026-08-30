@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HeroPreview } from "@/components/marketing/hero-preview";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function AuthLayout({
   children,
@@ -9,9 +10,12 @@ export default function AuthLayout({
   return (
     <div className="grid flex-1 md:grid-cols-2">
       <div className="flex flex-col justify-center gap-10 px-6 py-16 md:px-16">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-foreground">
-          MedLink
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/" className="text-lg font-semibold tracking-tight text-foreground">
+            MedLink
+          </Link>
+          <ThemeToggle />
+        </div>
         <div className="flex flex-1 items-center justify-center md:justify-start">{children}</div>
       </div>
       <div className="hidden flex-col bg-muted md:flex">

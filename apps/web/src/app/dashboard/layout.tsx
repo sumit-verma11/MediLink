@@ -7,6 +7,7 @@ import { Bell, LogOut } from 'lucide-react';
 import { useLogoutMutation, useMeQuery } from '@/store/authApi';
 import { useListMyNotificationsQuery } from '@/store/notificationsApi';
 import { buttonVariants } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { cn } from '@/lib/utils';
 
 const NAV_BY_ROLE: Record<string, { label: string; href: string }[]> = {
@@ -95,6 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-muted-foreground sm:inline">{meData.user.name}</span>
+          <ThemeToggle />
           <Link
             href="/notifications"
             className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'relative')}

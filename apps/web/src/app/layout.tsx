@@ -35,7 +35,22 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${manrope.variable} ${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
+      // The blocking script below adds the `dark` class before hydration, which never
+      // matches the server-rendered markup by design (theme preference is client-only
+      // state) -- this is the standard, expected mismatch for this pattern.
+      suppressHydrationWarning
     >
+      <head>
+        {/* Blocking, runs before first paint: sets the `dark` class from the saved
+            preference (or OS preference, if none saved yet) so there's no flash of the
+            wrong theme. Must stay inline -- an external/deferred script would paint
+            light first regardless. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <BlobBackground variant="ambient" />
         <StoreProvider>{children}</StoreProvider>
