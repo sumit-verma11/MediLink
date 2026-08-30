@@ -8,6 +8,7 @@ import {
   useConfirmAppointmentMutation,
   useRejectAppointmentMutation,
 } from '@/store/appointmentsApi';
+import { useGetMyAnalyticsQuery } from '@/store/doctorsApi';
 import { getSocket } from '@/lib/socket';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -23,6 +24,7 @@ export default function DoctorDashboard() {
     refetch: refetchConfirmed,
   } = useListMyAppointmentsQuery({ status: 'confirmed' });
   const { data: completedData } = useListMyAppointmentsQuery({ status: 'completed' });
+  const { data: analytics, isLoading: isAnalyticsLoading } = useGetMyAnalyticsQuery();
   const [confirmAppointment] = useConfirmAppointmentMutation();
   const [rejectAppointment] = useRejectAppointmentMutation();
 
@@ -185,6 +187,64 @@ export default function DoctorDashboard() {
             </CardContent>
           </Card>
         ))}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">
+          My analytics {analytics ? `(last ${analytics.windowDays} days)` : null}
+        </h2>
+        {isAnalyticsLoading ? <Skeleton className="h-40 rounded-xl" /> : null}
+        {analytics ? (
+          <Card>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Estimated earnings by week</p>
+                {analytics.earningsByWeek.length === 0 ? (
+                  <p className="mt-1 text-sm text-muted-foreground">No completed appointments in this window yet.</p>
+                ) : (
+                  <div className="mt-1 space-y-0.5">
+                    {analytics.earningsByWeek.map((w) => (
+                      <p key={w.weekStart} className="text-sm text-muted-foreground">
+                        {w.weekStart}: {w.completedCount} completed &middot; ₹{w.estimatedEarnings}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-xs italic text-muted-foreground">{analytics.disclaimer}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4">
+                <div>
+                  <p className="text-xl font-semibold text-foreground">{analytics.appointmentBreakdown.completed}</p>
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold text-foreground">{analytics.appointmentBreakdown.cancelled}</p>
+                  <p className="text-xs text-muted-foreground">Cancelled</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold text-foreground">{analytics.appointmentBreakdown.noShow}</p>
+                  <p className="text-xs text-muted-foreground">No-show</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold text-foreground">{analytics.noShowCancellationRate}%</p>
+                  <p className="text-xs text-muted-foreground">No-show/cancel rate</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
+                <p>
+                  Current rating: <span className="font-semibold text-foreground">{analytics.currentRating.avgRating.toFixed(1)}</span>
+                  {' '}({analytics.currentRating.ratingCount} ratings)
+                </p>
+                <p>
+                  Patients this window: <span className="font-semibold text-foreground">{analytics.patientVolume.totalDistinctPatients}</span>
+                  {' '}total &middot; {analytics.patientVolume.newPatients} new &middot; {analytics.patientVolume.returningPatients} returning
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
       </section>
     </main>
   );
