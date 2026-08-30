@@ -5,6 +5,7 @@ import { User } from '../../models/User';
 import { AppError } from '../../lib/errors';
 import { escapeRegex } from '../../lib/regex';
 import { toPositiveInt } from '../../lib/pagination';
+import { getDoctorAnalytics } from './doctor-analytics.service';
 
 export async function getMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -39,6 +40,17 @@ export async function uploadVerificationDocs(req: Request, res: Response, next: 
     );
     if (!profile) throw new AppError(404, 'Doctor profile not found', 'PROFILE_NOT_FOUND');
     res.status(200).json({ profile });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMyAnalyticsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const profile = await DoctorProfile.findOne({ userId: req.user!.id });
+    if (!profile) throw new AppError(404, 'Doctor profile not found', 'DOCTOR_PROFILE_NOT_FOUND');
+    const summary = await getDoctorAnalytics(profile._id);
+    res.status(200).json(summary);
   } catch (err) {
     next(err);
   }

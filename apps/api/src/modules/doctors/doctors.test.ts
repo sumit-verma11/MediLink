@@ -8,6 +8,8 @@ import { createApp } from '../../app';
 import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { User } from '../../models/User';
+import { Appointment } from '../../models/Appointment';
+import { Rating } from '../../models/Rating';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -199,5 +201,125 @@ describe('GET /api/doctors', () => {
     expect(res.body.items[0].city).toBe('Noida');
     expect(res.body.items[0].consultationFee).toBe(500);
     expect(res.body.items[0].userId.name).toBe('Dr. Private');
+  });
+});
+
+describe('GET /api/doctors/me/analytics', () => {
+  it('returns earnings, breakdown, rating trend, and patient volume for the caller\'s own profile', async () => {
+    const app = createApp();
+    const docCookies = await registerAndLogin(app, 'doctor', `analytics-doc-${Date.now()}@medlink.demo`);
+    const putRes = await request(app).put('/api/doctors/me').set('Cookie', docCookies).send({
+      ...validProfile, consultationFee: 500,
+    });
+    const doctorId = putRes.body.profile._id;
+    await DoctorProfile.findByIdAndUpdate(doctorId, { verificationStatus: 'approved', avgRating: 4.5, ratingCount: 3 });
+
+    const patient1 = await User.create({ role: 'patient', email: `p1-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'P1' });
+    const patient2 = await User.create({ role: 'patient', email: `p2-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'P2' });
+    const now = new Date();
+
+    // 2 completed, 1 cancelled, 1 no_show -- within the 90-day window
+    await Appointment.create([
+      { patientId: patient1._id, doctorId, slotStart: now, slotEnd: now, status: 'completed' },
+      { patientId: patient2._id, doctorId, slotStart: now, slotEnd: now, status: 'completed' },
+      { patientId: patient1._id, doctorId, slotStart: now, slotEnd: now, status: 'cancelled' },
+      { patientId: patient2._id, doctorId, slotStart: now, slotEnd: now, status: 'no_show' },
+    ]);
+    await Rating.create({ doctorId, patientId: patient1._id, appointmentId: new mongoose.Types.ObjectId(), score: 5, createdAt: now });
+
+    const res = await request(app).get('/api/doctors/me/analytics').set('Cookie', docCookies);
+
+    expect(res.status).toBe(200);
+    expect(res.body.windowDays).toBe(90);
+    expect(typeof res.body.disclaimer).toBe('string');
+
+    // earnings: 2 completed this week * fee 500 = 1000, in exactly one weekly bucket
+    expect(res.body.earningsByWeek).toHaveLength(1);
+    expect(res.body.earningsByWeek[0].completedCount).toBe(2);
+    expect(res.body.earningsByWeek[0].estimatedEarnings).toBe(1000);
+
+    expect(res.body.appointmentBreakdown).toEqual({
+      completed: 2, cancelled: 1, noShow: 1, rejected: 0, requested: 0, confirmed: 0,
+    });
+    // (cancelled + noShow) / (completed + cancelled + noShow + rejected) = 2/4 = 50%
+    expect(res.body.noShowCancellationRate).toBe(50);
+
+    expect(res.body.currentRating).toEqual({ avgRating: 4.5, ratingCount: 3 });
+    expect(res.body.ratingTrend).toHaveLength(1);
+    expect(res.body.ratingTrend[0].avgScore).toBe(5);
+
+    expect(res.body.patientVolume.totalDistinctPatients).toBe(2);
+    expect(res.body.patientVolume.newPatients).toBe(2);
+    expect(res.body.patientVolume.returningPatients).toBe(0);
+  });
+
+  it('rejects an unauthenticated caller', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/doctors/me/analytics');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the caller has no DoctorProfile yet', async () => {
+    const app = createApp();
+    const docCookies = await registerAndLogin(app, 'doctor', `noprofile-${Date.now()}@medlink.demo`);
+    const res = await request(app).get('/api/doctors/me/analytics').set('Cookie', docCookies);
+    expect(res.status).toBe(404);
+  });
+
+  it('never includes another doctor\'s appointments, ratings, or earnings', async () => {
+    const app = createApp();
+
+    const docACookies = await registerAndLogin(app, 'doctor', `iso-a-${Date.now()}@medlink.demo`);
+    const putA = await request(app).put('/api/doctors/me').set('Cookie', docACookies).send({ ...validProfile, consultationFee: 500 });
+    await DoctorProfile.findByIdAndUpdate(putA.body.profile._id, { verificationStatus: 'approved' });
+
+    const docBCookies = await registerAndLogin(app, 'doctor', `iso-b-${Date.now()}@medlink.demo`);
+    const putB = await request(app).put('/api/doctors/me').set('Cookie', docBCookies).send({ ...validProfile, consultationFee: 9999 });
+    await DoctorProfile.findByIdAndUpdate(putB.body.profile._id, { verificationStatus: 'approved' });
+
+    const patient = await User.create({ role: 'patient', email: `iso-p-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'P' });
+    const now = new Date();
+    // Only doctor B has any activity
+    await Appointment.create({ patientId: patient._id, doctorId: putB.body.profile._id, slotStart: now, slotEnd: now, status: 'completed' });
+    await Rating.create({ doctorId: putB.body.profile._id, patientId: patient._id, appointmentId: new mongoose.Types.ObjectId(), score: 4, createdAt: now });
+
+    const resA = await request(app).get('/api/doctors/me/analytics').set('Cookie', docACookies);
+
+    expect(resA.status).toBe(200);
+    expect(resA.body.earningsByWeek).toHaveLength(0);
+    expect(resA.body.appointmentBreakdown).toEqual({ completed: 0, cancelled: 0, noShow: 0, rejected: 0, requested: 0, confirmed: 0 });
+    expect(resA.body.patientVolume.totalDistinctPatients).toBe(0);
+    expect(resA.body.ratingTrend).toHaveLength(0);
+  });
+
+  it('returns a 0% no-show/cancellation rate with no error when the doctor has zero appointments', async () => {
+    const app = createApp();
+    const docCookies = await registerAndLogin(app, 'doctor', `empty-${Date.now()}@medlink.demo`);
+    const putRes = await request(app).put('/api/doctors/me').set('Cookie', docCookies).send(validProfile);
+    await DoctorProfile.findByIdAndUpdate(putRes.body.profile._id, { verificationStatus: 'approved' });
+
+    const res = await request(app).get('/api/doctors/me/analytics').set('Cookie', docCookies);
+    expect(res.status).toBe(200);
+    expect(res.body.noShowCancellationRate).toBe(0);
+  });
+
+  it('classifies a patient as returning when their earlier appointment falls outside the 90-day window', async () => {
+    const app = createApp();
+    const docCookies = await registerAndLogin(app, 'doctor', `returning-${Date.now()}@medlink.demo`);
+    const putRes = await request(app).put('/api/doctors/me').set('Cookie', docCookies).send(validProfile);
+    const doctorId = putRes.body.profile._id;
+    await DoctorProfile.findByIdAndUpdate(doctorId, { verificationStatus: 'approved' });
+
+    const patient = await User.create({ role: 'patient', email: `ret-p-${Date.now()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'P' });
+    const now = new Date();
+    const beforeWindow = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000); // 120 days ago, outside the 90-day window
+
+    await Appointment.create({ patientId: patient._id, doctorId, slotStart: beforeWindow, slotEnd: beforeWindow, status: 'completed' });
+    await Appointment.create({ patientId: patient._id, doctorId, slotStart: now, slotEnd: now, status: 'completed' });
+
+    const res = await request(app).get('/api/doctors/me/analytics').set('Cookie', docCookies);
+    expect(res.body.patientVolume.totalDistinctPatients).toBe(1);
+    expect(res.body.patientVolume.newPatients).toBe(0);
+    expect(res.body.patientVolume.returningPatients).toBe(1);
   });
 });
