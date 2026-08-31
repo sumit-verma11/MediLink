@@ -10,6 +10,17 @@ vi.mock('nodemailer', async () => {
   return mock;
 });
 import nodemailer from 'nodemailer-mock';
+
+vi.mock('../lib/telegram', async () => {
+  const actual = await vi.importActual<typeof import('../lib/telegram')>('../lib/telegram');
+  // sendAppointmentTelegram calls sendTelegramMessage as a same-module reference,
+  // which vi.mock cannot intercept from outside -- mock sendAppointmentTelegram
+  // itself, since that's what reminderJob.ts actually calls across the module
+  // boundary.
+  return { ...actual, sendAppointmentTelegram: vi.fn() };
+});
+import * as telegramLib from '../lib/telegram';
+
 import { runReminderScan } from './reminderJob';
 
 let mongod: MongoMemoryServer;
@@ -20,6 +31,7 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   nodemailer.mock.reset();
+  vi.mocked(telegramLib.sendAppointmentTelegram).mockClear();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -30,8 +42,11 @@ afterAll(async () => {
   await mongod.stop();
 });
 
-async function seedConfirmedAppointment(hoursFromNow: number) {
-  const patient = await User.create({ role: 'patient', email: `p-${Date.now()}-${Math.random()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'P' });
+async function seedConfirmedAppointment(hoursFromNow: number, patientTelegramChatId?: string) {
+  const patient = await User.create({
+    role: 'patient', email: `p-${Date.now()}-${Math.random()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'P',
+    telegramChatId: patientTelegramChatId,
+  });
   const doctorUser = await User.create({ role: 'doctor', email: `d-${Date.now()}-${Math.random()}@medlink.demo`, phone: '9999999999', passwordHash: 'x', name: 'D' });
   const doctorProfile = await DoctorProfile.create({
     userId: doctorUser._id, specialties: ['X'], qualifications: ['MBBS'], regNo: 'DMC/R/1',
@@ -64,6 +79,15 @@ describe('runReminderScan', () => {
     const secondRun = await runReminderScan();
     expect(secondRun).toBe(0);
     expect(nodemailer.mock.getSentMail()).toHaveLength(0);
+  });
+
+  it('also sends a Telegram reminder when the patient has linked their account', async () => {
+    await seedConfirmedAppointment(24, '555');
+    const sentCount = await runReminderScan();
+    expect(sentCount).toBe(1);
+    expect(telegramLib.sendAppointmentTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramChatId: '555' }), 'reminder', expect.anything()
+    );
   });
 
   it('does not send for an appointment far in the future', async () => {

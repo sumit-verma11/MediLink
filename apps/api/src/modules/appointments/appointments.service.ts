@@ -7,6 +7,7 @@ import { generateSlotsForDoctor } from './slotService';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { emitAppointmentUpdate } from '../../lib/socket';
 import { sendAppointmentEmail } from '../../lib/mailer';
+import { sendAppointmentTelegram } from '../../lib/telegram';
 import { User } from '../../models/User';
 import { TriageSession } from '../../models/TriageSession';
 import type { CreateAppointmentInput } from '@medlink/shared';
@@ -113,10 +114,18 @@ export async function createAppointment(patientId: string, input: CreateAppointm
       doctorName: doctorUser?.name ?? 'the doctor',
       slotStart: appointment.slotStart.toISOString(),
     });
+    void sendAppointmentTelegram(patientUser, 'requested', {
+      doctorName: doctorUser?.name ?? 'the doctor',
+      slotStart: appointment.slotStart.toISOString(),
+    });
   }
   // Notifications both ways: the doctor is told a request is waiting on their dashboard.
   if (doctorUser) {
     void sendAppointmentEmail(doctorUser.email, 'new_request', {
+      patientName: patientUser?.name,
+      slotStart: appointment.slotStart.toISOString(),
+    });
+    void sendAppointmentTelegram(doctorUser, 'new_request', {
       patientName: patientUser?.name,
       slotStart: appointment.slotStart.toISOString(),
     });
@@ -180,6 +189,10 @@ export async function confirmAppointment(appointmentId: string, doctorUserId: st
       doctorName: doctorUser?.name ?? 'your doctor',
       slotStart: updated.slotStart.toISOString(),
     });
+    void sendAppointmentTelegram(patientUser, 'confirmed', {
+      doctorName: doctorUser?.name ?? 'your doctor',
+      slotStart: updated.slotStart.toISOString(),
+    });
   }
 
   return updated;
@@ -215,6 +228,11 @@ export async function rejectAppointment(appointmentId: string, doctorUserId: str
   ]);
   if (patientUser) {
     void sendAppointmentEmail(patientUser.email, 'rejected', {
+      doctorName: doctorUser?.name ?? 'your doctor',
+      slotStart: updated.slotStart.toISOString(),
+      reason,
+    });
+    void sendAppointmentTelegram(patientUser, 'rejected', {
       doctorName: doctorUser?.name ?? 'your doctor',
       slotStart: updated.slotStart.toISOString(),
       reason,

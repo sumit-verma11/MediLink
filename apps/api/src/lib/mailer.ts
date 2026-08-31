@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
 
-type Template = 'requested' | 'confirmed' | 'rejected' | 'reminder' | 'new_request';
+export type Template = 'requested' | 'confirmed' | 'rejected' | 'reminder' | 'new_request';
 
 function transporter() {
   // Without configured SMTP credentials there is nothing to authenticate with, and the
@@ -17,7 +17,7 @@ function transporter() {
   });
 }
 
-function subjectFor(template: Template, data: Record<string, unknown>): string {
+export function subjectFor(template: Template, data: Record<string, unknown>): string {
   const doctorName = String(data.doctorName ?? 'your doctor');
   switch (template) {
     case 'requested':
@@ -34,7 +34,7 @@ function subjectFor(template: Template, data: Record<string, unknown>): string {
   }
 }
 
-function bodyFor(template: Template, data: Record<string, unknown>): string {
+export function bodyFor(template: Template, data: Record<string, unknown>): string {
   const doctorName = String(data.doctorName ?? 'your doctor');
   const slotStart = String(data.slotStart ?? '');
   switch (template) {

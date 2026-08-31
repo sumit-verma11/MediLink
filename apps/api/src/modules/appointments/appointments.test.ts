@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
@@ -10,6 +10,17 @@ import { DoctorProfile } from '../../models/DoctorProfile';
 import { TriageSession } from '../../models/TriageSession';
 import { Appointment } from '../../models/Appointment';
 import { Rating } from '../../models/Rating';
+import { User } from '../../models/User';
+
+vi.mock('../../lib/telegram', async () => {
+  const actual = await vi.importActual<typeof import('../../lib/telegram')>('../../lib/telegram');
+  // sendAppointmentTelegram itself calls sendTelegramMessage as a same-module
+  // reference, which vi.mock cannot intercept from outside -- mocking
+  // sendAppointmentTelegram directly is what appointments.service.ts actually
+  // calls across the module boundary, so it's the one that's observable here.
+  return { ...actual, sendAppointmentTelegram: vi.fn() };
+});
+import * as telegramLib from '../../lib/telegram';
 
 process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
 process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
@@ -24,6 +35,7 @@ beforeEach(async () => {
   // Shared helper: fresh Redis + flushed store, so the auth rate-limit budget starts
   // empty for every test in this file. See src/test-utils/resetRateLimit.ts.
   await resetTestRedis();
+  vi.mocked(telegramLib.sendAppointmentTelegram).mockClear();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -562,5 +574,93 @@ describe('GET /api/appointments/me — doctor sees triage summary', () => {
 
     const res = await request(app).get('/api/appointments/me').set('Cookie', docCookies);
     expect(res.body.items[0].triageSummary).toBeNull();
+  });
+});
+
+describe('Telegram fan-out on appointment lifecycle', () => {
+  it('notifies both patient and doctor via Telegram on a new booking, when both have linked their accounts', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientEmail = `tg-patient-${Date.now()}@medlink.demo`;
+    const patientCookies = await registerAndLogin(app, 'patient', patientEmail);
+    await User.findOneAndUpdate({ email: patientEmail }, { telegramChatId: '111' });
+    const doctorProfile = await DoctorProfile.findById(doctorId);
+    await User.findByIdAndUpdate(doctorProfile!.userId, { telegramChatId: '222' });
+
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const slot = slotsRes.body.slots[0];
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slot.start, slotEnd: slot.end,
+    });
+
+    expect(res.status).toBe(201);
+    expect(telegramLib.sendAppointmentTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramChatId: '111' }), 'requested', expect.anything()
+    );
+    expect(telegramLib.sendAppointmentTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramChatId: '222' }), 'new_request', expect.anything()
+    );
+  });
+
+  it('notifies the patient via Telegram when a doctor confirms', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientEmail = `tg-confirm-${Date.now()}@medlink.demo`;
+    const patientCookies = await registerAndLogin(app, 'patient', patientEmail);
+    await User.findOneAndUpdate({ email: patientEmail }, { telegramChatId: '333' });
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const slot = slotsRes.body.slots[0];
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slot.start, slotEnd: slot.end,
+    });
+    vi.mocked(telegramLib.sendAppointmentTelegram).mockClear();
+
+    const confirmRes = await request(app).patch(`/api/appointments/${bookRes.body.appointment._id}/confirm`).set('Cookie', docCookies);
+
+    expect(confirmRes.status).toBe(200);
+    expect(telegramLib.sendAppointmentTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramChatId: '333' }), 'confirmed', expect.anything()
+    );
+  });
+
+  it('notifies the patient via Telegram when a doctor rejects', async () => {
+    const app = createApp();
+    const { doctorId, docCookies } = await seedDoctorWithAvailability(app);
+    const patientEmail = `tg-reject-${Date.now()}@medlink.demo`;
+    const patientCookies = await registerAndLogin(app, 'patient', patientEmail);
+    await User.findOneAndUpdate({ email: patientEmail }, { telegramChatId: '444' });
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const slot = slotsRes.body.slots[0];
+    const bookRes = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slot.start, slotEnd: slot.end,
+    });
+    vi.mocked(telegramLib.sendAppointmentTelegram).mockClear();
+
+    const rejectRes = await request(app)
+      .patch(`/api/appointments/${bookRes.body.appointment._id}/reject`)
+      .set('Cookie', docCookies)
+      .send({ reason: 'Fully booked' });
+
+    expect(rejectRes.status).toBe(200);
+    expect(telegramLib.sendAppointmentTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramChatId: '444' }), 'rejected', expect.anything()
+    );
+  });
+
+  it('still calls sendAppointmentTelegram with a chatId-less user for a patient with no linked account (the no-op lives inside that function, not at the call site)', async () => {
+    const app = createApp();
+    const { doctorId } = await seedDoctorWithAvailability(app);
+    const patientCookies = await registerAndLogin(app, 'patient', `tg-unlinked-${Date.now()}@medlink.demo`);
+    const slotsRes = await request(app).get(`/api/doctors/${doctorId}/slots?days=2`).set('Cookie', patientCookies);
+    const slot = slotsRes.body.slots[0];
+
+    const res = await request(app).post('/api/appointments').set('Cookie', patientCookies).send({
+      doctorId, slotStart: slot.start, slotEnd: slot.end,
+    });
+
+    expect(res.status).toBe(201);
+    expect(telegramLib.sendAppointmentTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({ telegramChatId: undefined }), 'requested', expect.anything()
+    );
   });
 });

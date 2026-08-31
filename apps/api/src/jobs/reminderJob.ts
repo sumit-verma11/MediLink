@@ -3,6 +3,7 @@ import { Appointment } from '../models/Appointment';
 import { DoctorProfile } from '../models/DoctorProfile';
 import { User } from '../models/User';
 import { sendAppointmentEmail } from '../lib/mailer';
+import { sendAppointmentTelegram } from '../lib/telegram';
 import { logger } from '../lib/logger';
 
 const REMINDER_WINDOW_START_MS = 23 * 60 * 60 * 1000;
@@ -33,6 +34,10 @@ export async function runReminderScan(): Promise<number> {
     // Awaited on purpose: this runs on a background cron tick, not a request path, and
     // sentCount is only meaningful if the send attempt has actually completed.
     await sendAppointmentEmail(patient.email, 'reminder', {
+      doctorName: doctorUser?.name ?? 'your doctor',
+      slotStart: appointment.slotStart.toISOString(),
+    });
+    await sendAppointmentTelegram(patient, 'reminder', {
       doctorName: doctorUser?.name ?? 'your doctor',
       slotStart: appointment.slotStart.toISOString(),
     });
