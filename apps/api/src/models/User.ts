@@ -12,6 +12,7 @@ export interface IUser {
   avatarUrl?: string;
   isVerified: boolean;
   createdAt: Date;
+  telegramChatId?: string;
 }
 
 const userSchema = new Schema<IUser>({
@@ -23,6 +24,7 @@ const userSchema = new Schema<IUser>({
   avatarUrl: String,
   isVerified: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
+  telegramChatId: { type: String, index: { unique: true, sparse: true } },
 });
 
 export const User = model<IUser>('User', userSchema);

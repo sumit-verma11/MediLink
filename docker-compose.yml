@@ -21,6 +21,9 @@ services:
       WEB_ORIGIN: http://localhost:3000
       PORT: 4000
       AI_SERVICE_URL: http://ai:8000
+      TELEGRAM_BOT_TOKEN: change-me-telegram-bot-token
+      TELEGRAM_BOT_USERNAME: change-me_bot
+      TELEGRAM_WEBHOOK_SECRET: change-me-webhook-secret
     depends_on: [mongo, redis]
   ai:
     build:
