@@ -21,6 +21,7 @@ import { labBookingsRouter } from './modules/labBookings/labBookings.routes';
 import { ratingsRouter } from './modules/ratings/ratings.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { fhirExportRouter } from './modules/fhirExport/fhirExport.routes';
+import { telegramRouter, telegramWebhookRouter } from './modules/telegram/telegram.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -73,6 +74,8 @@ export function createApp(): Express {
   app.use('/api/ratings', ratingsRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/fhir', fhirExportRouter);
+  app.use('/api/telegram', telegramRouter);
+  app.use('/api/telegram', telegramWebhookRouter);
 
   app.use(errorHandler);
   return app;

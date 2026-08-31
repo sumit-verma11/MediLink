@@ -85,6 +85,17 @@ export const referralLookupLimiter = rateLimit({
   store: new SimpleRedisStore('rl:referral:'),
 });
 
+// POST /api/telegram/webhook is the third unauthenticated route in this API --
+// trust comes from Telegram's own secret-token header, not a session, so it needs
+// the same throttling precedent as rxVerifyLimiter/referralLookupLimiter.
+export const telegramWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: new SimpleRedisStore('rl:telegramwebhook:'),
+});
+
 // General-purpose limiter for routers that have no more specific one. 100/min is loose
 // enough not to interfere with normal dashboard polling (the existing 10s-interval
 // fallback refetches on several dashboards) while still bounding abuse.
