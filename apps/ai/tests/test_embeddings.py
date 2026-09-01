@@ -73,3 +73,37 @@ def test_fixture_accuracy_meets_target():
     accuracy = hits / len(specialty_cases)
     total = len(specialty_cases)
     assert accuracy >= 0.90, f"top-3 accuracy {accuracy:.2%} below 90% target ({hits}/{total})"
+
+
+def test_hindi_fixture_accuracy_meets_target():
+    """Hindi mirror of test_fixture_accuracy_meets_target: runs the same
+    specialty_map.json (English-keyed, unchanged) against Hindi-language
+    input via the multilingual model's cross-lingual matching, plus the
+    Hindi red-flag keyword list. Same 90% top-3 bar as English -- Hindi does
+    not ship at a lower accuracy standard."""
+    fixtures_path = os.path.join(os.path.dirname(__file__), "fixtures", "triage_cases_hi.json")
+    with open(fixtures_path) as f:
+        cases = json.load(f)
+
+    real_map_path = os.path.join(os.path.dirname(__file__), "..", "specialty_map.json")
+    matcher = SpecialtyMatcher(real_map_path)
+
+    emergency_cases = [c for c in cases if c.get("emergency")]
+    specialty_cases = [c for c in cases if "expected_specialty" in c]
+
+    for case in emergency_cases:
+        matched = check_red_flag(case["input"], language="hi")
+        assert matched is not None, f"missed Hindi red flag: {case['input']}"
+
+    hits = 0
+    for case in specialty_cases:
+        top3 = [name for name, _ in matcher.match(case["input"], top_k=3)]
+        if case["expected_specialty"] in top3:
+            hits += 1
+        else:
+            print(f"MISS: '{case['input']}' expected {case['expected_specialty']}, got {top3}")
+
+    accuracy = hits / len(specialty_cases)
+    total = len(specialty_cases)
+    msg = f"Hindi top-3 accuracy {accuracy:.2%} below 90% target ({hits}/{total})"
+    assert accuracy >= 0.90, msg

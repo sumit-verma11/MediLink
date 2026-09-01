@@ -1,0 +1,70 @@
+[
+  {"input": "मेरी कोहनी पर दो हफ्तों से लाल, खुजली वाले दाने हैं", "expected_specialty": "Dermatology"},
+  {"input": "मेरी त्वचा पर चेहरे और पीठ पर लगातार मुंहासे हो रहे हैं", "expected_specialty": "Dermatology"},
+  {"input": "मेरी त्वचा पर एक चकत्ता है जो हर दिन बड़ा होता जा रहा है और ठीक नहीं हो रहा", "expected_specialty": "Dermatology"},
+
+  {"input": "कल से तेज बुखार है और पूरे शरीर में दर्द हो रहा है", "expected_specialty": "General Physician"},
+  {"input": "जुकाम हो गया है, खांसी रुक नहीं रही और पूरे दिन थकान रहती है", "expected_specialty": "General Physician"},
+  {"input": "गला खराब है और हल्का सिरदर्द है जो जा नहीं रहा", "expected_specialty": "General Physician"},
+
+  {"input": "खाना खाने के बाद सीने में जलन होती है", "expected_specialty": "Gastroenterology"},
+  {"input": "पेट फूला हुआ और असहज लगता है, खाने के बाद ऐंठन होती है", "expected_specialty": "Gastroenterology"},
+  {"input": "लगभग एक महीने से पेट ठीक से साफ नहीं हो रहा", "expected_specialty": "Gastroenterology"},
+
+  {"input": "सीढ़ियां चढ़ते समय सीना कसा हुआ महसूस होता है", "expected_specialty": "Cardiology"},
+  {"input": "तेज चलने पर सीने में भारीपन और थकान महसूस होती है", "expected_specialty": "Cardiology"},
+  {"input": "दिल की धड़कन अचानक तेज हो जाती है और चक्कर आता है", "expected_specialty": "Cardiology"},
+
+  {"input": "पिछले दो महीने से मेरे मासिक धर्म अनियमित हैं", "expected_specialty": "Gynecology"},
+  {"input": "मासिक धर्म के दौरान बहुत तेज दर्द होता है", "expected_specialty": "Gynecology"},
+  {"input": "योनि में खुजली और असामान्य स्राव हो रहा है", "expected_specialty": "Gynecology"},
+
+  {"input": "सीढ़ी चढ़ने में घुटनों में दर्द होता है", "expected_specialty": "Orthopedics"},
+  {"input": "कमर में दर्द है जो झुकने पर बढ़ जाता है", "expected_specialty": "Orthopedics"},
+  {"input": "कंधे में दर्द है और हाथ ऊपर उठाने में तकलीफ होती है", "expected_specialty": "Orthopedics"},
+
+  {"input": "मेरे बच्चे को तीन दिन से बुखार है", "expected_specialty": "Pediatrics"},
+  {"input": "बच्चे को उल्टी और दस्त हो रहे हैं", "expected_specialty": "Pediatrics"},
+  {"input": "बच्चे के शरीर पर लाल दाने निकल आए हैं और खुजली हो रही है", "expected_specialty": "Pediatrics"},
+
+  {"input": "कान में दर्द है और सुनाई कम दे रहा है", "expected_specialty": "ENT"},
+  {"input": "गले में खराश है और निगलने में तकलीफ होती है", "expected_specialty": "ENT"},
+  {"input": "नाक बंद रहती है और सिर भारी लगता है", "expected_specialty": "ENT"},
+
+  {"input": "कई हफ्तों से नींद नहीं आ रही और बहुत चिंता होती है", "expected_specialty": "Psychiatry"},
+  {"input": "मन उदास रहता है और किसी काम में मन नहीं लगता", "expected_specialty": "Psychiatry"},
+  {"input": "बिना किसी वजह के बहुत घबराहट होती है और दिल तेज धड़कने लगता है", "expected_specialty": "Psychiatry"},
+
+  {"input": "कुछ दिनों से धुंधला दिखाई दे रहा है", "expected_specialty": "Ophthalmology"},
+  {"input": "आंखों में लालपन और खुजली है", "expected_specialty": "Ophthalmology"},
+  {"input": "आंखों से पानी बहता रहता है और रोशनी में तकलीफ होती है", "expected_specialty": "Ophthalmology"},
+
+  {"input": "बहुत दिनों से खांसी ठीक नहीं हो रही और सांस फूलती है", "expected_specialty": "Pulmonology"},
+  {"input": "सीढ़ी चढ़ने पर सांस लेने में दिक्कत होती है", "expected_specialty": "Pulmonology"},
+
+  {"input": "गले में थायरॉइड की सूजन", "expected_specialty": "Endocrinology"},
+  {"input": "शुगर की बीमारी, बहुत प्यास और बार-बार पेशाब", "expected_specialty": "Endocrinology"},
+
+  {"input": "पेशाब में जलन", "expected_specialty": "Urology"},
+  {"input": "बार-बार पेशाब आना", "expected_specialty": "Urology"},
+
+  {"input": "बार-बार सिरदर्द होता है और कभी-कभी चक्कर भी आते हैं", "expected_specialty": "Neurology"},
+  {"input": "हाथ में झनझनाहट होती है और कमजोरी महसूस होती है", "expected_specialty": "Neurology"},
+
+  {"input": "दांत में तेज दर्द है, खासकर ठंडा या गर्म खाने पर", "expected_specialty": "Dentistry"},
+  {"input": "ब्रश करते समय मसूड़ों से खून आता है", "expected_specialty": "Dentistry"},
+
+  {"input": "धूल में छींकें बहुत आती हैं और आंखों में खुजली रहती है", "expected_specialty": "Allergy and Immunology"},
+  {"input": "किसी खास खाने के बाद शरीर पर चकत्ते हो जाते हैं", "expected_specialty": "Allergy and Immunology"},
+
+  {"input": "किडनी की सूजन, पैरों में सूजन और पेशाब कम आना", "expected_specialty": "Nephrology"},
+  {"input": "जोड़ों में सूजन और दर्द है, खासकर सुबह के समय", "expected_specialty": "Rheumatology"},
+  {"input": "शरीर में बढ़ती हुई गांठ और वजन कम होना", "expected_specialty": "Oncology"},
+  {"input": "सर्जरी के बाद जोड़ों में अकड़न, फिजियोथेरेपी चाहिए", "expected_specialty": "Physiotherapy"},
+
+  {"input": "सीने में दर्द हो रहा है और बाईं बांह में भी महसूस हो रहा है", "emergency": true},
+  {"input": "सांस लेने में तकलीफ हो रही है, रुक-रुक कर सांस आ रही है", "emergency": true},
+  {"input": "मुझे आत्महत्या करने का मन कर रहा है", "emergency": true},
+  {"input": "चोट से बहुत खून बह रहा है और रुक नहीं रहा", "emergency": true},
+  {"input": "अचानक दिखना बंद हो गया है एक आंख से", "emergency": true}
+]

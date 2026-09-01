@@ -106,7 +106,8 @@
     "unexplained hair thinning with fatigue",
     "blood sugar control issues",
     "insulin dosage adjustment",
-    "gestational diabetes monitoring"
+    "gestational diabetes monitoring",
+    "thyroid gland swelling in neck"
   ],
   "Urology": [
     "painful urination",
@@ -114,14 +115,16 @@
     "kidney stone symptoms",
     "blood in urine",
     "erectile dysfunction concerns",
-    "difficulty starting urination"
+    "difficulty starting urination",
+    "burning sensation while urinating"
   ],
   "Nephrology": [
     "swelling due to kidney issues",
     "chronic kidney disease follow-up",
     "protein detected in urine test",
     "persistent high creatinine levels",
-    "reduced urine output"
+    "reduced urine output",
+    "leg swelling from kidney problem"
   ],
   "Neurology": [
     "frequent migraines",
@@ -143,7 +146,8 @@
     "cancer follow-up appointment",
     "unexplained weight loss and fatigue",
     "persistent night sweats",
-    "family history of cancer screening"
+    "family history of cancer screening",
+    "growing lump in the body"
   ],
   "Dentistry": [
     "tooth pain",
@@ -166,7 +170,8 @@
     "chronic muscle stiffness",
     "posture correction and back pain",
     "sports injury recovery exercises",
-    "frozen shoulder mobility issues"
+    "frozen shoulder mobility issues",
+    "joint stiffness after surgery needs physiotherapy"
   ],
   "Nutrition and Dietetics": [
     "weight loss diet plan",
