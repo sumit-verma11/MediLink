@@ -9,4 +9,5 @@ export * from './schemas/prescription';
 export * from './schemas/labReferral';
 export * from './schemas/rating';
 export * from './schemas/fhirExport';
+export * from './prescriptionSuggestions';
 export * from './genericMedicines';
