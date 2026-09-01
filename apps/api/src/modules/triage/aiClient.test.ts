@@ -76,6 +76,19 @@ describe('callTriageAI Redis caching', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not share a cache entry between an English and a Hindi call for the same normalized text', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ emergency: false, extractedSymptoms: [], suggestedSpecialties: [{ name: 'Dermatology', confidence: 0.9 }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await callTriageAI('seene mein dard', 'en');
+    await callTriageAI('seene mein dard', 'hi');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('does not cache an emergency response (never skip red-flag re-evaluation on a cache hit)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

@@ -137,6 +137,11 @@ describe('SendTriageMessageInput', () => {
     expect(SendTriageMessageInput.safeParse({ text: 'itchy patches' }).success).toBe(true);
     expect(SendTriageMessageInput.safeParse({ text: 'itchy patches', sessionId: 'abc' }).success).toBe(true);
   });
+  it('accepts an optional language of en or hi, rejecting anything else', () => {
+    expect(SendTriageMessageInput.safeParse({ text: 'itchy patches', language: 'hi' }).success).toBe(true);
+    expect(SendTriageMessageInput.safeParse({ text: 'itchy patches', language: 'en' }).success).toBe(true);
+    expect(SendTriageMessageInput.safeParse({ text: 'itchy patches', language: 'fr' }).success).toBe(false);
+  });
 });
 
 describe('CreatePrescriptionInput', () => {

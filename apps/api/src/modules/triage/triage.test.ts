@@ -320,6 +320,44 @@ describe('sendTriageMessage', () => {
 
     await expect(sendTriageMessage(otherPatientId, first._id.toString(), '2 weeks')).rejects.toThrow();
   });
+
+  it('creates a session with the requested language and persists it', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const session = await sendTriageMessage(patientId, undefined, 'itchy red patches', 'hi');
+    expect(session.language).toBe('hi');
+  });
+
+  it('defaults to English when no language is given', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const session = await sendTriageMessage(patientId, undefined, 'itchy red patches');
+    expect(session.language).toBe('en');
+  });
+
+  it('asks the clarifying questions in Hindi for a Hindi session', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const first = await sendTriageMessage(patientId, undefined, 'khujli wale daane', 'hi');
+    expect(first.messages[1]!.text).toContain('आपको ये लक्षण कब से हैं');
+
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 hafte se');
+    expect(second.messages[3]!.text).toContain('यह कितना गंभीर है');
+  });
+
+  it('returns the Hindi emergency message for a Hindi red-flag phrase', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const session = await sendTriageMessage(patientId, undefined, 'seene mein dard', 'hi');
+    expect(session.isRedFlag).toBe(true);
+    const lastMessage = session.messages[session.messages.length - 1]!;
+    expect(lastMessage.text).toContain('112');
+    expect(lastMessage.text).toContain('आपातकालीन');
+  });
+
+  it('ignores a different language sent on an existing session -- the stored language always wins', async () => {
+    const patientId = new mongoose.Types.ObjectId().toString();
+    const first = await sendTriageMessage(patientId, undefined, 'itchy red patches', 'en');
+    const second = await sendTriageMessage(patientId, first._id.toString(), '2 weeks', 'hi');
+    expect(second.language).toBe('en');
+    expect(second.messages[3]!.text.toLowerCase()).toContain('how severe');
+  });
 });
 
 describe('POST /api/triage/messages', () => {

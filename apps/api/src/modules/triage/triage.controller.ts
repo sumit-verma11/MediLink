@@ -5,7 +5,7 @@ import { AppError } from '../../lib/errors';
 
 export async function sendTriageMessageHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const session = await sendTriageMessage(req.user!.id, req.body.sessionId, req.body.text);
+    const session = await sendTriageMessage(req.user!.id, req.body.sessionId, req.body.text, req.body.language);
     res.status(201).json({ session });
   } catch (err) {
     next(err);

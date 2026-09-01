@@ -4,9 +4,9 @@ import { logger } from '../../lib/logger';
 
 const CACHE_TTL_SECONDS = 60 * 60; // 1 hour, per CLAUDE.md §2
 
-function cacheKey(text: string): string {
+function cacheKey(text: string, language: 'en' | 'hi'): string {
   const normalized = text.trim().toLowerCase();
-  const hash = crypto.createHash('sha256').update(normalized).digest('hex');
+  const hash = crypto.createHash('sha256').update(`${language}:${normalized}`).digest('hex');
   return `triage:${hash}`;
 }
 
@@ -63,8 +63,8 @@ function recordSuccess(): void {
   circuitOpenedAt = null;
 }
 
-export async function callTriageAI(text: string): Promise<AITriageResult> {
-  const key = cacheKey(text);
+export async function callTriageAI(text: string, language: 'en' | 'hi' = 'en'): Promise<AITriageResult> {
+  const key = cacheKey(text, language);
 
   // Cache-read errors must never propagate as a raw exception (bypassing
   // AIServiceUnavailableError) and must never count as an AI-service failure.
@@ -94,7 +94,7 @@ export async function callTriageAI(text: string): Promise<AITriageResult> {
     const response = await fetch(`${baseUrl}/triage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, language }),
       signal: controller.signal,
     });
 

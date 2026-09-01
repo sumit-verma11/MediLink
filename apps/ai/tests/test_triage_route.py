@@ -42,3 +42,15 @@ def test_extracts_symptom_phrases(client: TestClient) -> None:
 def test_rejects_empty_text(client: TestClient) -> None:
     response = client.post("/triage", json={"text": ""})
     assert response.status_code == 422
+
+
+def test_hindi_red_flag_short_circuits_before_matching(client: TestClient) -> None:
+    response = client.post("/triage", json={"text": "seene mein dard", "language": "hi"})
+    body = response.json()
+    assert body["emergency"] is True
+    assert "112" in body["message"] or "आपातकालीन" in body["message"]
+
+
+def test_defaults_to_english_language(client: TestClient) -> None:
+    response = client.post("/triage", json={"text": "itchy red patches on my elbow"})
+    assert response.status_code == 200  # `language` omitted entirely still works

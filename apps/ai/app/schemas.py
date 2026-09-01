@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
 
 class TriageRequest(BaseModel):
     text: str = Field(min_length=1)
+    language: Literal["en", "hi"] = "en"
 
 
 class SpecialtySuggestion(BaseModel):

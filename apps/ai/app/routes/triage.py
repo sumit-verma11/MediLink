@@ -18,11 +18,16 @@ def _extract_symptoms(text: str) -> list[str]:
 
 @router.post("/triage", response_model=TriageResponse)
 def triage(payload: TriageRequest, request: Request) -> TriageResponse:
-    matched_keyword = check_red_flag(payload.text)
+    matched_keyword = check_red_flag(payload.text, payload.language)
     if matched_keyword is not None:
+        emergency_message = (
+            "यह एक चिकित्सीय आपातकाल हो सकता है। तुरंत आपातकालीन देखभाल लें या 112 पर कॉल करें।"
+            if payload.language == "hi"
+            else "This may be a medical emergency. Seek emergency care immediately or call 112."
+        )
         return TriageResponse(
             emergency=True,
-            message="This may be a medical emergency. Seek emergency care immediately or call 112.",
+            message=emergency_message,
             extractedSymptoms=[],
             suggestedSpecialties=[],
         )

@@ -10,6 +10,7 @@ export interface ITriageSession {
   disclaimerShownAt?: Date;
   isRedFlag: boolean;
   aiUnavailable: boolean;
+  language: 'en' | 'hi';
 }
 
 const triageSessionSchema = new Schema<ITriageSession>({
@@ -33,6 +34,7 @@ const triageSessionSchema = new Schema<ITriageSession>({
   disclaimerShownAt: Date,
   isRedFlag: { type: Boolean, default: false },
   aiUnavailable: { type: Boolean, default: false },
+  language: { type: String, enum: ['en', 'hi'], default: 'en' },
 });
 
 export const TriageSession = model<ITriageSession>('TriageSession', triageSessionSchema);

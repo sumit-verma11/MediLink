@@ -4,9 +4,28 @@ import { DoctorProfile } from '../../models/DoctorProfile';
 import { AppError } from '../../lib/errors';
 import { callTriageAI, AIServiceUnavailableError } from './aiClient';
 import { checkRedFlagLocally } from './redFlags';
+import { localizeSpecialtyName } from '@medlink/shared';
 
-const DISCLAIMER = 'This is guidance, not medical advice.';
-const EMERGENCY_MESSAGE = 'This may be a medical emergency. Seek emergency care immediately or call 112.';
+const DISCLAIMER: Record<'en' | 'hi', string> = {
+  en: 'This is guidance, not medical advice.',
+  hi: 'यह मार्गदर्शन है, चिकित्सीय सलाह नहीं।',
+};
+const EMERGENCY_MESSAGE: Record<'en' | 'hi', string> = {
+  en: 'This may be a medical emergency. Seek emergency care immediately or call 112.',
+  hi: 'यह एक चिकित्सीय आपातकाल हो सकता है। तुरंत आपातकालीन देखभाल लें या 112 पर कॉल करें।',
+};
+const CLARIFYING_QUESTION_1: Record<'en' | 'hi', string> = {
+  en: 'How long have you had these symptoms?',
+  hi: 'आपको ये लक्षण कब से हैं?',
+};
+const CLARIFYING_QUESTION_2: Record<'en' | 'hi', string> = {
+  en: 'How severe is it — mild, moderate, or severe?',
+  hi: 'यह कितना गंभीर है — हल्का, मध्यम, या गंभीर?',
+};
+const AI_UNAVAILABLE_MESSAGE: Record<'en' | 'hi', string> = {
+  en: "We're having trouble matching your symptoms automatically right now. Please start a new triage session in a few minutes to try again.",
+  hi: 'अभी आपके लक्षणों का मिलान करने में समस्या आ रही है। कृपया कुछ मिनटों बाद एक नया सत्र शुरू करें।',
+};
 
 async function findRecommendedDoctors(
   suggestedSpecialties: { name: string; confidence: number }[]
@@ -48,23 +67,28 @@ function pushAssistantMessage(
   options: { includeDisclaimer?: boolean } = {}
 ): void {
   const includeDisclaimer = options.includeDisclaimer ?? true;
-  const finalText = includeDisclaimer ? `${text} ${DISCLAIMER}` : text;
+  const finalText = includeDisclaimer ? `${text} ${DISCLAIMER[session.language]}` : text;
   session.messages.push({ role: 'assistant', text: finalText, at: new Date() });
 }
 
 export async function sendTriageMessage(
   patientId: string,
   sessionId: string | undefined,
-  text: string
+  text: string,
+  language?: 'en' | 'hi'
 ): Promise<ITriageSession> {
   let session: HydratedDocument<ITriageSession> | null;
 
   if (sessionId) {
     session = await TriageSession.findOne({ _id: sessionId, patientId });
     if (!session) throw new AppError(404, 'Triage session not found', 'TRIAGE_SESSION_NOT_FOUND');
+    // `language`, if sent on an existing session, is ignored -- the session's
+    // stored language always wins. A session's fixed clarifying-question
+    // script and its emergency copy must stay in one language throughout.
   } else {
     session = await TriageSession.create({
       patientId: new Types.ObjectId(patientId),
+      language: language ?? 'en',
       disclaimerShownAt: new Date(),
     });
   }
@@ -77,11 +101,11 @@ export async function sendTriageMessage(
   // protects against the AI service being down (no remote dependency at all)
   // and catches a red flag that only appears partway through the
   // conversation, or after triage has already finished.
-  const matchedKeyword = checkRedFlagLocally(text);
+  const matchedKeyword = checkRedFlagLocally(text, session.language);
   if (matchedKeyword || session.isRedFlag) {
     session.isRedFlag = true;
     session.messages.push({ role: 'user', text, at: new Date() });
-    pushAssistantMessage(session, EMERGENCY_MESSAGE, { includeDisclaimer: false });
+    pushAssistantMessage(session, EMERGENCY_MESSAGE[session.language], { includeDisclaimer: false });
     await session.save();
     return session;
   }
@@ -100,13 +124,13 @@ export async function sendTriageMessage(
   const turnCount = priorUserTurns + 1;
 
   if (turnCount === 1) {
-    pushAssistantMessage(session, 'How long have you had these symptoms?');
+    pushAssistantMessage(session, CLARIFYING_QUESTION_1[session.language]);
     await session.save();
     return session;
   }
 
   if (turnCount === 2) {
-    pushAssistantMessage(session, 'How severe is it — mild, moderate, or severe?');
+    pushAssistantMessage(session, CLARIFYING_QUESTION_2[session.language]);
     await session.save();
     return session;
   }
@@ -121,19 +145,23 @@ export async function sendTriageMessage(
     .join('. ');
 
   try {
-    const aiResult = await callTriageAI(combinedText);
+    const aiResult = await callTriageAI(combinedText, session.language);
     session.extractedSymptoms = aiResult.extractedSymptoms;
     session.suggestedSpecialties = aiResult.suggestedSpecialties;
     session.recommendedDoctorIds = await findRecommendedDoctors(aiResult.suggestedSpecialties);
     session.aiUnavailable = false;
-    pushAssistantMessage(
-      session,
-      `Based on what you've described, you may want to see: ${aiResult.suggestedSpecialties.map((s) => s.name).join(', ')}.`
-    );
+    const specialtyNames = aiResult.suggestedSpecialties
+      .map((s) => localizeSpecialtyName(s.name, session.language))
+      .join(session.language === 'hi' ? '، ' : ', ');
+    const summarySentence =
+      session.language === 'hi'
+        ? `आपके बताए लक्षणों के आधार पर, आपको दिखाना चाहिए: ${specialtyNames}।`
+        : `Based on what you've described, you may want to see: ${specialtyNames}.`;
+    pushAssistantMessage(session, summarySentence);
   } catch (err) {
     if (!(err instanceof AIServiceUnavailableError)) throw err;
     session.aiUnavailable = true;
-    pushAssistantMessage(session, "We're having trouble matching your symptoms automatically right now. Please start a new triage session in a few minutes to try again.");
+    pushAssistantMessage(session, AI_UNAVAILABLE_MESSAGE[session.language]);
   }
 
   await session.save();
