@@ -19,7 +19,9 @@ class SpecialtyMatcher:
     similarity. Construction is the expensive step (model load + embedding N
     phrases) — do this once at app startup, not per-request."""
 
-    def __init__(self, specialty_map_path: str, model_name: str = "all-MiniLM-L6-v2") -> None:
+    def __init__(
+        self, specialty_map_path: str, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    ) -> None:
         with open(specialty_map_path) as f:
             specialty_map: dict[str, list[str]] = json.load(f)
 

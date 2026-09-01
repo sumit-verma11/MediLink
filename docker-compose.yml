@@ -32,7 +32,7 @@ services:
     # Internal-only: no `ports:` mapping. FastAPI is never exposed publicly —
     # apps/api reaches it by Docker service name over the compose network.
     environment:
-      MODEL_NAME: all-MiniLM-L6-v2
+      MODEL_NAME: paraphrase-multilingual-MiniLM-L12-v2
   web:
     build:
       context: .
