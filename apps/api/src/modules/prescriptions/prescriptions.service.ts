@@ -5,6 +5,7 @@ import { Prescription, IPrescription } from '../../models/Prescription';
 import { Appointment } from '../../models/Appointment';
 import { DoctorProfile, IDoctorProfile } from '../../models/DoctorProfile';
 import { User } from '../../models/User';
+import { TriageSession } from '../../models/TriageSession';
 import { AppError } from '../../lib/errors';
 import { logAudit } from '../audit/audit.service';
 import { emitAppointmentUpdate } from '../../lib/socket';
@@ -12,6 +13,7 @@ import { appendTimelineEntry } from '../appointments/appointments.service';
 import { generatePrescriptionPdf } from './prescriptions.pdf';
 import { logger } from '../../lib/logger';
 import type { CreatePrescriptionInput, AmendPrescriptionInput } from '@medlink/shared';
+import { SPECIALTY_PRESCRIPTION_SUGGESTIONS } from '@medlink/shared';
 
 const PDF_DIR = path.join(process.cwd(), 'uploads', 'prescriptions');
 fs.mkdirSync(PDF_DIR, { recursive: true });
@@ -102,6 +104,71 @@ export async function createPrescription(
   emitAppointmentUpdate(updatedAppointment.patientId.toString(), updatedAppointment);
 
   return prescription;
+}
+
+export interface PrescriptionSuggestionResponse {
+  source: 'triage' | 'doctor-specialty' | 'none';
+  specialty?: string;
+  medicines: { name: string; dosage: string; frequency: string; durationDays: number; instructions?: string }[];
+  adviceSuggestion: string;
+  disclaimer: string;
+}
+
+const NO_SUGGESTION_DISCLAIMER =
+  'No AI suggestion is available for this appointment. Nothing here is saved automatically.';
+
+// Read-only. Mirrors createPrescription's exact ownership + status gate
+// (DoctorProfile -> Appointment{_id, doctorId} -> status === 'confirmed')
+// but MUST NOT import, read, or write the Prescription model -- see
+// CLAUDE.md §0.1 and design spec Design Decision 2/5. This function's only
+// side effect is one logAudit() call.
+export async function getPrescriptionSuggestions(
+  doctorUserId: string,
+  appointmentId: string
+): Promise<PrescriptionSuggestionResponse> {
+  const doctorProfile = await DoctorProfile.findOne({ userId: doctorUserId });
+  if (!doctorProfile) throw new AppError(404, 'Doctor profile not found', 'PROFILE_NOT_FOUND');
+
+  const appointment = await Appointment.findOne({ _id: appointmentId, doctorId: doctorProfile._id });
+  if (!appointment) throw new AppError(404, 'Appointment not found', 'APPOINTMENT_NOT_FOUND');
+  if (appointment.status !== 'confirmed') {
+    throw new AppError(409, 'Suggestions are only available for confirmed appointments', 'INVALID_APPOINTMENT_STATUS');
+  }
+
+  let source: PrescriptionSuggestionResponse['source'] = 'none';
+  let specialty: string | undefined;
+
+  if (appointment.triageSessionId) {
+    const triageSession = await TriageSession.findById(appointment.triageSessionId);
+    const top = triageSession?.suggestedSpecialties?.[0];
+    if (top) {
+      source = 'triage';
+      specialty = top.name;
+    }
+  }
+  if (!specialty && doctorProfile.specialties[0]) {
+    source = 'doctor-specialty';
+    specialty = doctorProfile.specialties[0];
+  }
+
+  await logAudit({
+    actorId: doctorUserId, actorRole: 'doctor', action: 'prescription.ai_suggestion_viewed',
+    entityType: 'Appointment', entityId: appointment._id.toString(),
+    meta: { source, specialty },
+  });
+
+  const entry = specialty ? SPECIALTY_PRESCRIPTION_SUGGESTIONS[specialty] : undefined;
+  if (!entry) {
+    return { source: 'none', medicines: [], adviceSuggestion: '', disclaimer: NO_SUGGESTION_DISCLAIMER };
+  }
+
+  return {
+    source,
+    specialty,
+    medicines: entry.medicines,
+    adviceSuggestion: entry.advice,
+    disclaimer: `AI-generated suggestion based on ${specialty}. Review, edit, and approve before saving — nothing here is saved automatically.`,
+  };
 }
 
 export async function amendPrescription(
