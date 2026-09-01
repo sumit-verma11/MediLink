@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Stethoscope, Send, TriangleAlert, Star, MapPin } from 'lucide-react';
+import { localizeSpecialtyName } from '@medlink/shared';
 import { useSendTriageMessageMutation } from '@/store/triageApi';
 import type { TriageSession } from '@/store/triageApi';
 import { useGetPublicDoctorProfileQuery } from '@/store/doctorsApi';
@@ -82,6 +83,7 @@ export default function TriagePage() {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [session, setSession] = useState<TriageSession | null>(null);
+  const [language, setLanguage] = useState<'en' | 'hi'>('en');
   const [error, setError] = useState<string | null>(null);
   const [sendMessage, { isLoading }] = useSendTriageMessageMutation();
   const { data: meData, isLoading: meLoading, isError: meError } = useMeQuery();
@@ -104,10 +106,20 @@ export default function TriagePage() {
     return <div className="min-h-full" aria-hidden />;
   }
 
+  const activeLanguage = session?.language ?? language;
+
   async function onSend(text: string = input) {
     if (isLoading || !text.trim()) return;
     try {
-      const { session: updated } = await sendMessage({ text, sessionId: session?._id }).unwrap();
+      const { session: updated } = await sendMessage({
+        text,
+        sessionId: session?._id,
+        // Language is only meaningful when creating a new session -- once one
+        // exists, its own stored language always wins (the backend ignores
+        // this field on an existing session too, but not sending it at all
+        // keeps the toggle's "disabled after first message" behavior honest).
+        ...(session ? {} : { language }),
+      }).unwrap();
       setSession(updated);
       setInput('');
       setError(null);
@@ -124,9 +136,32 @@ export default function TriagePage() {
           <Stethoscope className="size-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Describe your symptoms</h1>
-          <p className="text-sm text-muted-foreground">This is guidance, not medical advice.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {activeLanguage === 'hi' ? 'अपने लक्षण बताएं' : 'Describe your symptoms'}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {activeLanguage === 'hi' ? 'यह मार्गदर्शन है, चिकित्सीय सलाह नहीं।' : 'This is guidance, not medical advice.'}
+          </p>
         </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={language === 'en' ? 'default' : 'outline'}
+          disabled={!!session}
+          onClick={() => setLanguage('en')}
+        >
+          English
+        </Button>
+        <Button
+          size="sm"
+          variant={language === 'hi' ? 'default' : 'outline'}
+          disabled={!!session}
+          onClick={() => setLanguage('hi')}
+        >
+          हिन्दी
+        </Button>
       </div>
 
       {session?.messages.length ? (
@@ -153,7 +188,9 @@ export default function TriagePage() {
           <CardContent className="flex items-start gap-3">
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
             <p className="font-semibold text-destructive">
-              This may be a medical emergency. Seek emergency care immediately or call 112.
+              {activeLanguage === 'hi'
+                ? 'यह एक चिकित्सीय आपातकाल हो सकता है। तुरंत आपातकालीन देखभाल लें या 112 पर कॉल करें।'
+                : 'This may be a medical emergency. Seek emergency care immediately or call 112.'}
             </p>
           </CardContent>
         </Card>
@@ -166,7 +203,11 @@ export default function TriagePage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSend()}
               disabled={isLoading}
-              placeholder="e.g. itchy red patches on my elbow for 2 weeks"
+              placeholder={
+                activeLanguage === 'hi'
+                  ? 'जैसे: कोहनी पर 2 हफ्तों से लाल, खुजली वाले दाने'
+                  : 'e.g. itchy red patches on my elbow for 2 weeks'
+              }
             />
             <Button disabled={isLoading} onClick={() => onSend()} size="lg">
               <Send className="size-4" />
@@ -201,11 +242,13 @@ export default function TriagePage() {
           {session && session.suggestedSpecialties.length > 0 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <h2 className="text-sm font-semibold text-foreground">Suggested specialties</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  {activeLanguage === 'hi' ? 'सुझाई गई विशेषज्ञताएं' : 'Suggested specialties'}
+                </h2>
                 {session.suggestedSpecialties.map((s) => (
                   <div key={s.name} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-foreground">{s.name}</span>
+                      <span className="font-medium text-foreground">{localizeSpecialtyName(s.name, session.language)}</span>
                       <span className="text-muted-foreground">{Math.round(s.confidence * 100)}% match</span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
@@ -215,7 +258,9 @@ export default function TriagePage() {
                 ))}
               </div>
               <div className="space-y-2">
-                <h2 className="text-sm font-semibold text-foreground">Recommended doctors</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  {activeLanguage === 'hi' ? 'सुझाए गए डॉक्टर' : 'Recommended doctors'}
+                </h2>
                 {session.recommendedDoctorIds.map((doctorId) => (
                   <RecommendedDoctorCard key={doctorId} doctorId={doctorId} triageSessionId={session._id} />
                 ))}

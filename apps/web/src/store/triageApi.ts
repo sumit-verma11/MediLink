@@ -10,12 +10,13 @@ export interface TriageSession {
   recommendedDoctorIds: string[];
   isRedFlag: boolean;
   aiUnavailable: boolean;
+  language: 'en' | 'hi';
   disclaimerShownAt: string;
 }
 
 export const triageApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    sendTriageMessage: builder.mutation<{ session: TriageSession }, { text: string; sessionId?: string }>({
+    sendTriageMessage: builder.mutation<{ session: TriageSession }, { text: string; sessionId?: string; language?: 'en' | 'hi' }>({
       query: (body) => ({ url: '/triage/messages', method: 'POST', body }),
     }),
     getTriageSession: builder.query<{ session: TriageSession }, string>({
