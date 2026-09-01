@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import request from 'supertest';
+import { createApp } from '../../app';
+import { resetTestRedis } from '../../test-utils/resetRateLimit';
 import { User } from '../../models/User';
 import { DoctorProfile } from '../../models/DoctorProfile';
 import { Appointment } from '../../models/Appointment';
@@ -9,11 +12,23 @@ import { Prescription } from '../../models/Prescription';
 import { AuditLog } from '../../models/AuditLog';
 import { getPrescriptionSuggestions } from './prescriptions.service';
 
+process.env.ACCESS_TOKEN_SECRET = 'test-access-secret';
+process.env.REFRESH_TOKEN_SECRET = 'test-refresh-secret';
+
+async function registerAndLogin(app: ReturnType<typeof createApp>, role: string, email: string) {
+  await request(app).post('/api/auth/register').send({ email, password: 'longenough1', name: 'A', phone: '9999999999', role });
+  const res = await request(app).post('/api/auth/login').send({ email, password: 'longenough1' });
+  return { cookies: res.headers['set-cookie'] as unknown as string[], body: res.body };
+}
+
 let mongod: MongoMemoryServer;
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   await mongoose.connect(mongod.getUri());
+});
+beforeEach(async () => {
+  await resetTestRedis();
 });
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -122,6 +137,66 @@ describe('getPrescriptionSuggestions', () => {
     await getPrescriptionSuggestions(docUser._id.toString(), appt._id.toString());
     await getPrescriptionSuggestions(docUser._id.toString(), appt._id.toString());
     await getPrescriptionSuggestions(docUser._id.toString(), appt._id.toString());
+
+    expect(await Prescription.countDocuments({})).toBe(0);
+  });
+});
+
+describe('GET /api/prescriptions/suggest/:appointmentId', () => {
+  it('401s with no session', async () => {
+    const app = createApp();
+    const res = await request(app).get(`/api/prescriptions/suggest/${new mongoose.Types.ObjectId()}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('403s for a patient (doctor-only route)', async () => {
+    const app = createApp();
+    const { cookies } = await registerAndLogin(app, 'patient', `pat-suggest-${Date.now()}@medlink.demo`);
+    const res = await request(app).get(`/api/prescriptions/suggest/${new mongoose.Types.ObjectId()}`).set('Cookie', cookies);
+    expect(res.status).toBe(403);
+  });
+
+  it('200s with the suggestion shape for a doctor on their own confirmed appointment', async () => {
+    const app = createApp();
+    const { cookies, body } = await registerAndLogin(app, 'doctor', `doc-suggest-${Date.now()}@medlink.demo`);
+    await DoctorProfile.create({
+      userId: body.user.id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: `X/S1-${Date.now()}`,
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida',
+      geo: { lat: 1, lng: 1 }, consultationFee: 500, languages: ['English'],
+    });
+    const docProfile = await DoctorProfile.findOne({ userId: body.user.id });
+    const patient = await makePatient();
+    const appt = await Appointment.create({
+      patientId: patient._id, doctorId: docProfile!._id, slotStart: new Date(), slotEnd: new Date(), status: 'confirmed',
+    });
+
+    const res = await request(app).get(`/api/prescriptions/suggest/${appt._id}`).set('Cookie', cookies);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('source');
+    expect(res.body).toHaveProperty('medicines');
+    expect(res.body).toHaveProperty('disclaimer');
+  });
+
+  // The non-negotiable safety property, re-verified at the full HTTP layer
+  // (not just the service unit test in Task 2): repeated calls through the
+  // real route/controller/service stack must never create a Prescription.
+  it('never creates a Prescription document, even across repeated HTTP calls', async () => {
+    const app = createApp();
+    const { cookies, body } = await registerAndLogin(app, 'doctor', `doc-suggest2-${Date.now()}@medlink.demo`);
+    await DoctorProfile.create({
+      userId: body.user.id, specialties: ['Cardiology'], qualifications: ['MBBS'], regNo: `X/S2-${Date.now()}`,
+      experienceYears: 5, bio: 'b', clinicName: 'C', clinicAddress: 'A', city: 'Noida',
+      geo: { lat: 1, lng: 1 }, consultationFee: 500, languages: ['English'],
+    });
+    const docProfile = await DoctorProfile.findOne({ userId: body.user.id });
+    const patient = await makePatient();
+    const appt = await Appointment.create({
+      patientId: patient._id, doctorId: docProfile!._id, slotStart: new Date(), slotEnd: new Date(), status: 'confirmed',
+    });
+
+    await request(app).get(`/api/prescriptions/suggest/${appt._id}`).set('Cookie', cookies);
+    await request(app).get(`/api/prescriptions/suggest/${appt._id}`).set('Cookie', cookies);
+    await request(app).get(`/api/prescriptions/suggest/${appt._id}`).set('Cookie', cookies);
 
     expect(await Prescription.countDocuments({})).toBe(0);
   });

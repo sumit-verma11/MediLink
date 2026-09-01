@@ -9,6 +9,7 @@ import {
   listMyPrescriptionsHandler,
   getPrescriptionPdfHandler,
   getPublicVerificationHandler,
+  getPrescriptionSuggestionsHandler,
 } from './prescriptions.controller';
 
 export const prescriptionsRouter = Router();
@@ -24,3 +25,12 @@ prescriptionsRouter.post('/', requireRole('doctor'), validate(CreatePrescription
 prescriptionsRouter.post('/:id/amend', requireRole('doctor'), validate(AmendPrescriptionInput), amendPrescriptionHandler);
 prescriptionsRouter.get('/me', requireRole('patient'), listMyPrescriptionsHandler);
 prescriptionsRouter.get('/:id/pdf', requireRole('patient', 'doctor'), getPrescriptionPdfHandler);
+
+// Feature-flagged per design spec Open Questions: no flag-infrastructure
+// exists in this repo, so a single env var read once at route-registration
+// time is the proportionate choice for one optional route. Unset or any
+// value other than the literal string 'false' means enabled -- this keeps
+// local dev and CI on by default without requiring a new .env entry.
+if (process.env.AI_PRESCRIPTION_SUGGESTIONS_ENABLED !== 'false') {
+  prescriptionsRouter.get('/suggest/:appointmentId', requireRole('doctor'), getPrescriptionSuggestionsHandler);
+}

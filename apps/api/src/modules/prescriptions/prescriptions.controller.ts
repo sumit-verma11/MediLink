@@ -5,6 +5,7 @@ import {
   listMyPrescriptions,
   getPrescriptionPdfPath,
   getPublicVerification,
+  getPrescriptionSuggestions,
 } from './prescriptions.service';
 import { AppError } from '../../lib/errors';
 
@@ -41,6 +42,15 @@ export async function getPrescriptionPdfHandler(req: Request, res: Response, nex
   try {
     const diskPath = await getPrescriptionPdfPath(req.params.id as string, req.user!.id, req.user!.role);
     res.sendFile(diskPath);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getPrescriptionSuggestionsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const suggestions = await getPrescriptionSuggestions(req.user!.id, req.params.appointmentId as string);
+    res.status(200).json(suggestions);
   } catch (err) {
     next(err);
   }
