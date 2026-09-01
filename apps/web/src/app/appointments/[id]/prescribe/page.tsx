@@ -2,13 +2,14 @@
 
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import { GENERIC_MEDICINES } from '@medlink/shared';
-import { useCreatePrescriptionMutation, type Medicine } from '@/store/prescriptionsApi';
+import { useCreatePrescriptionMutation, useLazyGetPrescriptionSuggestionsQuery, type Medicine } from '@/store/prescriptionsApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BackLink } from '@/components/ui/back-link';
+import { AiSuggestionBadge } from '@/components/ui/ai-suggestion-badge';
 
 export default function PrescribePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: appointmentId } = use(params);
@@ -21,6 +22,10 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
     { name: '', dosage: '', frequency: '', durationDays: 5, instructions: '' },
   ]);
   const [createPrescription, { isLoading, error }] = useCreatePrescriptionMutation();
+  // Deliberately its own, separate piece of state -- never written into
+  // medicines/advice except via the explicit Insert actions below. This is the
+  // code-level enforcement of "doctor approves," not just a UI convention.
+  const [fetchSuggestions, { data: suggestions, isFetching: isLoadingSuggestions }] = useLazyGetPrescriptionSuggestionsQuery();
 
   function updateMedicine(index: number, field: keyof Medicine, value: string) {
     setMedicines((prev) =>
@@ -80,6 +85,62 @@ export default function PrescribePage({ params }: { params: Promise<{ id: string
               value={diagnosisNote}
               onChange={(e) => setDiagnosisNote(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isLoadingSuggestions}
+              onClick={() => fetchSuggestions(appointmentId)}
+            >
+              <Sparkles className="size-3.5" />
+              {isLoadingSuggestions ? 'Loading suggestions…' : 'Get AI Suggestions'}
+            </Button>
+
+            {suggestions && suggestions.source !== 'none' ? (
+              <div className="space-y-3 rounded-xl border border-accent/30 bg-accent/5 p-4">
+                <div className="space-y-2">
+                  {suggestions.medicines.map((med, i) => (
+                    <div key={i} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <AiSuggestionBadge />
+                        <span className="text-foreground">
+                          {med.name} — {med.dosage}, {med.frequency}, {med.durationDays}d
+                          {med.instructions ? ` (${med.instructions})` : ''}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className="shrink-0 text-xs font-medium text-foreground underline underline-offset-2"
+                        onClick={() => setMedicines((prev) => [...prev, { ...med }])}
+                      >
+                        Insert
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <AiSuggestionBadge />
+                      <span className="text-foreground">{suggestions.adviceSuggestion}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs font-medium text-foreground underline underline-offset-2"
+                      onClick={() => setAdvice(suggestions.adviceSuggestion)}
+                    >
+                      Insert advice
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">{suggestions.disclaimer}</p>
+              </div>
+            ) : null}
+
+            {suggestions && suggestions.source === 'none' ? (
+              <p className="text-xs text-muted-foreground">{suggestions.disclaimer}</p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">
