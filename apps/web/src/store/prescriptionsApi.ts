@@ -37,6 +37,14 @@ export interface CreatePrescriptionBody {
 }
 export type AmendPrescriptionBody = Omit<CreatePrescriptionBody, 'appointmentId'>;
 
+export interface PrescriptionSuggestionResponse {
+  source: 'triage' | 'doctor-specialty' | 'none';
+  specialty?: string;
+  medicines: Medicine[];
+  adviceSuggestion: string;
+  disclaimer: string;
+}
+
 export interface PublicVerification {
   doctorName: string;
   regNo: string;
@@ -61,6 +69,9 @@ export const prescriptionsApi = baseApi.injectEndpoints({
     getPublicVerification: builder.query<{ verification: PublicVerification }, string>({
       query: (id) => `/prescriptions/verify/${id}`,
     }),
+    getPrescriptionSuggestions: builder.query<PrescriptionSuggestionResponse, string>({
+      query: (appointmentId) => `/prescriptions/suggest/${appointmentId}`,
+    }),
   }),
 });
 
@@ -69,4 +80,5 @@ export const {
   useAmendPrescriptionMutation,
   useListMyPrescriptionsQuery,
   useGetPublicVerificationQuery,
+  useLazyGetPrescriptionSuggestionsQuery,
 } = prescriptionsApi;
